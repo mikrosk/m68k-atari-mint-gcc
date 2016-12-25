@@ -143,6 +143,22 @@ mnortd
 Target RejectNegative InverseMask(RTD)
 Use normal calling convention
 
+mregparm
+Target Report Mask(REGPARM)
+Pass arguments through registers
+
+mnoregparm
+Target RejectNegative InverseMask(REGPARM)
+Don't pass arguments through registers
+
+mfastcall
+Target Report Mask(FASTCALL)
+Pass arguments through registers
+
+mnofastcall
+Target RejectNegative InverseMask(FASTCALL)
+Don't pass arguments through registers
+
 mnoshort
 Target RejectNegative InverseMask(SHORT)
 Consider type 'int' to be 32 bits wide
@@ -162,6 +178,10 @@ Enable separate data segment
 mshared-library-id=
 Target RejectNegative Joined UInteger
 ID of shared library to build
+
+mregparm=
+Target RejectNegative Joined Var(m68k_regparm_string)
+Number of registers used to pass integer arguments
 
 mshort
 Target Report Mask(SHORT)

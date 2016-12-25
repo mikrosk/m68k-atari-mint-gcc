@@ -49,6 +49,9 @@
 ** in with -msoft-float.
 */
 
+//#define FASTCALL __attribute__((fastcall))
+#define FASTCALL
+
 /* the following deal with IEEE single-precision numbers */
 #define EXCESS		126L
 #define SIGNBIT		0x80000000L
@@ -105,7 +108,7 @@ union long_double_long
 
 #ifndef EXTFLOAT
 
-int
+FASTCALL int
 __unordsf2(float a, float b)
 {
   union float_long fl;
@@ -119,7 +122,7 @@ __unordsf2(float a, float b)
   return 0;
 }
 
-int
+FASTCALL int
 __unorddf2(double a, double b)
 {
   union double_long dl;
@@ -136,7 +139,7 @@ __unorddf2(double a, double b)
 }
 
 /* convert unsigned int to double */
-double
+FASTCALL double
 __floatunsidf (unsigned long a1)
 {
   long exp = 32 + EXCESSD;
@@ -169,7 +172,7 @@ __floatunsidf (unsigned long a1)
 }
 
 /* convert int to double */
-double
+FASTCALL double
 __floatsidf (long a1)
 {
   long sign = 0, exp = 31 + EXCESSD;
@@ -215,7 +218,7 @@ __floatsidf (long a1)
 }
 
 /* convert unsigned int to float */
-float
+FASTCALL float
 __floatunsisf (unsigned long l)
 {
   double foo = __floatunsidf (l);
@@ -223,7 +226,7 @@ __floatunsisf (unsigned long l)
 }
 
 /* convert int to float */
-float
+FASTCALL float
 __floatsisf (long l)
 {
   double foo = __floatsidf (l);
@@ -231,7 +234,7 @@ __floatsisf (long l)
 }
 
 /* convert float to double */
-double
+FASTCALL double
 __extendsfdf2 (float a1)
 {
   register union float_long fl1;
@@ -270,7 +273,7 @@ __extendsfdf2 (float a1)
 }
 
 /* convert double to float */
-float
+FASTCALL float
 __truncdfsf2 (double a1)
 {
   register long exp;
@@ -338,7 +341,7 @@ __truncdfsf2 (double a1)
 }
 
 /* convert double to int */
-long
+FASTCALL long
 __fixdfsi (double a1)
 {
   register union double_long dl1;
@@ -370,7 +373,7 @@ __fixdfsi (double a1)
 }
 
 /* convert float to int */
-long
+FASTCALL long
 __fixsfsi (float a1)
 {
   double foo = a1;
@@ -388,15 +391,15 @@ __fixsfsi (float a1)
    We assume all numbers are normalized, don't do any rounding, etc.  */
 
 /* Prototypes for the above in case we use them.  */
-double __floatunsidf (unsigned long);
-double __floatsidf (long);
-float __floatsisf (long);
-double __extendsfdf2 (float);
-float __truncdfsf2 (double);
-long __fixdfsi (double);
-long __fixsfsi (float);
+FASTCALL double __floatunsidf (unsigned long);
+FASTCALL double __floatsidf (long);
+FASTCALL float __floatsisf (long);
+FASTCALL double __extendsfdf2 (float);
+FASTCALL float __truncdfsf2 (double);
+FASTCALL long __fixdfsi (double);
+FASTCALL long __fixsfsi (float);
 
-int
+FASTCALL int
 __unordxf2(long double a, long double b)
 {
   union long_double_long ldl;
@@ -413,7 +416,7 @@ __unordxf2(long double a, long double b)
 }
 
 /* convert double to long double */
-long double
+FASTCALL long double
 __extenddfxf2 (double d)
 {
   register union double_long dl;
@@ -446,7 +449,7 @@ __extenddfxf2 (double d)
 }
 
 /* convert long double to double */
-double
+FASTCALL double
 __truncxfdf2 (long double ld)
 {
   register long exp;
@@ -478,7 +481,7 @@ __truncxfdf2 (long double ld)
 }
 
 /* convert a float to a long double */
-long double
+FASTCALL long double
 __extendsfxf2 (float f)
 {
   long double foo = __extenddfxf2 (__extendsfdf2 (f));
@@ -486,7 +489,7 @@ __extendsfxf2 (float f)
 }
 
 /* convert a long double to a float */
-float
+FASTCALL float
 __truncxfsf2 (long double ld)
 {
   float foo = __truncdfsf2 (__truncxfdf2 (ld));
@@ -494,7 +497,7 @@ __truncxfsf2 (long double ld)
 }
 
 /* convert an int to a long double */
-long double
+FASTCALL long double
 __floatsixf (long l)
 {
   double foo = __floatsidf (l);
@@ -502,7 +505,7 @@ __floatsixf (long l)
 }
 
 /* convert an unsigned int to a long double */
-long double
+FASTCALL long double
 __floatunsixf (unsigned long l)
 {
   double foo = __floatunsidf (l);
@@ -510,7 +513,7 @@ __floatunsixf (unsigned long l)
 }
 
 /* convert a long double to an int */
-long
+FASTCALL long
 __fixxfsi (long double ld)
 {
   long foo = __fixdfsi ((double) ld);
@@ -519,73 +522,73 @@ __fixxfsi (long double ld)
 
 /* The remaining provide crude math support by working in double precision.  */
 
-long double
+FASTCALL long double
 __addxf3 (long double x1, long double x2)
 {
   return (double) x1 + (double) x2;
 }
 
-long double
+FASTCALL long double
 __subxf3 (long double x1, long double x2)
 {
   return (double) x1 - (double) x2;
 }
 
-long double
+FASTCALL long double
 __mulxf3 (long double x1, long double x2)
 {
   return (double) x1 * (double) x2;
 }
 
-long double
+FASTCALL long double
 __divxf3 (long double x1, long double x2)
 {
   return (double) x1 / (double) x2;
 }
 
-long double
+FASTCALL long double
 __negxf2 (long double x1)
 {
   return - (double) x1;
 }
 
-long
+FASTCALL long
 __cmpxf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __eqxf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __nexf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __ltxf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __lexf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __gtxf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
-long
+FASTCALL long
 __gexf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);

@@ -100,3 +100,12 @@ extern void init_68881_table (void);
 extern rtx m68k_legitimize_call_address (rtx);
 extern rtx m68k_legitimize_sibcall_address (rtx);
 extern int m68k_hard_regno_rename_ok(unsigned int, unsigned int);
+
+#ifdef RTX_CODE
+#ifdef TREE_CODE
+extern void m68k_init_cumulative_args (CUMULATIVE_ARGS *, tree);
+extern void m68k_function_arg_advance (CUMULATIVE_ARGS *);
+extern rtx m68k_function_arg (CUMULATIVE_ARGS *, enum machine_mode,
+			      const_tree, bool);
+#endif
+#endif

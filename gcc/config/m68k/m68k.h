@@ -390,7 +390,7 @@ along with GCC; see the file COPYING3.  If not see
   1 }
 
 #define REG_ALLOC_ORDER		\
-{ /* d0/d1/a0/a1 */		\
+{ /* d0/d1/d2/a0/a1 */		\
   0, 1, 8, 9,			\
   /* d2-d7 */			\
   2, 3, 4, 5, 6, 7,		\
@@ -492,7 +492,7 @@ extern enum reg_class regno_reg_class[];
 /* On the m68k, this is the size of MODE in words,
    except in the FP regs, where a single reg is always enough.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)	\
- ((CLASS) == FP_REGS ? 1 \
+ ((CLASS) == FP_REGS ? GET_MODE_NUNITS (MODE) \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Moves between fp regs and other regs are two insns.  */
@@ -532,15 +532,82 @@ extern enum reg_class regno_reg_class[];
 #define NEEDS_UNTYPED_CALL 0
 
 /* On the m68k, all arguments are usually pushed on the stack.  */
-#define FUNCTION_ARG_REGNO_P(N) 0
+/* 1 if N is a possible register number for function argument passing.  */
+#define FUNCTION_ARG_REGNO_P(N)			\
+  ((((int)N) >= 0 && (N) < M68K_MAX_REGPARM)		\
+   || ((N) >= 8 && (N) < 8 + M68K_MAX_REGPARM)	\
+   || (TARGET_68881 && (N) >= 16 && (N) < 16 + M68K_MAX_REGPARM))
 
-/* On the m68k, this is a single integer, which is a number of bytes
-   of arguments scanned so far.  */
-#define CUMULATIVE_ARGS int
+   
+/* Available call abi.  
+   FASTCALL pass arguments in d0-d2, a0-a1 and fp0-fp2 when possible.
+   STKPARM pass all arguments on stack.
+   REGPARM pass n arguments in d0-dn-1, a0-an-1 and fp0-fp-1.
+   Default is 2 registers per class for REGPARM, but any positive number
+   is REGPARM (in actuallity M68K_MAX_REGPARM sets the upper limit),
+*/
+enum m68k_call_abi
+{
+  FASTCALL_ABI = -1,
+  STKPARM_ABI = 0,
+  REGPARM_ABI = 2
+};
 
-/* On the m68k, the offset starts at 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
- ((CUM) = 0)
+/* The default abi used by target.  */
+#define M68K_DEFAULT_ABI STKPARM_ABI
+
+/* The number of data/float registers and address registers to use for
+   fast calls. */
+#define M68K_FASTCALL_DATA_PARM 3
+#define M68K_FASTCALL_ADDR_PARM 2
+/* Max. number of data, address and float registers to be used for passing
+   integer, pointer and float arguments for REGPARM abi. */
+#define M68K_MAX_REGPARM 4
+	  
+/* On the m68k, this is a structure:
+   abi: A defined ABI or a positive integer for nuber of regs to use.
+   regs_already_used: bitmask of the already used registers.
+   last_arg_reg - register number of the most recently passed argument.
+     -1 if passed on stack.
+   last_arg_len - number of registers used by the most recently passed
+     argument.
+   libcall - is library call (fastcall).
+*/
+
+struct m68k_args
+{
+  enum m68k_call_abi abi;
+  long regs_already_used;
+  int last_arg_reg;
+  int last_arg_len;
+  int libcall;
+};
+
+#define CUMULATIVE_ARGS struct m68k_args
+
+/* The default number of data, address and float registers to use when
+   user specified '-mregparm' switch, not '-mregparm=<value>' option.  */
+
+#define ADJUST_REG_ALLOC_ORDER m68k_order_regs_for_local_alloc ()
+
+#define OVERRIDE_ABI_FORMAT(FNDECL) m68k_call_abi_override (FNDECL)
+
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
+  (m68k_init_cumulative_args (&(CUM), (FNTYPE)))
+
+#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
+  (m68k_function_arg_advance (&(CUM)))
+
+/* On m68k all args are pushed, except if -mregparm is specified, then
+   a number of arguments is passed in the first 'm68k_regparm' data,
+   address and float registers. Or with -mfastcall then d0-2, a0-1 and
+   fp0-2 are used for passing the first arguments.
+   Note: by default, the static-chain is passed in a0. Targets that want
+   to make full use of '-mregparm' are advised to pass the static-chain
+   somewhere else.  */
+#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
+  (m68k_function_arg (&(CUM), (MODE), (TYPE), (NAMED)))
+
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))
@@ -588,6 +655,7 @@ extern enum reg_class regno_reg_class[];
    The function definition just permits use of "asm with operands"
    (though the operand list is empty).  */
 #define TRANSFER_FROM_TRAMPOLINE				\
+__attribute__((fastcall))					\
 void								\
 __transfer_from_trampoline ()					\
 {								\
@@ -1007,6 +1075,8 @@ enum m68k_function_kind
 
 /* Variables in m68k.c; see there for details.  */
 extern const char *m68k_library_id_string;
+//extern const char *m68k_regparm_string;
+extern int m68k_regparm;
 extern enum target_device m68k_cpu;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;
@@ -1035,3 +1105,7 @@ extern int m68k_sched_address_bypass_p (rtx, rtx);
 extern int m68k_sched_indexed_address_bypass_p (rtx, rtx);
 
 #define CPU_UNITS_QUERY 1
+
+struct GTY(()) machine_function {
+  enum m68k_call_abi abi;
+};

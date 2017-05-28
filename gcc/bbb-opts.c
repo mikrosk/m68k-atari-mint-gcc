@@ -2610,13 +2610,13 @@ track_sp ()
     }
 
   // add entry point
-  std::vector<unsigned> todo;
-  todo.push_back (0);
+  std::set<unsigned> todo;
+  todo.insert (0);
 
-  while (todo.size () > 0)
+  while (todo.begin () != todo.end ())
     {
-      unsigned startpos = todo[todo.size () - 1];
-      todo.pop_back ();
+      unsigned startpos = *todo.begin ();
+      todo.erase (todo.begin ());
 
       int sp_offset = infos[startpos].get_sp_offset ();
 
@@ -2651,7 +2651,7 @@ track_sp ()
 		    return E_SP_MISMATCH;
 
 		  ll.set_sp_offset (sp_offset);
-		  todo.push_back (i->second);
+		  todo.insert (i->second);
 		}
 	      continue;
 	    }

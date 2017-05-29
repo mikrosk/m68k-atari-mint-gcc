@@ -677,15 +677,19 @@ public:
     if (def & hard)
       return 0;
 
-    if (!def || (def & ~(1 << FIRST_PSEUDO_REGISTER)) > 0x1000)
+    if (!def)
       return 0;
 
-    unsigned mask = def - 1;
+    unsigned def_no_cc = def & ~(1 << FIRST_PSEUDO_REGISTER);
+    if (def_no_cc > 0x4000)
+      return 0;
+
+    unsigned mask = def_no_cc - 1;
     /* more than one register -> don't touch. */
     if ((mask & ~def) != mask)
       return 0;
 
-    if (def > 0xff)
+    if (def_no_cc > 0xff)
       mask &= 0xff00;
 
     return mask & ~use;
@@ -1384,7 +1388,17 @@ update_insn_infos (void)
 
 	      if (pos == start)
 		pp.mark_visited ();
-//	      pp.update (ii);
+
+	      /* check previous insn for jump */
+	      if (pos > 0 && infos[pos - 1].is_jump ())
+		{
+		  rtx_insn * prev = infos[pos - 1].get_insn ();
+		  rtx set = single_set (prev);
+		  /* unconditional? -> break! */
+		  if (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+		    break;
+		}
+
 	      continue;
 	    }
 
@@ -1492,7 +1506,9 @@ update_insns ()
 		{
 		  returns.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
-		  if (ANY_RETURN_P(PATTERN (insn)))
+		  rtx set = single_set (insn);
+		  if (ANY_RETURN_P(PATTERN (insn))
+		      || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE))
 		    continue;
 		}
 
@@ -1556,6 +1572,7 @@ update_insns ()
 	    {
 	      ii.mark_label ();
 	      jump_table = 0;
+	      ii.set_proepi(inproepilogue = IN_CODE);
 	    }
 	  else if (CALL_P(insn))
 	    {
@@ -1677,17 +1694,17 @@ opt_reg_rename (void)
 	continue;
 
       /* first = pos to start, second indicates to treat def as use. */
-      std::vector<unsigned> todo;
+      std::set<unsigned> todo;
       std::set<unsigned> found;
       if (index + 1 < infos.size ())
-	todo.push_back (index + 1);
+	todo.insert (index + 1);
 
       found.insert (index);
       /* a register was defined, follow all branches. */
-      while (mask && todo.size ())
+      while (mask && todo.begin () != todo.end ())
 	{
-	  unsigned runpos = todo[todo.size () - 1];
-	  todo.pop_back ();
+	  unsigned runpos = *todo.begin ();
+	  todo.erase (todo.begin ());
 
 	  for (unsigned pos = runpos; mask && pos < infos.size (); ++pos)
 	    {
@@ -1716,7 +1733,7 @@ opt_reg_rename (void)
 			continue;
 
 		      start = find_start (found, start, rename_regno);
-		      todo.push_back (start);
+		      todo.insert (start);
 		    }
 		  continue;
 		}
@@ -1774,9 +1791,9 @@ opt_reg_rename (void)
 		      if (bb.is_use (rename_regno))
 			{
 			  unsigned start = find_start (found, label_index, rename_regno);
-			  todo.push_back (start);
+			  todo.insert (start);
 			}
-		      todo.push_back (label_index + 1);
+		      todo.insert (label_index + 1);
 		    }
 		  rtx jmppattern = PATTERN (insn);
 		  if (GET_CODE(jmppattern) == PARALLEL)

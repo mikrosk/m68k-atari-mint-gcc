@@ -805,7 +805,7 @@ insn_info::scan_rtx (rtx x)
 void
 insn_info::fledder (rtx set)
 {
-  if (GET_CODE(set) == PARALLEL)
+  if (!set || GET_CODE(set) == PARALLEL)
     return;
 
   rtx dst = SET_DEST(set);
@@ -1142,13 +1142,13 @@ insn_info::set_insn (rtx_insn * newinsn)
 
   reset_flags ();
 
-  fledder (PATTERN (insn));
+  fledder (single_set (insn));
 }
 
 void
 insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 {
-  rtx set = PATTERN (get_insn ());
+  rtx set = single_set (get_insn ());
   rtx src = SET_SRC(set);
   rtx dst = SET_DEST(set);
 
@@ -1572,7 +1572,7 @@ update_insns ()
 	    {
 	      ii.mark_label ();
 	      jump_table = 0;
-	      ii.set_proepi(inproepilogue = IN_CODE);
+	      ii.set_proepi (inproepilogue = IN_CODE);
 	    }
 	  else if (CALL_P(insn))
 	    {
@@ -3100,7 +3100,7 @@ opt_shrink_stack_frame (void)
 	  if (ii.in_proepi () != IN_CODE)
 	    continue;
 
-	  rtx pattern = PATTERN (ii.get_insn ());
+	  rtx pattern = single_set (ii.get_insn ());
 	  if (ii.is_compare ())
 	    pattern = XEXP(pattern, 1);
 

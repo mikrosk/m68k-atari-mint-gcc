@@ -367,7 +367,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 #endif
 
 #undef ASM_CPU_SPEC
-#define ASM_CPU_SPEC							\
+#define ASM_CPU_SPEC \
+  "%{mcpu=*:-m%*} " \
   "%{m68000|mc68000:-m68010} "						\
   "%{m6802*|mc68020:-m68020} "						\
   "%{m68030} "								\
@@ -376,7 +377,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 
 #ifndef TARGET_AMIGAOS_VASM
 #define ASM_CPU_DEFAULT_SPEC						\
-   "%{!m680*:%{!mc680*:-m68040}}"
+   "%{!m680*:%{!mc680*:%{!mcpu=*:-m68000}}}"
 #else
 #define ASM_CPU_DEFAULT_SPEC						\
    "%{!m680*:%{!mc680*:-m68000}}"

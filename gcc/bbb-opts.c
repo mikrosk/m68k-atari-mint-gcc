@@ -1408,10 +1408,7 @@ update_insn_infos (void)
 	  insn_info use (insn);
 	  use.scan ();
 
-	  if (CALL_P(insn))
-	    {
-	    }
-	  else if (JUMP_P(insn))
+	  if (CALL_P(insn) || JUMP_P(insn))
 	    {
 	      if (pos != start)
 		{
@@ -1577,6 +1574,11 @@ update_insns ()
 	  else if (CALL_P(insn))
 	    {
 	      ii.mark_call ();
+	      if (inproepilogue)
+		{
+		  returns.insert (infos.size () - 1);
+		  inproepilogue = IN_CODE;
+		}
 	    }
 	  else
 	    {

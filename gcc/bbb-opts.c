@@ -1132,6 +1132,15 @@ replace_reg (rtx x, unsigned regno, rtx newreg, int offset)
 void
 insn_info::a5_to_a7 (rtx a7)
 {
+  if (proepi == IN_EPILOGUE && src_mem_reg && get_src_mem_regno () == FRAME_POINTER_REGNUM)
+    {
+      rtx set = single_set (insn);
+      if (set)
+	{
+	  SET_SRC(set) = gen_rtx_MEM(mode, gen_rtx_POST_INC(SImode, a7));
+	  return;
+	}
+    }
   replace_reg (PATTERN (insn), FRAME_POINTER_REGNUM, a7, -4);
 }
 
@@ -1408,10 +1417,7 @@ update_insn_infos (void)
 	  insn_info use (insn);
 	  use.scan ();
 
-	  if (CALL_P(insn))
-	    {
-	    }
-	  else if (JUMP_P(insn))
+	  if (CALL_P(insn) || JUMP_P(insn))
 	    {
 	      if (pos != start)
 		{
@@ -1577,6 +1583,11 @@ update_insns ()
 	  else if (CALL_P(insn))
 	    {
 	      ii.mark_call ();
+	      if (inproepilogue)
+		{
+		  returns.insert (infos.size () - 1);
+		  inproepilogue = IN_CODE;
+		}
 	    }
 	  else
 	    {

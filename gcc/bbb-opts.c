@@ -483,9 +483,15 @@ public:
   }
 
   inline void
-  mark_use (int regno)
+  mark_myuse (int regno)
   {
     myuse |= 1 << regno;
+    use |= 1 << regno;
+  }
+
+  inline void
+  mark_use (int regno)
+  {
     use |= 1 << regno;
   }
 
@@ -722,11 +728,11 @@ insn_info::scan ()
       if (sz <= 64)
 	{
 	  mark_hard (0);
-	  mark_use (0);
+	  mark_myuse (0);
 	  if (sz > 32)
 	    {
 	      mark_hard (1);
-	      mark_use (1);
+	      mark_myuse (1);
 	    }
 	}
     }
@@ -739,7 +745,7 @@ insn_info::scan ()
 
 	  if (GET_CODE (op = XEXP (link, 0)) == USE && REG_P(reg = XEXP (op, 0)))
 	    for (unsigned r = REGNO(reg); r <= END_REGNO (reg); ++r)
-	      mark_use (r);
+	      mark_myuse (r);
 	}
       /* mark scratch registers. */
       mark_def (0);
@@ -759,13 +765,13 @@ insn_info::scan_rtx (rtx x)
   if (REG_P(x))
     {
       for (int n = REG_NREGS(x), r = REGNO(x); n > 0; --n, ++r)
-	mark_use (r);
+	mark_myuse (r);
       return;
     }
 
   if (x == cc0_rtx)
     {
-      mark_use (FIRST_PSEUDO_REGISTER);
+      mark_myuse (FIRST_PSEUDO_REGISTER);
       return;
     }
 
@@ -1019,7 +1025,7 @@ typedef std::multimap<unsigned, unsigned>::iterator j2l_iterator;
 static std::map<rtx_insn *, insn_info *> insn2info;
 typedef std::map<rtx_insn *, insn_info *>::iterator i2i_iterator;
 
-static std::set<unsigned> returns;
+static std::set<unsigned> scan_starts;
 typedef std::set<unsigned>::iterator su_iterator;
 
 static insn_info * info0;
@@ -1137,7 +1143,7 @@ insn_info::a5_to_a7 (rtx a7)
       rtx set = single_set (insn);
       if (set)
 	{
-	  SET_SRC(set) = gen_rtx_MEM(mode, gen_rtx_POST_INC(SImode, a7));
+	  SET_SRC(set) = gen_rtx_MEM (mode, gen_rtx_POST_INC(SImode, a7));
 	  return;
 	}
     }
@@ -1221,7 +1227,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
   SET_INSN_DELETED(insn);
   insn = emit_insn_after (pattern, insn);
 
-  mark_use (regno);
+  mark_myuse (regno);
 
   insn2info.insert (std::make_pair (insn, this));
 }
@@ -1235,7 +1241,7 @@ clear (void)
   jump2label.clear ();
   insn2info.clear ();
   infos.clear ();
-  returns.clear ();
+  scan_starts.clear ();
 }
 
 /*
@@ -1348,9 +1354,7 @@ static void
 update_insn_infos (void)
 {
   /* add all return (jump outs) and start analysis there. */
-  std::set<unsigned> todo;
-  for (su_iterator i = returns.begin (); i != returns.end (); ++i)
-    todo.insert (*i);
+  std::set<unsigned> & todo = scan_starts;
 
   if (todo.begin () == todo.end ())
     todo.insert (infos.size () - 1);
@@ -1417,12 +1421,13 @@ update_insn_infos (void)
 	  insn_info use (insn);
 	  use.scan ();
 
+	  /* do not mark a node as visited, if it's in epilogue and not yet visited. */
 	  if (CALL_P(insn) || JUMP_P(insn))
 	    {
-	      if (pos != start)
+	      if (pos != start && ii.in_proepi ())
 		{
-		  su_iterator k = returns.find (pos);
-		  if (k != returns.end ())
+		  su_iterator k = scan_starts.find (pos);
+		  if (k != scan_starts.end ())
 		    {
 		      pp.clear_visited ();
 		      break;
@@ -1510,7 +1515,7 @@ update_insns ()
 	    {
 	      if (inproepilogue || ANY_RETURN_P(PATTERN (insn)))
 		{
-		  returns.insert (infos.size () - 1);
+		  scan_starts.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
 		  rtx set = single_set (insn);
 		  if (ANY_RETURN_P(PATTERN (insn))
@@ -1579,13 +1584,15 @@ update_insns ()
 	      ii.mark_label ();
 	      jump_table = 0;
 	      ii.set_proepi (inproepilogue = IN_CODE);
+	      if (infos.size () > 1)
+		scan_starts.insert (infos.size () - 1);
 	    }
 	  else if (CALL_P(insn))
 	    {
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{
-		  returns.insert (infos.size () - 1);
+		  scan_starts.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
 		}
 	    }
@@ -1614,7 +1621,7 @@ update_insns ()
 	    inproepilogue = IN_EPILOGUE;
 	}
     }
-
+  scan_starts.insert (infos.size () - 1);
   update_insn2index ();
   update_insn_infos ();
 
@@ -1666,14 +1673,17 @@ find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
 	break;
 
       /* do not run over RETURNS */
-      rtx_insn * before = infos[startm1].get_insn ();
-      if (JUMP_P(before) && ANY_RETURN_P(PATTERN (before)))
+      insn_info & jj = infos[start];
+      insn_info & bb = infos[startm1];
+      if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
+//      rtx_insn * before = infos[startm1].get_insn ();
+//      if (JUMP_P(before) && ANY_RETURN_P(PATTERN (before)))
+//	break;
 
       start = startm1;
 
       /* found the definition without use. */
-      insn_info & jj = infos[start];
       if (jj.is_def (rename_regno) && !jj.is_use (rename_regno))
 	break;
 
@@ -3351,6 +3361,8 @@ opt_absolute (void)
 	  else
 	    log ("(b) modifying %d absolute addresses using %s\n", found.size (), reg_names[regno]);
 
+	  unsigned current_use = ii.get_use ();
+
 	  for (std::vector<unsigned>::iterator k = found.begin (); k != found.end (); ++k)
 	    {
 	      insn_info & kk = infos[*k];
@@ -3373,7 +3385,7 @@ opt_absolute (void)
 	    lea = gen_rtx_SET(gen_raw_REG (SImode, regno), gen_rtx_CONST_INT (SImode, base));
 	  rtx_insn * insn = emit_insn_before (lea, ii.get_insn ());
 	  insn_info nn (insn);
-	  nn.set_use (ii.get_use ());
+	  nn.set_use (current_use);
 	  nn.scan ();
 	  nn.fledder (lea);
 	  nn.mark_def (regno);
@@ -3496,7 +3508,7 @@ namespace
 	      done = 0, update_insns ();
 
 	    if (do_absolute && opt_absolute ())
-	      done = 0;
+	      done = 0, update_insns ();
 
 	    if (do_bb_reg_rename)
 	      {

@@ -167,15 +167,30 @@ class insn_info
   int dst_autoinc;
   int src_autoinc;
 
+  // values for all variables - if used
+  rtx * values;
+
 public:
   insn_info (rtx_insn * i = 0, enum proepis p = IN_CODE) :
       insn (i), myuse (0), hard (0), use (0), def (0), proepi (p), stack (false), label (false), jump (false), call (
 	  false), compare (false), dst_mem (false), src_mem (false), dst_plus (false), src_plus (false), src_op (
 	  (rtx_code) 0), src_ee (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (0), dst_symbol (
 	  0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (0), visited (
-	  false), sp_offset (0), dst_autoinc (0), src_autoinc (0)
+	  false), sp_offset (0), dst_autoinc (0), src_autoinc (0), values (0)
   {
   }
+
+  void
+  set_values (rtx * v);
+
+  bool
+  merge_values (rtx * v);
+
+  bool
+  equal_values (rtx * v) const;
+
+  rtx
+  get_value_for (unsigned regno) const;
 
   inline ptrdiff_t
   operator < (insn_info const & o) const
@@ -421,7 +436,7 @@ public:
     return stack;
   }
 
-  inline int
+  inline enum proepis
   in_proepi () const
   {
     return proepi;
@@ -715,6 +730,56 @@ public:
   void
   a5_to_a7 (rtx a7);
 };
+
+void
+insn_info::set_values (rtx * v)
+{
+  if (!values)
+    values = new rtx[16];
+  memcpy (values, v, 16 * sizeof(rtx));
+}
+
+static const rtx INVALID = (rtx) -1;
+
+bool
+insn_info::merge_values (rtx * v)
+{
+  bool r = false;
+  if (!values)
+    r = true, set_values (v);
+  else
+    for (int i = 0; i < 16; ++i)
+      if (!values[i])
+	r = true, values[i] = v[i];
+      else if (values[i] != INVALID && v[i] && v[i] != INVALID && !rtx_equal_p (values[i], v[i]))
+	r = true, values[i] = INVALID;
+  return r;
+}
+
+bool
+insn_info::equal_values (rtx * v) const
+{
+  if (!values)
+    return false;
+  for (int i = 0; i < 16; ++i)
+    if (values[i] && !v[i])
+      return false;
+    else if (v[i] && !values[i])
+      return false;
+    else if (values[i] == INVALID && v[i] != INVALID)
+      return false;
+    else if (!rtx_equal_p (values[i], v[i]))
+      return false;
+  return true;
+}
+
+rtx
+insn_info::get_value_for (unsigned regno) const
+{
+  if (!values || regno > 15)
+    return 0;
+  return values[regno];
+}
 
 void
 insn_info::scan ()
@@ -1365,13 +1430,18 @@ update_insn_infos (void)
       todo.erase (todo.begin ());
       insn_info ii = infos[start];
 
+      enum proepis proepi = ii.in_proepi ();
+
       for (int pos = start; pos >= 0; --pos)
 	{
 	  insn_info & pp = infos[pos];
 	  rtx_insn * insn = pp.get_insn ();
-	  /* can be NULL as used in opt_shrink_stack_frame(). */
-	  if (!insn)
-	    continue;
+
+	  // do not run into previous epilogue
+	  if (pp.in_proepi () >= IN_EPILOGUE && !proepi)
+	    break;
+
+	  proepi = pp.in_proepi ();
 
 	  /* no new information -> break. */
 	  if (pos != start && pp.is_visited () && !JUMP_P(insn) && pp.contains (ii))
@@ -1677,16 +1747,12 @@ find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
       insn_info & bb = infos[startm1];
       if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
-//      rtx_insn * before = infos[startm1].get_insn ();
-//      if (JUMP_P(before) && ANY_RETURN_P(PATTERN (before)))
-//	break;
-
-      start = startm1;
 
       /* found the definition without use. */
       if (jj.is_def (rename_regno) && !jj.is_use (rename_regno))
 	break;
 
+      start = startm1;
     }
   return start;
 }
@@ -2532,39 +2598,6 @@ opt_const_cmp_to_sub (void)
 }
 
 /*
- * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
- * delete those insns.
- */
-static unsigned
-opt_elim_dead_assign (void)
-{
-  unsigned change_count = 0;
-  for (int index = infos.size () - 1; index >= 0; --index)
-    {
-      rtx_insn * insn = infos[index].get_insn ();
-      if (!NONJUMP_INSN_P(insn))
-	continue;
-
-      rtx set = single_set (insn);
-      if (!set)
-	continue;
-
-      rtx src = SET_SRC(set);
-      rtx dst = SET_DEST(set);
-      if (!REG_P(dst) || !REG_P(src))
-	continue;
-
-      if (is_reg_dead (REGNO(dst), index))
-	{
-	  log ("(e) %d: elim_dead_assign to %s\n", index, reg_names[REGNO(dst)]);
-	  SET_INSN_DELETED(insn);
-	  ++change_count;
-	}
-    }
-  return change_count;
-}
-
-/*
  * rare and only little gain - but :-)
  lea (-1,a0),a1
  add.l d1,a1
@@ -3231,6 +3264,123 @@ opt_shrink_stack_frame (void)
     }
 
   return changed;
+}
+
+/* Update the insn_infos to 'know' the value for each register. */
+static unsigned
+track_regs ()
+{
+  // reset visited flags
+  for (unsigned index = 0; index < infos.size (); ++index)
+    {
+      insn_info & ii = infos[index];
+      ii.clear_visited ();
+      ii.set_sp_offset (0);
+    }
+
+  // add entry point
+  std::set<unsigned> todo;
+  todo.insert (0);
+
+  while (todo.begin () != todo.end ())
+    {
+      unsigned startpos = *todo.begin ();
+      todo.erase (todo.begin ());
+
+      rtx * values = new rtx[16]; // track dx/ax
+      memset (values, 0, 16 * sizeof(rtx));
+
+      for (unsigned index = startpos; index < infos.size (); ++index)
+	{
+	  insn_info & ii = infos[index];
+
+	  // already visited?
+	  if (ii.is_visited () && ii.equal_values (values))
+	    break;
+
+	  // mark current insn_info and set sp_offset
+	  ii.mark_visited ();
+
+	  ii.merge_values (values);
+
+	  // add all referred labels
+	  if (ii.is_jump ())
+	    {
+	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+		{
+		  todo.insert (i->second);
+		  insn_info & jj = infos[i->second];
+		  if (jj.merge_values (values))
+		    ii.clear_visited ();
+		}
+	      continue;
+	    }
+
+	  // track register values for now
+	  int regno = ii.get_dst_regno ();
+	  if (regno < 0)
+	    {
+	      // TODO: track if dst_mem is volatile
+	      continue;
+	    }
+
+	  rtx set = single_set (ii.get_insn ());
+	  if (!set)
+	    continue;
+
+	  rtx src = SET_SRC(set);
+
+	  // TODO: check for volatile sources
+	  values[regno] = src;
+
+	  for (int i = regno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
+	    values[regno] = INVALID;
+	}
+    }
+  return 0;
+}
+
+/*
+ * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
+ * delete those insns.
+ */
+static unsigned
+opt_elim_dead_assign (void)
+{
+  track_regs ();
+
+  unsigned change_count = 0;
+  for (int index = infos.size () - 1; index >= 0; --index)
+    {
+      insn_info & ii = infos[index];
+      if (!ii.get_dst_reg ())
+	continue;
+
+      rtx_insn * insn = ii.get_insn ();
+      rtx set = single_set (insn);
+      if (!set)
+
+	if (ii.get_src_reg () && is_reg_dead (ii.get_dst_regno (), index))
+	  {
+	    log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	    SET_INSN_DELETED(insn);
+	    ++change_count;
+	    continue;
+	  }
+
+      continue;
+
+      rtx cached_value = ii.get_value_for (ii.get_dst_regno ());
+      if (cached_value && cached_value != INVALID && rtx_equal_p (cached_value, SET_SRC(set)))
+	{
+	  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	  SET_INSN_DELETED(insn);
+	  ++change_count;
+	  continue;
+
+	}
+    }
+  return change_count;
 }
 
 /*

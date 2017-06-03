@@ -146,6 +146,7 @@ class insn_info
   bool src_plus;
   rtx_code src_op;
   bool src_ee;
+  bool src_2nd;
   bool src_const;
 
   machine_mode mode;
@@ -174,9 +175,9 @@ public:
   insn_info (rtx_insn * i = 0, enum proepis p = IN_CODE) :
       insn (i), myuse (0), hard (0), use (0), def (0), proepi (p), stack (false), label (false), jump (false), call (
 	  false), compare (false), dst_mem (false), src_mem (false), dst_plus (false), src_plus (false), src_op (
-	  (rtx_code) 0), src_ee (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (0), dst_symbol (
-	  0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (0), visited (
-	  false), sp_offset (0), dst_autoinc (0), src_autoinc (0), values (0)
+	  (rtx_code) 0), src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (
+	  0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
+	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), values (0)
   {
   }
 
@@ -238,6 +239,12 @@ public:
   is_src_mem () const
   {
     return src_mem;
+  }
+
+  inline bool
+  is_src_mem_2nd () const
+  {
+    return src_2nd && src_mem;
   }
 
   inline bool
@@ -407,6 +414,9 @@ public:
 
   void
   fledder (rtx set);
+
+  void
+  fledder_src_mem (rtx src);
 
   /* update usage. */
   void
@@ -872,6 +882,51 @@ insn_info::scan_rtx (rtx x)
     }
 }
 
+void
+insn_info::fledder_src_mem (rtx src)
+{
+  src_mem = true;
+  rtx mem = XEXP(src, 0);
+
+  if (GET_CODE(mem) == POST_INC)
+    src_autoinc = 1, mem = XEXP(mem, 0);
+  else if (GET_CODE(mem) == PRE_DEC)
+    src_autoinc = -1, mem = XEXP(mem, 0);
+
+  if (REG_P(mem))
+    src_mem_reg = mem;
+  else if (GET_CODE(mem) == CONST_INT)
+    src_mem_addr = INTVAL(mem);
+  else if (GET_CODE(mem) == SYMBOL_REF)
+    src_symbol = mem;
+  else if (GET_CODE(mem) == PLUS)
+    {
+      src_plus = true;
+      rtx reg = XEXP(mem, 0);
+      rtx konst = XEXP(mem, 1);
+      if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
+	{
+	  src_mem_reg = reg;
+	  src_const = true;
+	  src_mem_addr = INTVAL(konst);
+	}
+    }
+  else if (GET_CODE(mem) == CONST)
+    {
+      mem = XEXP(mem, 0);
+      if (GET_CODE(mem) == PLUS)
+	{
+	  rtx sym = XEXP(mem, 0);
+	  if (GET_CODE(sym) == SYMBOL_REF)
+	    {
+	      src_plus = true;
+	      src_symbol = sym;
+	      src_mem_addr = INTVAL(XEXP(mem, 1));
+	    }
+	}
+    }
+}
+
 /* read the set and grab infos */
 void
 insn_info::fledder (rtx set)
@@ -959,7 +1014,15 @@ insn_info::fledder (rtx set)
 	  if (GET_CODE(operand) == CONST_INT || GET_CODE(operand) == CONST_WIDE_INT)
 	    src_const = true, src_intval = INTVAL(operand);
 	  else if (REG_P(operand))
-	    alt_src_reg = operand;
+	    {
+	      alt_src_reg = operand;
+	    }
+	  else if (MEM_P(operand))
+	    {
+	      // it' something like reg = op(reg, mem(...))
+	      src_2nd = true;
+	      fledder_src_mem (operand);
+	    }
 	}
       src = XEXP(src, 0);
     }
@@ -970,46 +1033,7 @@ insn_info::fledder (rtx set)
     }
   else if (MEM_P(src))
     {
-      src_mem = true;
-      rtx mem = XEXP(src, 0);
-
-      if (GET_CODE(mem) == POST_INC)
-	src_autoinc = 1, mem = XEXP(mem, 0);
-      else if (GET_CODE(mem) == PRE_DEC)
-	src_autoinc = -1, mem = XEXP(mem, 0);
-
-      if (REG_P(mem))
-	src_mem_reg = mem;
-      else if (GET_CODE(mem) == CONST_INT)
-	src_mem_addr = INTVAL(mem);
-      else if (GET_CODE(mem) == SYMBOL_REF)
-	src_symbol = mem;
-      else if (GET_CODE(mem) == PLUS)
-	{
-	  src_plus = true;
-	  rtx reg = XEXP(mem, 0);
-	  rtx konst = XEXP(mem, 1);
-	  if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
-	    {
-	      src_mem_reg = reg;
-	      src_const = true;
-	      src_mem_addr = INTVAL(konst);
-	    }
-	}
-      else if (GET_CODE(mem) == CONST)
-	{
-	  mem = XEXP(mem, 0);
-	  if (GET_CODE(mem) == PLUS)
-	    {
-	      rtx sym = XEXP(mem, 0);
-	      if (GET_CODE(sym) == SYMBOL_REF)
-		{
-		  src_plus = true;
-		  src_symbol = sym;
-		  src_mem_addr = INTVAL(XEXP(mem, 1));
-		}
-	    }
-	}
+      fledder_src_mem (src);
     }
   else if (GET_CODE(src) == CONST_INT)
     {
@@ -3173,7 +3197,11 @@ opt_shrink_stack_frame (void)
 	      rtx src = XEXP(pattern, 1);
 	      rtx plus = XEXP(src, 0);
 	      if (ii.get_src_op ())
-		plus = XEXP(plus, 0);
+		{
+		  plus = XEXP(src, 1);
+		  if (MEM_P(plus))
+		    plus = XEXP(plus, 0);
+		}
 	      XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), ii.get_src_mem_addr () - adjust);
 	    }
 
@@ -3333,7 +3361,7 @@ track_regs ()
 	  // TODO: check for volatile sources
 	  values[regno] = src;
 
-	  for (int i = regno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
+	  for (unsigned i = regno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
 	    values[regno] = INVALID;
 	}
     }

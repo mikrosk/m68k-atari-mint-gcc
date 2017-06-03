@@ -146,6 +146,7 @@ class insn_info
   bool src_plus;
   rtx_code src_op;
   bool src_ee;
+  bool src_2nd;
   bool src_const;
 
   machine_mode mode;
@@ -167,15 +168,30 @@ class insn_info
   int dst_autoinc;
   int src_autoinc;
 
+  // values for all variables - if used
+  rtx * values;
+
 public:
   insn_info (rtx_insn * i = 0, enum proepis p = IN_CODE) :
       insn (i), myuse (0), hard (0), use (0), def (0), proepi (p), stack (false), label (false), jump (false), call (
 	  false), compare (false), dst_mem (false), src_mem (false), dst_plus (false), src_plus (false), src_op (
-	  (rtx_code) 0), src_ee (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (0), dst_symbol (
-	  0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (0), visited (
-	  false), sp_offset (0), dst_autoinc (0), src_autoinc (0)
+	  (rtx_code) 0), src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (
+	  0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
+	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), values (0)
   {
   }
+
+  void
+  set_values (rtx * v);
+
+  bool
+  merge_values (rtx * v);
+
+  bool
+  equal_values (rtx * v) const;
+
+  rtx
+  get_value_for (unsigned regno) const;
 
   inline ptrdiff_t
   operator < (insn_info const & o) const
@@ -223,6 +239,12 @@ public:
   is_src_mem () const
   {
     return src_mem;
+  }
+
+  inline bool
+  is_src_mem_2nd () const
+  {
+    return src_2nd && src_mem;
   }
 
   inline bool
@@ -393,6 +415,9 @@ public:
   void
   fledder (rtx set);
 
+  void
+  fledder_src_mem (rtx src);
+
   /* update usage. */
   void
   update (insn_info & o)
@@ -421,7 +446,7 @@ public:
     return stack;
   }
 
-  inline int
+  inline enum proepis
   in_proepi () const
   {
     return proepi;
@@ -483,9 +508,15 @@ public:
   }
 
   inline void
-  mark_use (int regno)
+  mark_myuse (int regno)
   {
     myuse |= 1 << regno;
+    use |= 1 << regno;
+  }
+
+  inline void
+  mark_use (int regno)
+  {
     use |= 1 << regno;
   }
 
@@ -711,6 +742,56 @@ public:
 };
 
 void
+insn_info::set_values (rtx * v)
+{
+  if (!values)
+    values = new rtx[16];
+  memcpy (values, v, 16 * sizeof(rtx));
+}
+
+static const rtx INVALID = (rtx) -1;
+
+bool
+insn_info::merge_values (rtx * v)
+{
+  bool r = false;
+  if (!values)
+    r = true, set_values (v);
+  else
+    for (int i = 0; i < 16; ++i)
+      if (!values[i])
+	r = true, values[i] = v[i];
+      else if (values[i] != INVALID && v[i] && v[i] != INVALID && !rtx_equal_p (values[i], v[i]))
+	r = true, values[i] = INVALID;
+  return r;
+}
+
+bool
+insn_info::equal_values (rtx * v) const
+{
+  if (!values)
+    return false;
+  for (int i = 0; i < 16; ++i)
+    if (values[i] && !v[i])
+      return false;
+    else if (v[i] && !values[i])
+      return false;
+    else if (values[i] == INVALID && v[i] != INVALID)
+      return false;
+    else if (!rtx_equal_p (values[i], v[i]))
+      return false;
+  return true;
+}
+
+rtx
+insn_info::get_value_for (unsigned regno) const
+{
+  if (!values || regno > 15)
+    return 0;
+  return values[regno];
+}
+
+void
 insn_info::scan ()
 {
   rtx pattern = PATTERN (insn);
@@ -722,11 +803,11 @@ insn_info::scan ()
       if (sz <= 64)
 	{
 	  mark_hard (0);
-	  mark_use (0);
+	  mark_myuse (0);
 	  if (sz > 32)
 	    {
 	      mark_hard (1);
-	      mark_use (1);
+	      mark_myuse (1);
 	    }
 	}
     }
@@ -739,7 +820,7 @@ insn_info::scan ()
 
 	  if (GET_CODE (op = XEXP (link, 0)) == USE && REG_P(reg = XEXP (op, 0)))
 	    for (unsigned r = REGNO(reg); r <= END_REGNO (reg); ++r)
-	      mark_use (r);
+	      mark_myuse (r);
 	}
       /* mark scratch registers. */
       mark_def (0);
@@ -759,13 +840,13 @@ insn_info::scan_rtx (rtx x)
   if (REG_P(x))
     {
       for (int n = REG_NREGS(x), r = REGNO(x); n > 0; --n, ++r)
-	mark_use (r);
+	mark_myuse (r);
       return;
     }
 
   if (x == cc0_rtx)
     {
-      mark_use (FIRST_PSEUDO_REGISTER);
+      mark_myuse (FIRST_PSEUDO_REGISTER);
       return;
     }
 
@@ -798,6 +879,51 @@ insn_info::scan_rtx (rtx x)
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  scan_rtx (XVECEXP(x, i, j));
+    }
+}
+
+void
+insn_info::fledder_src_mem (rtx src)
+{
+  src_mem = true;
+  rtx mem = XEXP(src, 0);
+
+  if (GET_CODE(mem) == POST_INC)
+    src_autoinc = 1, mem = XEXP(mem, 0);
+  else if (GET_CODE(mem) == PRE_DEC)
+    src_autoinc = -1, mem = XEXP(mem, 0);
+
+  if (REG_P(mem))
+    src_mem_reg = mem;
+  else if (GET_CODE(mem) == CONST_INT)
+    src_mem_addr = INTVAL(mem);
+  else if (GET_CODE(mem) == SYMBOL_REF)
+    src_symbol = mem;
+  else if (GET_CODE(mem) == PLUS)
+    {
+      src_plus = true;
+      rtx reg = XEXP(mem, 0);
+      rtx konst = XEXP(mem, 1);
+      if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
+	{
+	  src_mem_reg = reg;
+	  src_const = true;
+	  src_mem_addr = INTVAL(konst);
+	}
+    }
+  else if (GET_CODE(mem) == CONST)
+    {
+      mem = XEXP(mem, 0);
+      if (GET_CODE(mem) == PLUS)
+	{
+	  rtx sym = XEXP(mem, 0);
+	  if (GET_CODE(sym) == SYMBOL_REF)
+	    {
+	      src_plus = true;
+	      src_symbol = sym;
+	      src_mem_addr = INTVAL(XEXP(mem, 1));
+	    }
+	}
     }
 }
 
@@ -888,7 +1014,15 @@ insn_info::fledder (rtx set)
 	  if (GET_CODE(operand) == CONST_INT || GET_CODE(operand) == CONST_WIDE_INT)
 	    src_const = true, src_intval = INTVAL(operand);
 	  else if (REG_P(operand))
-	    alt_src_reg = operand;
+	    {
+	      alt_src_reg = operand;
+	    }
+	  else if (MEM_P(operand))
+	    {
+	      // it' something like reg = op(reg, mem(...))
+	      src_2nd = true;
+	      fledder_src_mem (operand);
+	    }
 	}
       src = XEXP(src, 0);
     }
@@ -899,46 +1033,7 @@ insn_info::fledder (rtx set)
     }
   else if (MEM_P(src))
     {
-      src_mem = true;
-      rtx mem = XEXP(src, 0);
-
-      if (GET_CODE(mem) == POST_INC)
-	src_autoinc = 1, mem = XEXP(mem, 0);
-      else if (GET_CODE(mem) == PRE_DEC)
-	src_autoinc = -1, mem = XEXP(mem, 0);
-
-      if (REG_P(mem))
-	src_mem_reg = mem;
-      else if (GET_CODE(mem) == CONST_INT)
-	src_mem_addr = INTVAL(mem);
-      else if (GET_CODE(mem) == SYMBOL_REF)
-	src_symbol = mem;
-      else if (GET_CODE(mem) == PLUS)
-	{
-	  src_plus = true;
-	  rtx reg = XEXP(mem, 0);
-	  rtx konst = XEXP(mem, 1);
-	  if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
-	    {
-	      src_mem_reg = reg;
-	      src_const = true;
-	      src_mem_addr = INTVAL(konst);
-	    }
-	}
-      else if (GET_CODE(mem) == CONST)
-	{
-	  mem = XEXP(mem, 0);
-	  if (GET_CODE(mem) == PLUS)
-	    {
-	      rtx sym = XEXP(mem, 0);
-	      if (GET_CODE(sym) == SYMBOL_REF)
-		{
-		  src_plus = true;
-		  src_symbol = sym;
-		  src_mem_addr = INTVAL(XEXP(mem, 1));
-		}
-	    }
-	}
+      fledder_src_mem (src);
     }
   else if (GET_CODE(src) == CONST_INT)
     {
@@ -1019,7 +1114,7 @@ typedef std::multimap<unsigned, unsigned>::iterator j2l_iterator;
 static std::map<rtx_insn *, insn_info *> insn2info;
 typedef std::map<rtx_insn *, insn_info *>::iterator i2i_iterator;
 
-static std::set<unsigned> returns;
+static std::set<unsigned> scan_starts;
 typedef std::set<unsigned>::iterator su_iterator;
 
 static insn_info * info0;
@@ -1137,7 +1232,7 @@ insn_info::a5_to_a7 (rtx a7)
       rtx set = single_set (insn);
       if (set)
 	{
-	  SET_SRC(set) = gen_rtx_MEM(mode, gen_rtx_POST_INC(SImode, a7));
+	  SET_SRC(set) = gen_rtx_MEM (mode, gen_rtx_POST_INC(SImode, a7));
 	  return;
 	}
     }
@@ -1221,7 +1316,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
   SET_INSN_DELETED(insn);
   insn = emit_insn_after (pattern, insn);
 
-  mark_use (regno);
+  mark_myuse (regno);
 
   insn2info.insert (std::make_pair (insn, this));
 }
@@ -1235,7 +1330,7 @@ clear (void)
   jump2label.clear ();
   insn2info.clear ();
   infos.clear ();
-  returns.clear ();
+  scan_starts.clear ();
 }
 
 /*
@@ -1348,9 +1443,7 @@ static void
 update_insn_infos (void)
 {
   /* add all return (jump outs) and start analysis there. */
-  std::set<unsigned> todo;
-  for (su_iterator i = returns.begin (); i != returns.end (); ++i)
-    todo.insert (*i);
+  std::set<unsigned> & todo = scan_starts;
 
   if (todo.begin () == todo.end ())
     todo.insert (infos.size () - 1);
@@ -1361,13 +1454,18 @@ update_insn_infos (void)
       todo.erase (todo.begin ());
       insn_info ii = infos[start];
 
+      enum proepis proepi = ii.in_proepi ();
+
       for (int pos = start; pos >= 0; --pos)
 	{
 	  insn_info & pp = infos[pos];
 	  rtx_insn * insn = pp.get_insn ();
-	  /* can be NULL as used in opt_shrink_stack_frame(). */
-	  if (!insn)
-	    continue;
+
+	  // do not run into previous epilogue
+	  if (pp.in_proepi () >= IN_EPILOGUE && !proepi)
+	    break;
+
+	  proepi = pp.in_proepi ();
 
 	  /* no new information -> break. */
 	  if (pos != start && pp.is_visited () && !JUMP_P(insn) && pp.contains (ii))
@@ -1417,12 +1515,13 @@ update_insn_infos (void)
 	  insn_info use (insn);
 	  use.scan ();
 
+	  /* do not mark a node as visited, if it's in epilogue and not yet visited. */
 	  if (CALL_P(insn) || JUMP_P(insn))
 	    {
-	      if (pos != start)
+	      if (pos != start && ii.in_proepi ())
 		{
-		  su_iterator k = returns.find (pos);
-		  if (k != returns.end ())
+		  su_iterator k = scan_starts.find (pos);
+		  if (k != scan_starts.end ())
 		    {
 		      pp.clear_visited ();
 		      break;
@@ -1510,7 +1609,7 @@ update_insns ()
 	    {
 	      if (inproepilogue || ANY_RETURN_P(PATTERN (insn)))
 		{
-		  returns.insert (infos.size () - 1);
+		  scan_starts.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
 		  rtx set = single_set (insn);
 		  if (ANY_RETURN_P(PATTERN (insn))
@@ -1579,13 +1678,15 @@ update_insns ()
 	      ii.mark_label ();
 	      jump_table = 0;
 	      ii.set_proepi (inproepilogue = IN_CODE);
+	      if (infos.size () > 1)
+		scan_starts.insert (infos.size () - 1);
 	    }
 	  else if (CALL_P(insn))
 	    {
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{
-		  returns.insert (infos.size () - 1);
+		  scan_starts.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
 		}
 	    }
@@ -1614,7 +1715,7 @@ update_insns ()
 	    inproepilogue = IN_EPILOGUE;
 	}
     }
-
+  scan_starts.insert (infos.size () - 1);
   update_insn2index ();
   update_insn_infos ();
 
@@ -1666,17 +1767,16 @@ find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
 	break;
 
       /* do not run over RETURNS */
-      rtx_insn * before = infos[startm1].get_insn ();
-      if (JUMP_P(before) && ANY_RETURN_P(PATTERN (before)))
+      insn_info & jj = infos[start];
+      insn_info & bb = infos[startm1];
+      if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
 
-      start = startm1;
-
       /* found the definition without use. */
-      insn_info & jj = infos[start];
       if (jj.is_def (rename_regno) && !jj.is_use (rename_regno))
 	break;
 
+      start = startm1;
     }
   return start;
 }
@@ -2522,39 +2622,6 @@ opt_const_cmp_to_sub (void)
 }
 
 /*
- * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
- * delete those insns.
- */
-static unsigned
-opt_elim_dead_assign (void)
-{
-  unsigned change_count = 0;
-  for (int index = infos.size () - 1; index >= 0; --index)
-    {
-      rtx_insn * insn = infos[index].get_insn ();
-      if (!NONJUMP_INSN_P(insn))
-	continue;
-
-      rtx set = single_set (insn);
-      if (!set)
-	continue;
-
-      rtx src = SET_SRC(set);
-      rtx dst = SET_DEST(set);
-      if (!REG_P(dst) || !REG_P(src))
-	continue;
-
-      if (is_reg_dead (REGNO(dst), index))
-	{
-	  log ("(e) %d: elim_dead_assign to %s\n", index, reg_names[REGNO(dst)]);
-	  SET_INSN_DELETED(insn);
-	  ++change_count;
-	}
-    }
-  return change_count;
-}
-
-/*
  * rare and only little gain - but :-)
  lea (-1,a0),a1
  add.l d1,a1
@@ -3130,7 +3197,11 @@ opt_shrink_stack_frame (void)
 	      rtx src = XEXP(pattern, 1);
 	      rtx plus = XEXP(src, 0);
 	      if (ii.get_src_op ())
-		plus = XEXP(plus, 0);
+		{
+		  plus = XEXP(src, 1);
+		  if (MEM_P(plus))
+		    plus = XEXP(plus, 0);
+		}
 	      XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), ii.get_src_mem_addr () - adjust);
 	    }
 
@@ -3221,6 +3292,123 @@ opt_shrink_stack_frame (void)
     }
 
   return changed;
+}
+
+/* Update the insn_infos to 'know' the value for each register. */
+static unsigned
+track_regs ()
+{
+  // reset visited flags
+  for (unsigned index = 0; index < infos.size (); ++index)
+    {
+      insn_info & ii = infos[index];
+      ii.clear_visited ();
+      ii.set_sp_offset (0);
+    }
+
+  // add entry point
+  std::set<unsigned> todo;
+  todo.insert (0);
+
+  while (todo.begin () != todo.end ())
+    {
+      unsigned startpos = *todo.begin ();
+      todo.erase (todo.begin ());
+
+      rtx * values = new rtx[16]; // track dx/ax
+      memset (values, 0, 16 * sizeof(rtx));
+
+      for (unsigned index = startpos; index < infos.size (); ++index)
+	{
+	  insn_info & ii = infos[index];
+
+	  // already visited?
+	  if (ii.is_visited () && ii.equal_values (values))
+	    break;
+
+	  // mark current insn_info and set sp_offset
+	  ii.mark_visited ();
+
+	  ii.merge_values (values);
+
+	  // add all referred labels
+	  if (ii.is_jump ())
+	    {
+	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+		{
+		  todo.insert (i->second);
+		  insn_info & jj = infos[i->second];
+		  if (jj.merge_values (values))
+		    ii.clear_visited ();
+		}
+	      continue;
+	    }
+
+	  // track register values for now
+	  int regno = ii.get_dst_regno ();
+	  if (regno < 0)
+	    {
+	      // TODO: track if dst_mem is volatile
+	      continue;
+	    }
+
+	  rtx set = single_set (ii.get_insn ());
+	  if (!set)
+	    continue;
+
+	  rtx src = SET_SRC(set);
+
+	  // TODO: check for volatile sources
+	  values[regno] = src;
+
+	  for (unsigned i = regno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
+	    values[regno] = INVALID;
+	}
+    }
+  return 0;
+}
+
+/*
+ * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
+ * delete those insns.
+ */
+static unsigned
+opt_elim_dead_assign (void)
+{
+  track_regs ();
+
+  unsigned change_count = 0;
+  for (int index = infos.size () - 1; index >= 0; --index)
+    {
+      insn_info & ii = infos[index];
+      if (!ii.get_dst_reg ())
+	continue;
+
+      rtx_insn * insn = ii.get_insn ();
+      rtx set = single_set (insn);
+      if (!set)
+
+	if (ii.get_src_reg () && is_reg_dead (ii.get_dst_regno (), index))
+	  {
+	    log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	    SET_INSN_DELETED(insn);
+	    ++change_count;
+	    continue;
+	  }
+
+      continue;
+
+      rtx cached_value = ii.get_value_for (ii.get_dst_regno ());
+      if (cached_value && cached_value != INVALID && rtx_equal_p (cached_value, SET_SRC(set)))
+	{
+	  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	  SET_INSN_DELETED(insn);
+	  ++change_count;
+	  continue;
+
+	}
+    }
+  return change_count;
 }
 
 /*
@@ -3351,6 +3539,8 @@ opt_absolute (void)
 	  else
 	    log ("(b) modifying %d absolute addresses using %s\n", found.size (), reg_names[regno]);
 
+	  unsigned current_use = ii.get_use ();
+
 	  for (std::vector<unsigned>::iterator k = found.begin (); k != found.end (); ++k)
 	    {
 	      insn_info & kk = infos[*k];
@@ -3373,7 +3563,7 @@ opt_absolute (void)
 	    lea = gen_rtx_SET(gen_raw_REG (SImode, regno), gen_rtx_CONST_INT (SImode, base));
 	  rtx_insn * insn = emit_insn_before (lea, ii.get_insn ());
 	  insn_info nn (insn);
-	  nn.set_use (ii.get_use ());
+	  nn.set_use (current_use);
 	  nn.scan ();
 	  nn.fledder (lea);
 	  nn.mark_def (regno);
@@ -3496,7 +3686,7 @@ namespace
 	      done = 0, update_insns ();
 
 	    if (do_absolute && opt_absolute ())
-	      done = 0;
+	      done = 0, update_insns ();
 
 	    if (do_bb_reg_rename)
 	      {

@@ -3294,80 +3294,6 @@ opt_shrink_stack_frame (void)
   return changed;
 }
 
-/* Update the insn_infos to 'know' the value for each register. */
-static unsigned
-track_regs ()
-{
-  // reset visited flags
-  for (unsigned index = 0; index < infos.size (); ++index)
-    {
-      insn_info & ii = infos[index];
-      ii.clear_visited ();
-      ii.set_sp_offset (0);
-    }
-
-  // add entry point
-  std::set<unsigned> todo;
-  todo.insert (0);
-
-  while (todo.begin () != todo.end ())
-    {
-      unsigned startpos = *todo.begin ();
-      todo.erase (todo.begin ());
-
-      rtx * values = new rtx[16]; // track dx/ax
-      memset (values, 0, 16 * sizeof(rtx));
-
-      for (unsigned index = startpos; index < infos.size (); ++index)
-	{
-	  insn_info & ii = infos[index];
-
-	  // already visited?
-	  if (ii.is_visited () && ii.equal_values (values))
-	    break;
-
-	  // mark current insn_info and set sp_offset
-	  ii.mark_visited ();
-
-	  ii.merge_values (values);
-
-	  // add all referred labels
-	  if (ii.is_jump ())
-	    {
-	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
-		{
-		  todo.insert (i->second);
-		  insn_info & jj = infos[i->second];
-		  if (jj.merge_values (values))
-		    ii.clear_visited ();
-		}
-	      continue;
-	    }
-
-	  // track register values for now
-	  int regno = ii.get_dst_regno ();
-	  if (regno < 0)
-	    {
-	      // TODO: track if dst_mem is volatile
-	      continue;
-	    }
-
-	  rtx set = single_set (ii.get_insn ());
-	  if (!set)
-	    continue;
-
-	  rtx src = SET_SRC(set);
-
-	  // TODO: check for volatile sources
-	  values[regno] = src;
-
-	  for (unsigned i = regno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
-	    values[regno] = INVALID;
-	}
-    }
-  return 0;
-}
-
 /*
  * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
  * delete those insns.
@@ -3375,8 +3301,6 @@ track_regs ()
 static unsigned
 opt_elim_dead_assign (void)
 {
-  track_regs ();
-
   unsigned change_count = 0;
   for (int index = infos.size () - 1; index >= 0; --index)
     {
@@ -3397,16 +3321,6 @@ opt_elim_dead_assign (void)
 	  }
 
       continue;
-
-      rtx cached_value = ii.get_value_for (ii.get_dst_regno ());
-      if (cached_value && cached_value != INVALID && rtx_equal_p (cached_value, SET_SRC(set)))
-	{
-	  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	  SET_INSN_DELETED(insn);
-	  ++change_count;
-	  continue;
-
-	}
     }
   return change_count;
 }

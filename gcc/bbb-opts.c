@@ -1505,21 +1505,29 @@ update_insn_infos (void)
 	  if (LABEL_P(insn))
 	    {
 	      /* work on all jumps referring to that label. */
-	      for (l2j_iterator i = label2jump.find (insn->u2.insn_uid), k = i;
-		  i != label2jump.end () && i->first == k->first; ++i)
-		{
-		  i2i_iterator j = insn2info.find (i->second);
-		  if (j != insn2info.end ())
-		    {
-		      unsigned index = j->second->get_index ();
-		      insn_info & jj = infos[index];
-		      if (!jj.is_visited () || !jj.contains (ii))
-			{
-			  jj.updateWith (ii);
-			  todo.insert (index);
-			}
-		    }
-		}
+	      l2j_iterator i = label2jump.find (insn->u2.insn_uid);
+
+	      /* no jump to here -> mark all registers as hard regs.
+	       * This label is maybe used in an exception handler.
+	       * Marking as hard also avoids stack frame removal.
+	       */
+	      if (i == label2jump.end ())
+		infos[pos + 1].make_hard ();
+	      else
+		for (l2j_iterator k = i; i != label2jump.end () && i->first == k->first; ++i)
+		  {
+		    i2i_iterator j = insn2info.find (i->second);
+		    if (j != insn2info.end ())
+		      {
+			unsigned index = j->second->get_index ();
+			insn_info & jj = infos[index];
+			if (!jj.is_visited () || !jj.contains (ii))
+			  {
+			    jj.updateWith (ii);
+			    todo.insert (index);
+			  }
+		      }
+		  }
 
 	      if (pos == start)
 		pp.mark_visited ();
@@ -3128,7 +3136,7 @@ opt_shrink_stack_frame (void)
 		}
 	      else
 		{
-		  rtx parallel = gen_rtx_PARALLEL(VOIDmode, rtvec_alloc (regs.size () + add1));
+		  rtx parallel = gen_rtx_PARALLEL(VOIDmode, rtvec_alloc (regs.size () + add1 + clobbers.size ()));
 		  rtx plus;
 
 		  int x = 0;
@@ -3137,7 +3145,7 @@ opt_shrink_stack_frame (void)
 
 		  unsigned l = 0;
 		  /* no add if a5 is used with pop */
-		  if (!usea5 || i < prologueend)
+		  if (add1)
 		    {
 		      plus = gen_rtx_PLUS(SImode, a7, gen_rtx_CONST_INT (SImode, i < prologueend ? -x : x));
 		      XVECEXP(parallel, 0, l) = gen_rtx_SET(a7, plus);
@@ -3180,12 +3188,18 @@ opt_shrink_stack_frame (void)
 			}
 		    }
 
-		  for (unsigned k = 0; k < clobbers.size (); ++k)
+		  for (unsigned k = 0; k < clobbers.size (); ++k, ++l)
 		    {
 		      rtx clobber = clobbers[k];
-		      XVECEXP(parallel, 0, l++) = clobber;
+		      XVECEXP(parallel, 0, l) = clobber;
 		    }
-		  emit_insn_after (parallel, insn);
+
+		  rtx_insn * neu;
+		  if (i < prologueend)
+		    neu = emit_insn_after (parallel, insn);
+		  else
+		    neu = emit_insn_before (parallel, insn);
+		  ii.set_insn (neu);
 		}
 	      SET_INSN_DELETED(insn);
 	      changed = 1;
@@ -3517,20 +3531,21 @@ opt_elim_dead_assign (void)
   for (int index = infos.size () - 1; index >= 0; --index)
     {
       insn_info & ii = infos[index];
-      if (!ii.get_dst_reg () || ii.is_compare ())
+      if (ii.in_proepi () || !ii.get_dst_reg () || ii.is_compare ())
 	continue;
 
       rtx_insn * insn = ii.get_insn ();
       rtx set = single_set (insn);
       if (!set)
+	continue;
 
-	if (ii.get_src_reg () && is_reg_dead (ii.get_dst_regno (), index))
-	  {
-	    log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	    SET_INSN_DELETED(insn);
-	    ++change_count;
-	    continue;
-	  }
+      if (ii.get_dst_reg () && is_reg_dead (ii.get_dst_regno (), index))
+	{
+	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	  SET_INSN_DELETED(insn);
+	  ++change_count;
+	  continue;
+	}
       if (ii.get_src_op () == 0 && ii.get_dst_reg ())
 	{
 	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];

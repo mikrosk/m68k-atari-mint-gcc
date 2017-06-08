@@ -1121,7 +1121,15 @@ temp_reg_rename (std::vector<std::pair<rtx *, rtx> > & loc, rtx x, unsigned oldr
 	}
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  temp_reg_rename (loc, XVECEXP(x, i, j), oldregno, newregno);
+	  {
+	    rtx z = XVECEXP(x, i, j);
+	    if (GET_CODE(z) == CLOBBER)
+	      {
+		/* workaround for shared clobbers. */
+		XVECEXP(x, i, j) = z = gen_rtx_CLOBBER(GET_MODE(z), XEXP(z, 0));
+	      }
+	    temp_reg_rename (loc, z, oldregno, newregno);
+	  }
     }
 }
 
@@ -1484,6 +1492,10 @@ update_insn_infos (void)
 
       enum proepis proepi = ii.in_proepi ();
 
+      // mark sp reg as used.
+      if (proepi >= IN_EPILOGUE)
+	ii.mark_use (STACK_POINTER_REGNUM), infos[start].mark_use (STACK_POINTER_REGNUM);
+
       for (int pos = start; pos >= 0; --pos)
 	{
 	  insn_info & pp = infos[pos];
@@ -1578,6 +1590,10 @@ update_insn_infos (void)
 	      NOTICE_UPDATE_CC(PATTERN (insn), insn);
 	      if (cc_status.value1 || cc_status.value2)
 		use.mark_def (FIRST_PSEUDO_REGISTER);
+
+	      // also check mode size if < 4, it's also a def.
+	      if (ii.get_dst_reg () && GET_MODE_SIZE(ii.get_mode()) < 4)
+		use.mark_def (ii.get_dst_regno ());
 	    }
 
 	  /* mark not renameable in prologue/epilogue. */
@@ -3696,7 +3712,8 @@ opt_absolute (void)
 	{
 	  unsigned regno = bit2regno (freemask);
 	  if (with_symbol)
-	    log ("(b) modifying %d symbol addresses using %s\n", found.size (), reg_names[regno]);
+	    log ("(b) modifying %d symbol addresses for %s using %s\n", found.size (),
+		 with_symbol->u.block_sym.fld[0].rt_str, reg_names[regno]);
 	  else
 	    log ("(b) modifying %d absolute addresses using %s\n", found.size (), reg_names[regno]);
 
@@ -3843,10 +3860,10 @@ namespace
 	    if (do_merge_add && opt_merge_add ())
 	      done = 0;
 
-	    if (do_elim_dead_assign && opt_elim_dead_assign ())
+	    if (do_absolute && opt_absolute ())
 	      done = 0, update_insns ();
 
-	    if (do_absolute && opt_absolute ())
+	    if (do_elim_dead_assign && opt_elim_dead_assign ())
 	      done = 0, update_insns ();
 
 	    if (do_bb_reg_rename)

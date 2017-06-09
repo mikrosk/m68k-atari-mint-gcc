@@ -1291,7 +1291,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
   rtx set = single_set (get_insn ());
   rtx src = SET_SRC(set);
   rtx dst = SET_DEST(set);
-
+  bool vola = src->volatil;
   rtx pattern;
   rtx reg = gen_raw_REG (SImode, regno);
 
@@ -1348,6 +1348,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
     }
 
   pattern = gen_rtx_SET(dst, src);
+  src->volatil = vola;
 
   SET_INSN_DELETED(insn);
   insn = emit_insn_after (pattern, insn);
@@ -1661,6 +1662,9 @@ update_insns ()
 	    {
 	      if (inproepilogue || ANY_RETURN_P(PATTERN (insn)))
 		{
+		  if (ANY_RETURN_P(PATTERN (insn)))
+		      ii.set_proepi(IN_EPILOGUE);
+
 		  scan_starts.insert (infos.size () - 1);
 		  inproepilogue = IN_CODE;
 		  rtx set = single_set (insn);
@@ -1696,6 +1700,7 @@ update_insns ()
 			    {
 			      rtx label = XEXP(ref, 0);
 			      label2jump.insert (std::make_pair (label->u2.insn_uid, insn));
+			      ii.set_proepi(IN_EPILOGUE);
 			    }
 			}
 		    }
@@ -1735,6 +1740,8 @@ update_insns ()
 	    }
 	  else if (CALL_P(insn))
 	    {
+	      if (insn->jump)
+		ii.set_proepi(IN_EPILOGUE);
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{

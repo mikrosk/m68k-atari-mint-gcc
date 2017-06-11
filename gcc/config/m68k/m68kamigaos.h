@@ -487,7 +487,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 #define LIBGCC_IXEMUL_SPEC ""
 #define LIBGCC_LIBNIX_SPEC "-lnix -fl libnix "                    \
   "%{mcrt=*:-l%*} "                                               \
-  "%{!mcrt=*:-lnix20}"
+  "%{!mcrt=*:-lnix20} -lstubs"
 #define LIBGCC_CLIB2_SPEC "-lc"
 #define LIBGCC_SPEC "-lgcc " \
   "%{noixemul:%(libgcc_libnix)} "                                 \

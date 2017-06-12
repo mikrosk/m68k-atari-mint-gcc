@@ -3381,7 +3381,7 @@ track_regs ()
   update_label2jump ();
 
 // add entry point
-  std::map<unsigned, track_var *> todo;
+  std::multimap<unsigned, track_var *> todo;
   todo.insert (std::make_pair (0, new track_var ()));
 
   while (todo.begin () != todo.end ())
@@ -3411,7 +3411,7 @@ track_regs ()
 	  insn_info & ii = infos[index];
 
 	  // already visited?
-	  if (ii.is_visited () && ii.get_track_var ()->contains (track))
+	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->contains (track))
 	    break;
 
 	  // only keep common values at labels

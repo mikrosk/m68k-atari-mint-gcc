@@ -825,13 +825,18 @@ insn_info::make_post_inc (int regno)
 {
   // convert into POST_INC
 //  debug_rtx (insn);
-  rtx set = single_set (insn);
+  rtx set0 = single_set (insn);
+  rtx set = set0;
+  SET_INSN_DELETED(insn);
+  if (is_compare ())
+    set = SET_SRC(set);
   rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
   rtx reg = XEXP(mem, 0);
   XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
-//  debug_rtx (insn);
 
   (get_dst_mem_regno () == regno ? dst_autoinc : src_autoinc) = GET_MODE_SIZE(mode);
+  insn = emit_insn_after(set0, insn);
+//  debug_rtx (insn);
 }
 
 void
@@ -839,8 +844,9 @@ insn_info::auto_inc_fixup (int regno, int size)
 {
 //  debug_rtx (insn);
 
-  rtx set = single_set (insn);
-
+  rtx set0 = single_set (insn);
+  rtx set = set0;
+  SET_INSN_DELETED(insn);
   if (is_compare ())
     set = SET_SRC(set);
 
@@ -875,6 +881,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)),
 					   (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) -= size);
     }
+  insn = emit_insn_after(set0, insn);
 //  debug_rtx (insn);
 }
 

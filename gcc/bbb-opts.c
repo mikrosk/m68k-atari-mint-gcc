@@ -439,6 +439,18 @@ public:
     return dst_mem_reg ? REGNO(dst_mem_reg) : -1;
   }
 
+  inline rtx
+  get_src_mem_reg () const
+  {
+    return src_mem_reg;
+  }
+
+  inline rtx
+  get_dst_mem_reg () const
+  {
+    return dst_mem_reg;
+  }
+
   inline int
   get_src_intval () const
   {
@@ -762,6 +774,12 @@ public:
   void
   scan_rtx (rtx);
 
+  void
+  make_post_inc (int regno);
+
+  void
+  auto_inc_fixup (int regno, int size);
+
   /* return bits for alternate free registers. */
   unsigned
   get_free_mask () const
@@ -801,6 +819,64 @@ public:
   void
   a5_to_a7 (rtx a7);
 };
+
+void
+insn_info::make_post_inc (int regno)
+{
+  // convert into POST_INC
+//  debug_rtx (insn);
+  rtx set = single_set (insn);
+  rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
+  rtx reg = XEXP(mem, 0);
+  XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
+//  debug_rtx (insn);
+
+  (get_dst_mem_regno () == regno ? dst_autoinc : src_autoinc) = GET_MODE_SIZE(mode);
+}
+
+void
+insn_info::auto_inc_fixup (int regno, int size)
+{
+//  debug_rtx (insn);
+
+  rtx set = single_set (insn);
+
+  if (is_compare ())
+    set = SET_SRC(set);
+
+  // add to register
+  if (get_src_regno () == regno)
+    {
+      rtx src = SET_SRC(set);
+      if (get_src_intval () == size)
+	{
+	  src_intval = 0;
+	  src_plus = false;
+	  SET_SRC(set) = XEXP(src, 0);
+	}
+      else
+	XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
+    }
+  else
+    {
+      rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
+      // goto mem if there is an op
+      if (get_src_mem_regno () == regno && src_op)
+	mem = XEXP(mem, 1);
+
+      rtx plus = XEXP(mem, 0);
+      if ((get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) == size)
+	{
+	  XEXP(mem, 0) = XEXP(plus, 0);
+	  (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) = 0;
+	  (get_dst_mem_regno () == regno ? dst_plus : src_plus) = false;
+	}
+      else
+	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)),
+					   (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) -= size);
+    }
+//  debug_rtx (insn);
+}
 
 track_var *
 insn_info::get_track_var ()
@@ -1126,7 +1202,7 @@ temp_reg_rename (std::vector<std::pair<rtx *, rtx> > & loc, rtx x, unsigned oldr
 	    if (GET_CODE(z) == CLOBBER)
 	      {
 		/* workaround for shared clobbers. */
-		XVECEXP(x, i, j) = z = gen_rtx_CLOBBER (GET_MODE(z), XEXP(z, 0));
+		XVECEXP(x, i, j) = z = gen_rtx_CLOBBER(GET_MODE(z), XEXP(z, 0));
 	      }
 	    temp_reg_rename (loc, z, oldregno, newregno);
 	  }
@@ -1268,7 +1344,7 @@ insn_info::a5_to_a7 (rtx a7)
       rtx set = single_set (insn);
       if (set)
 	{
-	  SET_SRC(set) = gen_rtx_MEM (mode, gen_rtx_POST_INC (SImode, a7));
+	  SET_SRC(set) = gen_rtx_MEM (mode, gen_rtx_POST_INC(SImode, a7));
 	  return;
 	}
     }
@@ -1304,7 +1380,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 	  if (base == addr)
 	    dst = gen_rtx_MEM (mode, reg);
 	  else
-	    dst = gen_rtx_MEM (mode, gen_rtx_PLUS (SImode, reg, gen_rtx_CONST_INT (SImode, offset)));
+	    dst = gen_rtx_MEM (mode, gen_rtx_PLUS(SImode, reg, gen_rtx_CONST_INT (SImode, offset)));
 
 	  dst_mem_reg = reg;
 	  dst_mem = true;
@@ -1322,13 +1398,13 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 	  if (base == addr)
 	    src = gen_rtx_MEM (mode, reg);
 	  else
-	    src = gen_rtx_MEM (mode, gen_rtx_PLUS (SImode, reg, gen_rtx_CONST_INT (SImode, offset)));
+	    src = gen_rtx_MEM (mode, gen_rtx_PLUS(SImode, reg, gen_rtx_CONST_INT (SImode, offset)));
 
 	  /* some operation to the same value as dst. eg. eor #5,symbol+8 -> eor #5,8(ax) */
 	  if (src_op)
 	    {
 	      if (src_ee)
-		src = gen_rtx_fmt_ee (src_op, mode, src, gen_rtx_CONST_INT (mode, src_intval));
+		src = gen_rtx_fmt_ee(src_op, mode, src, gen_rtx_CONST_INT (mode, src_intval));
 	      else
 		{
 		  if (src_op == SIGN_EXTEND)
@@ -1336,7 +1412,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 		      PUT_MODE_RAW(src, mode == SImode ? HImode : mode == HImode ? QImode : SImode);
 		      src->call = 1;
 		    }
-		  src = gen_rtx_fmt_e (src_op, mode, src);
+		  src = gen_rtx_fmt_e(src_op, mode, src);
 		}
 	    }
 
@@ -1347,7 +1423,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 	}
     }
 
-  pattern = gen_rtx_SET (dst, src);
+  pattern = gen_rtx_SET(dst, src);
   src->volatil = vola;
 
   SET_INSN_DELETED(insn);
@@ -2309,7 +2385,7 @@ opt_propagate_moves ()
 
 				  for (unsigned k = 0; k < jump_out.size (); ++k)
 				    {
-				      rtx neu = gen_rtx_SET (
+				      rtx neu = gen_rtx_SET(
 					  dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));
 				      emit_insn_after (neu, jump_out[k]);
 				    }
@@ -2386,7 +2462,7 @@ opt_strcpy ()
 		      int num_clobbers_to_add = 0;
 		      int insn_code_number;
 
-		      rtx pattern = gen_rtx_SET (SET_DEST(single_set (reg2x)), SET_SRC(single_set (x2reg)));
+		      rtx pattern = gen_rtx_SET(SET_DEST(single_set (reg2x)), SET_SRC(single_set (x2reg)));
 		      rtx_insn * newinsn = make_insn_raw (pattern);
 		      insn_code_number = recog (PATTERN (newinsn), newinsn, &num_clobbers_to_add);
 		      if (insn_code_number >= 0 && check_asm_operands (PATTERN (newinsn)))
@@ -2498,10 +2574,10 @@ opt_commute_add_move (void)
       if (!REG_P(memreg) || REGNO(memreg) != REGNO(reg1src))
 	continue;
 
-      rtx pinc = gen_rtx_POST_INC (GET_MODE(dst), reg1dst);
+      rtx pinc = gen_rtx_POST_INC(GET_MODE(dst), reg1dst);
       rtx newmem = replace_equiv_address_nv (dst, pinc);
 
-      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET (reg1dst, reg1src));
+      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET(reg1dst, reg1src));
       if (recog (PATTERN (newinsn), newinsn, 0) < 0 || !check_asm_operands (PATTERN (newinsn)))
 	continue;
 
@@ -2629,9 +2705,9 @@ opt_const_cmp_to_sub (void)
 	{
 	  rtx copyreg = copy_reg (i1.get_dst_reg (), -1);
 	  /* create the sub statement. */
-	  rtx sub = gen_rtx_PLUS (i1.get_mode (), copyreg, gen_rtx_CONST_INT (i1.get_mode (), intval));
+	  rtx sub = gen_rtx_PLUS(i1.get_mode (), copyreg, gen_rtx_CONST_INT (i1.get_mode (), intval));
 
-	  rtx_insn * subinsn = make_insn_raw (gen_rtx_SET (copyreg, sub));
+	  rtx_insn * subinsn = make_insn_raw (gen_rtx_SET(copyreg, sub));
 
 	  int num_clobbers_to_add = 0;
 	  int insn_code_number = recog (PATTERN (subinsn), subinsn, &num_clobbers_to_add);
@@ -2648,8 +2724,8 @@ opt_const_cmp_to_sub (void)
 	  subinsn = emit_insn_before (PATTERN (subinsn), i1.get_insn ());
 	  i1.set_insn (subinsn);
 
-	  rtx neu = gen_rtx_SET (cc0_rtx,
-				 gen_rtx_COMPARE (i1.get_mode (), copyreg, gen_rtx_CONST_INT (i1.get_mode (), 0)));
+	  rtx neu = gen_rtx_SET(cc0_rtx,
+				gen_rtx_COMPARE (i1.get_mode (), copyreg, gen_rtx_CONST_INT (i1.get_mode (), 0)));
 
 	  emit_insn_before (neu, i2.get_insn ());
 
@@ -2670,8 +2746,8 @@ opt_const_cmp_to_sub (void)
 		  /* still a compare with 0 -> insert the sub. */
 		  rtx copyreg = copy_reg (i1.get_dst_reg (), -1);
 		  /* create the sub statement. */
-		  rtx sub = gen_rtx_PLUS (i1.get_mode (), copyreg, c);
-		  rtx set = gen_rtx_SET (copyreg, sub);
+		  rtx sub = gen_rtx_PLUS(i1.get_mode (), copyreg, c);
+		  rtx set = gen_rtx_SET(copyreg, sub);
 		  emit_insn_before (set, pp.get_insn ());
 		}
 	      else
@@ -2743,7 +2819,7 @@ opt_merge_add (void)
       rtx set = PATTERN (insn0);
 
       // convert lea (-1,a0),a1 into move.l a0,a1
-      rtx_insn * newins0 = make_insn_raw (gen_rtx_SET (XEXP(set, 0), XEXP(XEXP(set, 1), 0)));
+      rtx_insn * newins0 = make_insn_raw (gen_rtx_SET(XEXP(set, 0), XEXP(XEXP(set, 1), 0)));
       add_insn_after (newins0, insn0, 0);
       SET_INSN_DELETED(insn0);
       // update infos accordingly
@@ -3151,24 +3227,24 @@ opt_shrink_stack_frame (void)
 		      if (i < prologueend)
 			{
 			  /* push */
-			  rtx dec = gen_rtx_PRE_DEC (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
+			  rtx dec = gen_rtx_PRE_DEC(REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
 			  rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, dec);
-			  rtx set = gen_rtx_SET (mem, reg);
+			  rtx set = gen_rtx_SET(mem, reg);
 			  emit_insn_after (set, insn);
 			}
 		      else
 			{
 			  /* pop */
-			  rtx dec = gen_rtx_POST_INC (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
+			  rtx dec = gen_rtx_POST_INC(REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
 			  rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, dec);
-			  rtx set = gen_rtx_SET (reg, mem);
+			  rtx set = gen_rtx_SET(reg, mem);
 			  emit_insn_before (set, insn);
 			}
 		    }
 		}
 	      else
 		{
-		  rtx parallel = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (regs.size () + add1 + clobbers.size ()));
+		  rtx parallel = gen_rtx_PARALLEL(VOIDmode, rtvec_alloc (regs.size () + add1 + clobbers.size ()));
 		  rtx plus;
 
 		  int x = 0;
@@ -3179,8 +3255,8 @@ opt_shrink_stack_frame (void)
 		  /* no add if a5 is used with pop */
 		  if (add1)
 		    {
-		      plus = gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, i < prologueend ? -x : x));
-		      XVECEXP(parallel, 0, l) = gen_rtx_SET (a7, plus);
+		      plus = gen_rtx_PLUS(SImode, a7, gen_rtx_CONST_INT (SImode, i < prologueend ? -x : x));
+		      XVECEXP(parallel, 0, l) = gen_rtx_SET(a7, plus);
 		      ++l;
 		    }
 
@@ -3192,10 +3268,10 @@ opt_shrink_stack_frame (void)
 		      if (i < prologueend)
 			{
 			  /* push */
-			  plus = gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, -x));
+			  plus = gen_rtx_PLUS(SImode, a7, gen_rtx_CONST_INT (SImode, -x));
 			  x -= REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
 			  rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, plus);
-			  rtx set = gen_rtx_SET (mem, regs[k]);
+			  rtx set = gen_rtx_SET(mem, regs[k]);
 			  XVECEXP(parallel, 0, l) = set;
 			}
 		      else
@@ -3204,17 +3280,17 @@ opt_shrink_stack_frame (void)
 			  if (usea5)
 			    {
 			      x += REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
-			      plus = gen_rtx_PLUS (SImode, a5, gen_rtx_CONST_INT (SImode, a5offset + x));
+			      plus = gen_rtx_PLUS(SImode, a5, gen_rtx_CONST_INT (SImode, a5offset + x));
 			      rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, plus);
-			      rtx set = gen_rtx_SET (regs[k], mem);
+			      rtx set = gen_rtx_SET(regs[k], mem);
 			      XVECEXP(parallel, 0, l) = set;
 			    }
 			  else
 			    {
-			      plus = x ? gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, x)) : a7;
+			      plus = x ? gen_rtx_PLUS(SImode, a7, gen_rtx_CONST_INT (SImode, x)) : a7;
 			      x += REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
 			      rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, plus);
-			      rtx set = gen_rtx_SET (regs[k], mem);
+			      rtx set = gen_rtx_SET(regs[k], mem);
 			      XVECEXP(parallel, 0, l) = set;
 			    }
 			}
@@ -3306,7 +3382,7 @@ opt_shrink_stack_frame (void)
 	      if (ii.in_proepi () >= IN_EPILOGUE && ii.get_sp_offset () != 0)
 		{
 		  log ("(f) adjusting exit sp\n");
-		  rtx pattern = gen_rtx_SET (
+		  rtx pattern = gen_rtx_SET(
 		      a7, gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, -ii.get_sp_offset ())));
 		  emit_insn_before (pattern, ii.get_insn ());
 		}
@@ -3325,7 +3401,7 @@ opt_shrink_stack_frame (void)
 		      rtx pattern = PATTERN (ii.get_insn ());
 		      unsigned sz = XVECLEN(pattern, 0);
 
-		      rtx parallel = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (sz + 1));
+		      rtx parallel = gen_rtx_PARALLEL(VOIDmode, rtvec_alloc (sz + 1));
 		      unsigned n = 0;
 		      for (unsigned j = 0; j < sz; ++j)
 			{
@@ -3347,8 +3423,8 @@ opt_shrink_stack_frame (void)
 
 		      rtx a = copy_reg (a7, -1);
 		      a->frame_related = 1;
-		      rtx plus = gen_rtx_PLUS (SImode, a, gen_rtx_CONST_INT (SImode, regs_total_size));
-		      rtx set = gen_rtx_SET (a, plus);
+		      rtx plus = gen_rtx_PLUS(SImode, a, gen_rtx_CONST_INT (SImode, regs_total_size));
+		      rtx set = gen_rtx_SET(a, plus);
 		      XVECEXP(parallel, 0, 0) = set;
 		      SET_INSN_DELETED(ii.get_insn ());
 		      ii.set_insn (emit_insn_after (parallel, ii.get_insn ()));
@@ -3766,14 +3842,14 @@ opt_absolute (void)
 	  if (with_symbol)
 	    {
 	      if (base)
-		lea = gen_rtx_SET (
+		lea = gen_rtx_SET(
 		    gen_raw_REG (SImode, regno),
 		    gen_rtx_CONST (SImode, gen_rtx_PLUS (SImode, with_symbol, gen_rtx_CONST_INT (SImode, base))));
 	      else
-		lea = gen_rtx_SET (gen_raw_REG (SImode, regno), with_symbol);
+		lea = gen_rtx_SET(gen_raw_REG (SImode, regno), with_symbol);
 	    }
 	  else
-	    lea = gen_rtx_SET (gen_raw_REG (SImode, regno), gen_rtx_CONST_INT (SImode, base));
+	    lea = gen_rtx_SET(gen_raw_REG (SImode, regno), gen_rtx_CONST_INT (SImode, base));
 	  rtx_insn * insn = emit_insn_before (lea, ii.get_insn ());
 	  insn_info nn (insn);
 	  nn.set_use (current_use);
@@ -3796,6 +3872,158 @@ opt_absolute (void)
 
   if (change_count)
     update_insn2index ();
+
+  return change_count;
+}
+
+/*
+ * Convert a series of reg with offset ( (ax), 4(ax), 8(ax), ...) into autoincx ( (ax+), (ax+), (ax+), ...)
+ *
+ * 1. search a mem(reg) without offset and either src or dst is using that reg
+ * 2. follow paths until reg is dead
+ * 3. if there is another mem(reg) with offset check that
+ *  a) offset fits last mode size
+ *  b) all remaining insn using that reg can be updated by
+ *    i) decrement the offset
+ *    ii) decrement the add value
+ */
+static unsigned
+opt_autoinc ()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 0; index < infos.size (); ++index)
+    {
+      insn_info & ii = infos[index];
+
+      if (ii.in_proepi ())
+	continue;
+
+      rtx reg = 0;
+      if (ii.is_src_mem () && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ())
+	reg = ii.get_src_mem_reg ();
+      if (!reg && ii.is_dst_mem () && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ())
+	reg = ii.get_dst_mem_reg ();
+      if (!reg)
+	continue;
+
+      int regno = REGNO(reg);
+      int size = GET_MODE_SIZE(ii.get_mode ());
+      if (size > 4)
+	continue;
+
+//      log ("starting auto_inc search for %s at %d\n", reg_names[regno], index);
+
+      // track all fixups to modify
+      std::set<unsigned> fixups;
+
+      // all paths to check
+      std::vector<unsigned> todo;
+      todo.push_back (index + 1);
+
+      bool match_size = false;
+      bool ok = true;
+      std::set<unsigned> visited;
+      while (ok && todo.size () > 0)
+	{
+	  unsigned pos = todo[todo.size () - 1];
+	  todo.pop_back ();
+
+	  if (pos == index)
+	    {
+	      ok = false;
+	      break;
+	    }
+
+	  if (visited.find (pos) != visited.end ())
+	    continue;
+	  visited.insert (pos);
+
+	  for (; pos < infos.size (); ++pos)
+	    {
+	      insn_info & jj = infos[pos];
+
+	      // run over labels
+	      if (jj.is_label ())
+		continue;
+
+	      // break if no longer user
+	      if (!jj.is_use (regno))
+		break;
+
+	      if (jj.in_proepi ())
+		{
+		  ok = false;
+		  break;
+		}
+
+	      // break if in epilogue or add all labels
+	      if (jj.is_jump ())
+		{
+		  for (j2l_iterator j = jump2label.find (pos), k = j; j != jump2label.end () && j->first == k->first;
+		      ++j)
+		    todo.push_back (j->second);
+		  continue;
+		}
+
+	      // not used directly
+	      if (!jj.is_myuse (regno))
+		continue;
+
+	      // if reg is src reg, op must be add and addend must be large enough
+	      if (jj.get_src_regno () == regno || jj.get_src_mem_regno () == regno)
+		{
+		  if (jj.get_src_intval () < size || (jj.get_dst_mem_regno () == regno && jj.get_dst_addr () < size))
+		    {
+		      ok = false;
+		      break;
+		    }
+
+		  if (jj.get_dst_addr () == size)
+		    match_size = true;
+
+		  fixups.insert (pos);
+		  // end chain, if self assign
+		  if (jj.get_dst_regno () == regno)
+		    break;
+
+		  continue;
+		}
+
+	      if (jj.get_dst_mem_regno () == regno)
+		{
+		  if (jj.get_dst_addr () < size)
+		    {
+		      ok = false;
+		      break;
+		    }
+		  if (jj.get_dst_addr () == size)
+		    match_size = true;
+		  fixups.insert (pos);
+		}
+	    }
+	}
+
+      if (!ok || !match_size || !fixups.size ())
+	continue;
+
+      log ("(i) auto_inc for %s at %d\n", reg_names[regno], index);
+
+      ii.make_post_inc (regno);
+
+      // fix all offsets / adds
+      for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)
+	{
+//	  log ("(i) fixup at %d\n", *k);
+
+	  insn_info & kk = infos[*k];
+
+	  kk.auto_inc_fixup (regno, size);
+	}
+      ++change_count;
+      --index; // rerun insn to check src and dst
+    }
 
   return change_count;
 }
@@ -3870,6 +4098,7 @@ namespace
     bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
     bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
     bool do_absolute = strchr (string_bbb_opts, 'b') || strchr (string_bbb_opts, '+');
+    bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
 
     if (be_very_verbose)
       log ("ENTER\n");
@@ -3899,6 +4128,9 @@ namespace
 	      done = 0, update_insns ();
 
 	    if (do_elim_dead_assign && opt_elim_dead_assign ())
+	      done = 0, update_insns ();
+
+	    if (do_autoinc && opt_autoinc ())
 	      done = 0, update_insns ();
 
 	    if (do_bb_reg_rename)

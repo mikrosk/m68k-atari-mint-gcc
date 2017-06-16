@@ -71,6 +71,8 @@
 #include <set>
 #include <map>
 
+static int xx = 0;
+
 bool be_very_verbose;
 bool be_verbose;
 
@@ -1487,7 +1489,7 @@ append_reg_usage (FILE * f, rtx_insn * insn)
   insn_info & ii = *i->second;
 
   if (f != stderr)
-    fprintf (f, "\n\t\t\t\t\t\t|");
+    fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
 
   fprintf (f, "%c ",
 	   ii.is_stack () ? 's' : ii.in_proepi () == IN_PROLOGUE ? 'p' : ii.in_proepi () >= IN_EPILOGUE ? 'e' : ' ');
@@ -1680,9 +1682,10 @@ update_insn_infos (void)
 		use.mark_def (FIRST_PSEUDO_REGISTER);
 	    }
 
-	  // also check mode size if < 4, it's also a use.
-	  if (pp.get_dst_reg () && GET_MODE_SIZE(pp.get_mode()) < 4)
-	    use.mark_use (pp.get_dst_regno ());
+	  // TODO: use 2 bits for data regs, to indicate mode size
+//	  // also check mode size if < 4, it's also a use for data registers.
+//	  if (pp.get_dst_reg () && pp.get_dst_regno () < 8 && GET_MODE_SIZE(pp.get_mode()) < 4)
+//	    use.mark_use (pp.get_dst_regno ());
 
 	  /* mark not renameable in prologue/epilogue. */
 	  if (pp.in_proepi () != IN_CODE)
@@ -1908,12 +1911,17 @@ find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
     {
       unsigned startm1 = start - 1;
 
-      /* already searched. */
-      if (found.find (startm1) != found.end ())
-	break;
+//      /* already searched. */
+//      if (found.find (startm1) != found.end ())
+//	break;
 
       /* do not run over RETURNS */
       insn_info & jj = infos[start];
+
+      /* stop at labels. If a label is a start pos, a search is maybe started again. */
+      if (jj.is_label ())
+	break;
+
       insn_info & bb = infos[startm1];
       if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
@@ -1933,6 +1941,7 @@ find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
 static unsigned
 opt_reg_rename (void)
 {
+  update_label2jump ();
 //  dump_insns ("rename", 1);
   for (unsigned index = 0; index < infos.size (); ++index)
     {
@@ -1988,15 +1997,38 @@ opt_reg_rename (void)
 		    {
 		      i2i_iterator j = insn2info.find (i->second);
 		      if (j == insn2info.end ())
-			continue;
+			{
+			  mask = 0;
+			  break;
+			}
 
 		      unsigned start = j->second->get_index ();
-		      if (!infos[start].is_use (rename_regno))
+		      if (found.find (start) != found.end () || !infos[start].is_use (rename_regno))
 			continue;
+
+//		      printf ("label %d <- %d jump\n", pos, start); fflush (stdout);
 
 		      start = find_start (found, start, rename_regno);
 		      todo.insert (start);
 		    }
+
+		  /* if this label is at a start, check if it is reachable from the previous insn,
+		   * and if, check for use then search start. */
+		  if (pos == runpos && pos > 0)
+		    {
+		      insn_info & bb = infos[pos - 1];
+		      rtx set = single_set (bb.get_insn ());
+		      if (ANY_RETURN_P(bb.get_insn ())
+			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE))
+			continue;
+
+		      if (bb.is_use (rename_regno))
+			{
+			  unsigned start = find_start (found, pos - 1, rename_regno);
+			  todo.insert (start);
+			}
+		    }
+
 		  continue;
 		}
 
@@ -2035,37 +2067,21 @@ opt_reg_rename (void)
 	      /* follow jump and/or next insn. */
 	      if (JUMP_P(insn))
 		{
-		  i2i_iterator j = insn2info.find ((rtx_insn *) JUMP_LABEL(insn));
-		  if (j == insn2info.end ())
+		  for (j2l_iterator i = jump2label.find (pos), k = i; i != jump2label.end () && i->first == k->first;
+		      ++i)
 		    {
-		      /* whoops - label not found. */
-		      mask = 0;
-		      break;
-		    }
+		      unsigned label_index = i->second;
 
-		  unsigned label_index = j->second->get_index ();
-		  if (found.find (label_index) == found.end ())
-		    {
-		      /* if the rename_reg is used in the insn before.
-		       * search the start.
-		       */
+		      /* add the label to the search list. */
 		      insn_info & bb = infos[label_index + 1];
-		      if (bb.is_use (rename_regno))
+		      if (found.find (label_index) == found.end () && bb.is_use (rename_regno))
 			{
-			  unsigned start = find_start (found, label_index, rename_regno);
-			  todo.insert (start);
+//			  printf ("jump %d -> %d label\n", pos, label_index); fflush (stdout);
+			  todo.insert (label_index);
 			}
-		      todo.insert (label_index + 1);
 		    }
-		  rtx jmppattern = PATTERN (insn);
-		  if (GET_CODE(jmppattern) == PARALLEL)
-		    {
-		      /* can't handle yet. Abort renaming. */
-		      mask = 0;
-		      break;
-		    }
-
-		  rtx jmpsrc = XEXP(jmppattern, 1);
+		  rtx set = single_set (insn);
+		  rtx jmpsrc = SET_SRC(set);
 		  if (!jmpsrc || GET_CODE(jmpsrc) != IF_THEN_ELSE)
 		    break;
 		}
@@ -4105,6 +4121,11 @@ namespace
     bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
     bool do_absolute = strchr (string_bbb_opts, 'b') || strchr (string_bbb_opts, '+');
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
+
+    ++xx;
+    printf ("x: %d\n", xx);
+//    if (xx <= 90 || xx > 93)
+//      do_bb_reg_rename = false;
 
     if (be_very_verbose)
       log ("ENTER\n");

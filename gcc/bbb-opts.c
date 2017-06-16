@@ -3914,6 +3914,9 @@ static unsigned
 opt_autoinc ()
 {
   unsigned change_count = 0;
+
+  update_label2jump();
+
   for (unsigned index = 0; index < infos.size (); ++index)
     {
       insn_info & ii = infos[index];
@@ -4122,10 +4125,10 @@ namespace
     bool do_absolute = strchr (string_bbb_opts, 'b') || strchr (string_bbb_opts, '+');
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
 
-    ++xx;
-    printf ("x: %d\n", xx);
-//    if (xx <= 90 || xx > 93)
-//      do_bb_reg_rename = false;
+//    ++xx;
+//    printf ("x: %d\n", xx);
+//    if (xx <= 86 || xx > 90)
+//      do_autoinc = false;
 
     if (be_very_verbose)
       log ("ENTER\n");

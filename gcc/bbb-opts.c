@@ -835,7 +835,7 @@ insn_info::make_post_inc (int regno)
   XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
 
   (get_dst_mem_regno () == regno ? dst_autoinc : src_autoinc) = GET_MODE_SIZE(mode);
-  insn = emit_insn_after(set0, insn);
+  insn = emit_insn_after (set0, insn);
 //  debug_rtx (insn);
 }
 
@@ -881,7 +881,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)),
 					   (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) -= size);
     }
-  insn = emit_insn_after(set0, insn);
+  insn = emit_insn_after (set0, insn);
 //  debug_rtx (insn);
 }
 
@@ -1678,14 +1678,14 @@ update_insn_infos (void)
 	      NOTICE_UPDATE_CC(PATTERN (insn), insn);
 	      if (cc_status.value1 || cc_status.value2)
 		use.mark_def (FIRST_PSEUDO_REGISTER);
-
-	      // also check mode size if < 4, it's also a def.
-	      if (ii.get_dst_reg () && GET_MODE_SIZE(ii.get_mode()) < 4)
-		use.mark_def (ii.get_dst_regno ());
 	    }
 
+	  // also check mode size if < 4, it's also a use.
+	  if (pp.get_dst_reg () && GET_MODE_SIZE(pp.get_mode()) < 4)
+	    use.mark_use (pp.get_dst_regno ());
+
 	  /* mark not renameable in prologue/epilogue. */
-	  if (infos[pos].in_proepi () != IN_CODE)
+	  if (pp.in_proepi () != IN_CODE)
 	    use.make_hard ();
 
 	  ii.merge (use);
@@ -3955,7 +3955,7 @@ opt_autoinc ()
 	      if (jj.is_label ())
 		continue;
 
-	      // break if no longer user
+	      // break if no longer used
 	      if (!jj.is_use (regno))
 		break;
 
@@ -3965,7 +3965,7 @@ opt_autoinc ()
 		  break;
 		}
 
-	      // break if in epilogue or add all labels
+	      // add all labels
 	      if (jj.is_jump ())
 		{
 		  for (j2l_iterator j = jump2label.find (pos), k = j; j != jump2label.end () && j->first == k->first;
@@ -3991,24 +3991,24 @@ opt_autoinc ()
 		    match_size = true;
 
 		  fixups.insert (pos);
-		  // end chain, if self assign
-		  if (jj.get_dst_regno () == regno)
-		    break;
-
-		  continue;
 		}
-
-	      if (jj.get_dst_mem_regno () == regno)
+	      else if (jj.get_dst_mem_regno () == regno)
 		{
 		  if (jj.get_dst_addr () < size)
 		    {
 		      ok = false;
 		      break;
 		    }
+
 		  if (jj.get_dst_addr () == size)
 		    match_size = true;
+
 		  fixups.insert (pos);
 		}
+
+	      // done if this is an add
+	      if (ii.is_def (regno))
+		break;
 	    }
 	}
 
@@ -4023,11 +4023,10 @@ opt_autoinc ()
       for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)
 	{
 //	  log ("(i) fixup at %d\n", *k);
-
 	  insn_info & kk = infos[*k];
-
 	  kk.auto_inc_fixup (regno, size);
 	}
+
       ++change_count;
       --index; // rerun insn to check src and dst
     }

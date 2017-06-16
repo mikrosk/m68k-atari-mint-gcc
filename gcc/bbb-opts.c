@@ -3915,7 +3915,7 @@ opt_autoinc ()
 {
   unsigned change_count = 0;
 
-  update_label2jump();
+  update_label2jump ();
 
   for (unsigned index = 0; index < infos.size (); ++index)
     {
@@ -4024,6 +4024,11 @@ opt_autoinc ()
 
 		  fixups.insert (pos);
 		}
+	      else
+		{
+		  ok = false;
+		  break;
+		}
 
 	      // done if this is an add
 	      if (ii.is_def (regno))
@@ -4127,7 +4132,7 @@ namespace
 
 //    ++xx;
 //    printf ("x: %d\n", xx);
-//    if (xx <= 86 || xx > 90)
+//    if (xx <= 48 || xx > 54)
 //      do_autoinc = false;
 
     if (be_very_verbose)

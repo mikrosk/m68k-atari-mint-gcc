@@ -3970,9 +3970,23 @@ opt_autoinc ()
 	    {
 	      insn_info & jj = infos[pos];
 
-	      // run over labels
+	      // check all jumps labels for register usage
 	      if (jj.is_label ())
-		continue;
+		{
+		  for (l2j_iterator j = label2jump.find (jj.get_insn ()->u2.insn_uid), k = j;
+		      j != label2jump.end () && j->first == k->first; ++j)
+		    {
+		      insn_info * ll = insn2info.find (j->second)->second;
+		      if (ll->is_use (regno))
+			{
+			  ok = false;
+			  break;
+			}
+		    }
+		  if (ok)
+		    continue;
+		  break;
+		}
 
 	      // break if no longer used
 	      if (!jj.is_use (regno))

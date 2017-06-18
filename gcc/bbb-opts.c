@@ -2081,7 +2081,21 @@ opt_reg_rename (void)
 			}
 		    }
 		  rtx set = single_set (insn);
-		  rtx jmpsrc = SET_SRC(set);
+		  if (!set)
+		    {
+		      // it's a parallel pattern - search the set pc = ...
+		      rtx pat = PATTERN (insn);
+		      for (int j = XVECLEN (pat, 0) - 1; j >= 0; j--)
+			{
+			  rtx x = XVECEXP(pat, 0, j);
+			  if (XEXP(x, 0) == pc_rtx)
+			    {
+			      set = x;
+			      break;
+			    }
+			}
+		    }
+		  rtx jmpsrc = set ? SET_SRC(set) : 0;
 		  if (!jmpsrc || GET_CODE(jmpsrc) != IF_THEN_ELSE)
 		    break;
 		}

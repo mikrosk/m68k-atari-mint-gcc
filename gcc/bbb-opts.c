@@ -3716,7 +3716,7 @@ opt_elim_dead_assign (void)
 	  ++change_count;
 	  continue;
 	}
-      if (ii.get_src_op () == 0 && ii.get_dst_reg ())
+      if (ii.get_src_op () == 0 && ii.get_dst_reg () && !ii.is_use(ii.get_dst_regno()))
 	{
 	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];
 	  rtx cached_value2 = 0;

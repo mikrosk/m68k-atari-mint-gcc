@@ -1829,12 +1829,15 @@ update_insns ()
 	      jump_table = 0;
 	      ii.set_proepi (inproepilogue = IN_CODE);
 	      if (infos.size () > 1)
-		scan_starts.insert (infos.size () - 1);
+		scan_starts.insert (infos.size () - 2);
 	    }
 	  else if (CALL_P(insn))
 	    {
-	      if (insn->jump)
+	      if (insn->jump) {
 		ii.set_proepi (IN_EPILOGUE);
+		ii.mark_jump();
+		scan_starts.insert (infos.size () - 1);
+	      }
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{

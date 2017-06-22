@@ -3715,7 +3715,7 @@ track_regs ()
  * delete those insns.
  */
 static unsigned
-opt_elim_dead_assign (void)
+opt_elim_dead_assign (unsigned blocked_regno)
 {
   track_regs ();
 
@@ -3731,14 +3731,15 @@ opt_elim_dead_assign (void)
       if (!set)
 	continue;
 
-      if (ii.get_dst_reg () && is_reg_dead (ii.get_dst_regno (), index))
+      if (ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
 	{
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	  SET_INSN_DELETED(insn);
 	  ++change_count;
 	  continue;
 	}
-      if (ii.get_src_op () == 0 && ii.get_dst_reg () && !ii.is_use (ii.get_dst_regno ()))
+      if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
+	  && !ii.is_use (ii.get_dst_regno ()))
 	{
 	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];
 	  rtx cached_value2 = 0;
@@ -4222,7 +4223,7 @@ namespace
 	    if (do_absolute && opt_absolute ())
 	      done = 0, update_insns ();
 
-	    if (do_elim_dead_assign && opt_elim_dead_assign ())
+	    if (do_elim_dead_assign && opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      done = 0, update_insns ();
 
 	    if (do_autoinc && opt_autoinc ())
@@ -4246,6 +4247,10 @@ namespace
 	    if (opt_shrink_stack_frame ())
 	      update_insns ();
 	  }
+
+	/* elim stack pointer stuff last. */
+	if (do_elim_dead_assign)
+	  opt_elim_dead_assign (FIRST_PSEUDO_REGISTER);
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);

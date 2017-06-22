@@ -73,7 +73,7 @@
 
 static int xx = 0;
 
-bool be_very_verbose;
+int be_very_verbose;
 bool be_verbose;
 
 extern struct lang_hooks lang_hooks;
@@ -1468,13 +1468,13 @@ is_reg_dead (unsigned regno, unsigned _pos)
 // skip labels.
   for (unsigned pos = _pos + 1; pos < infos.size (); ++pos)
     {
-      insn_info & ii0 = infos[pos];
+      insn_info & ii = infos[pos];
       // skip entries without info
-      if (ii0.is_empty ())
+      if (ii.is_empty ())
 	continue;
 
       // not dead if usage is reported in the next statement
-      return !ii0.is_use (regno) && !ii0.is_hard (regno);
+      return !ii.is_use (regno) && !ii.is_hard (regno);
     }
   return true;
 }
@@ -1492,10 +1492,14 @@ append_reg_usage (FILE * f, rtx_insn * insn)
   insn_info & ii = *i->second;
 
   if (f != stderr)
-    fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
+    {
+      if (be_very_verbose > 1)
+	fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
+      else
+	fprintf (f, "\n\t\t\t\t\t|\t", ii.get_index ());
+    }
 
-  fprintf (f, "%c ",
-	   ii.is_stack () ? 's' : ii.in_proepi () == IN_PROLOGUE ? 'p' : ii.in_proepi () >= IN_EPILOGUE ? 'e' : ' ');
+  fprintf (f, "%c ", ii.in_proepi () == IN_PROLOGUE ? 'p' : ii.in_proepi () >= IN_EPILOGUE ? 'e' : ' ');
 
   for (int j = 0; j < 8; ++j)
     if (ii.is_use (j) || ii.is_def (j))
@@ -1829,15 +1833,16 @@ update_insns ()
 	      jump_table = 0;
 	      ii.set_proepi (inproepilogue = IN_CODE);
 	      if (infos.size () > 1)
-		scan_starts.insert (infos.size () - 2);
+		scan_starts.insert (infos.size () - 1);
 	    }
 	  else if (CALL_P(insn))
 	    {
-	      if (insn->jump) {
-		ii.set_proepi (IN_EPILOGUE);
-		ii.mark_jump();
-		scan_starts.insert (infos.size () - 1);
-	      }
+	      if (insn->jump)
+		{
+		  ii.set_proepi (IN_EPILOGUE);
+		  ii.mark_jump ();
+		  scan_starts.insert (infos.size () - 1);
+		}
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{
@@ -2114,6 +2119,7 @@ opt_reg_rename (void)
 	  int newregno = bit2regno (mask);
 
 	  /* check the renamed insns. */
+	  std::vector<unsigned> positions;
 	  std::vector<std::pair<rtx *, rtx> > locs;
 	  std::vector<std::pair<rtx *, rtx> > patch;
 	  bool ok = true;
@@ -2138,6 +2144,7 @@ opt_reg_rename (void)
 		      *j->first = j->second;
 		    }
 
+		  positions.push_back (*i);
 		  locs.clear ();
 		}
 	    }
@@ -2147,6 +2154,14 @@ opt_reg_rename (void)
 
 	  log ("(r) opt_reg_rename %s -> %s (%d locs, start at %d)\n", reg_names[oldregno], reg_names[newregno],
 	       patch.size (), index);
+
+	  if (be_verbose)
+	    {
+	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
+		printf ("%d ", *i);
+	      printf ("\n");
+	      fflush (stdout);
+	    }
 
 	  /* apply all changes. */
 	  for (std::vector<std::pair<rtx *, rtx> >::iterator j = patch.begin (); j != patch.end (); ++j)
@@ -3716,7 +3731,7 @@ opt_elim_dead_assign (void)
 	  ++change_count;
 	  continue;
 	}
-      if (ii.get_src_op () == 0 && ii.get_dst_reg () && !ii.is_use(ii.get_dst_regno()))
+      if (ii.get_src_op () == 0 && ii.get_dst_reg () && !ii.is_use (ii.get_dst_regno ()))
 	{
 	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];
 	  rtx cached_value2 = 0;
@@ -4150,8 +4165,12 @@ namespace
   unsigned
   pass_bbb_optimizations::execute_bbb_optimizations (void)
   {
-    be_very_verbose = strchr (string_bbb_opts, 'V');
-    be_verbose = be_very_verbose || strchr (string_bbb_opts, 'v');
+    be_very_verbose = strchr (string_bbb_opts, 'V') != 0;
+    be_verbose = strchr (string_bbb_opts, 'v') != 0;
+    if (be_verbose && be_very_verbose)
+      ++be_very_verbose;
+    if (be_very_verbose)
+      be_verbose = true;
 
     bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
     bool do_commute_add_move = strchr (string_bbb_opts, 'a') || strchr (string_bbb_opts, '+');

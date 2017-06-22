@@ -979,6 +979,13 @@ insn_info::scan_rtx (rtx x)
       return;
     }
 
+  if (code == TRAP_IF)
+    {
+      /* mark all registers used. */
+      hard = use = myuse = (1 << FIRST_PSEUDO_REGISTER) - 1;
+      return;
+    }
+
   const char *fmt = GET_RTX_FORMAT(code);
   for (int i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {

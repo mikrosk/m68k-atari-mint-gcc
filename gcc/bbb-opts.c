@@ -1922,16 +1922,12 @@ is_reg_touched_between (unsigned regno, int from, int to)
  * search backward and find the initial assignment for that regno.
  */
 static unsigned
-find_start (std::set<unsigned> & found, unsigned start, unsigned rename_regno)
+find_start (unsigned start, unsigned rename_regno)
 {
   /* search the start. */
   while (start > 0)
     {
       unsigned startm1 = start - 1;
-
-//      /* already searched. */
-//      if (found.find (startm1) != found.end ())
-//	break;
 
       /* do not run over RETURNS */
       insn_info & jj = infos[start];
@@ -1995,6 +1991,7 @@ opt_reg_rename (void)
 	  unsigned runpos = *todo.begin ();
 	  todo.erase (todo.begin ());
 
+//	  printf ("runpos %d \n", runpos); fflush (stdout);
 	  for (unsigned pos = runpos; mask && pos < infos.size (); ++pos)
 	    {
 	      /* already searched. */
@@ -2020,19 +2017,19 @@ opt_reg_rename (void)
 			  break;
 			}
 
-		      unsigned start = j->second->get_index ();
-		      if (found.find (start) != found.end () || !infos[start].is_use (rename_regno))
+		      unsigned startat = j->second->get_index ();
+		      if (found.find (startat) != found.end () || !infos[startat].is_use (rename_regno))
 			continue;
 
-//		      printf ("label %d <- %d jump\n", pos, start); fflush (stdout);
 
-		      start = find_start (found, start, rename_regno);
+		      unsigned start = find_start (startat, rename_regno);
+//		      printf ("label %d <- jump %d : start %d\n", pos, startat, start); fflush (stdout);
 		      todo.insert (start);
 		    }
 
 		  /* if this label is at a start, check if it is reachable from the previous insn,
 		   * and if, check for use then search start. */
-		  if (pos == runpos && pos > 0)
+		  if (pos > 0)
 		    {
 		      insn_info & bb = infos[pos - 1];
 		      rtx set = single_set (bb.get_insn ());
@@ -2040,10 +2037,13 @@ opt_reg_rename (void)
 			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE))
 			continue;
 
-		      if (bb.is_use (rename_regno))
+//		      printf ("label start check %d use %d\n", pos, bb.is_use (rename_regno) || bb.is_def(rename_regno)); fflush (stdout);
+
+		      if (bb.is_use (rename_regno) || bb.is_def(rename_regno))
 			{
-			  unsigned start = find_start (found, pos - 1, rename_regno);
+			  unsigned start = find_start (pos - 1, rename_regno);
 			  todo.insert (start);
+//			  printf ("label %d : start %d \n", pos, start); fflush (stdout);
 			}
 		    }
 
@@ -2094,7 +2094,7 @@ opt_reg_rename (void)
 		      insn_info & bb = infos[label_index + 1];
 		      if (found.find (label_index) == found.end () && bb.is_use (rename_regno))
 			{
-//			  printf ("jump %d -> %d label\n", pos, label_index); fflush (stdout);
+//			  printf ("jump %d -> label %d \n", pos, label_index); fflush (stdout);
 			  todo.insert (label_index);
 			}
 		    }

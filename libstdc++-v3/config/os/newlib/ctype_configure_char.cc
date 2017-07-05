@@ -65,6 +65,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_narrow_ok = 0;
   }
 
+  ctype<char>::~ctype()
+  {
+  }
+
   char
   ctype<char>::do_toupper(char __c) const
   {

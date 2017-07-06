@@ -65,9 +65,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_narrow_ok = 0;
   }
 
+#ifdef TARGET_AMIGA
   ctype<char>::~ctype()
   {
+    _S_destroy_c_locale(_M_c_locale_ctype);
+    if (_M_del)
+      delete[] this->table();
   }
+#endif
 
   char
   ctype<char>::do_toupper(char __c) const

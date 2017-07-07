@@ -65,7 +65,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_narrow_ok = 0;
   }
 
-#ifdef TARGET_AMIGA
+#ifdef __AMIGA__
   ctype<char>::~ctype()
   {
     _S_destroy_c_locale(_M_c_locale_ctype);

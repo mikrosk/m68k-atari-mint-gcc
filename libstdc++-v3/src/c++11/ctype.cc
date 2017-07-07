@@ -51,7 +51,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   const size_t ctype<char>::table_size;
 
-#ifndef TARGET_AMIGA
+#ifndef __AMIGA__
 /* moved to ctype_configure_char */
   ctype<char>::~ctype()
   { 

@@ -132,7 +132,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
   if (code != _URC_INSTALL_CONTEXT)
     return code;
 
-  uw_install_context (&this_context, &cur_context);
+  uw_install_context (&this_context, &cur_context, 0);
 }
 
 
@@ -208,7 +208,7 @@ _Unwind_ForcedUnwind (struct _Unwind_Exception *exc,
   if (code != _URC_INSTALL_CONTEXT)
     return code;
 
-  uw_install_context (&this_context, &cur_context);
+  uw_install_context (&this_context, &cur_context, 1);
 }
 
 
@@ -233,7 +233,7 @@ _Unwind_Resume (struct _Unwind_Exception *exc)
 
   gcc_assert (code == _URC_INSTALL_CONTEXT);
 
-  uw_install_context (&this_context, &cur_context);
+  uw_install_context (&this_context, &cur_context, 2);
 }
 
 
@@ -258,7 +258,7 @@ _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *exc)
 
   gcc_assert (code == _URC_INSTALL_CONTEXT);
 
-  uw_install_context (&this_context, &cur_context);
+  uw_install_context (&this_context, &cur_context, 3);
 }
 
 

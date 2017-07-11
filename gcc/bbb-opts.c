@@ -2717,6 +2717,15 @@ opt_const_cmp_to_sub (void)
 	  if (pp.get_dst_regno () != i1.get_dst_regno ())
 	    continue;
 	  lastsubval = pp.get_src_intval ();
+
+	  // but still check for usage after this jump
+	  j2l_iterator l = jump2label.find(index + 2);
+	  if (l == jump2label.end())
+	    continue;
+
+	  insn_info & label = infos[l->second + 1];
+	  if (label.is_use (i1.get_dst_regno ()))
+	    continue;
 	}
       else if (!is_reg_dead (i1.get_dst_regno (), index))
 	continue;
@@ -2752,9 +2761,8 @@ opt_const_cmp_to_sub (void)
       if (!i2.is_jump ())
 	continue;
 
-      rtx_insn * jump = i2.get_insn ();
-      rtx jmppattern = PATTERN (jump);
-      if (GET_RTX_LENGTH (GET_CODE(jmppattern)) < 2)
+      rtx jmppattern = single_set (i2.get_insn ());
+      if (!jmppattern)
 	continue;
 
       rtx jmpsrc = XEXP(jmppattern, 1);

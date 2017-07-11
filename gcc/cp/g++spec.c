@@ -355,7 +355,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  for (int ii = 0; ii < argc; ++ii)
 	    {
 	      if (decoded_options[ii].opt_index == OPT_fexceptions)
-		addglue = decoded_options[ii].opt_index;
+		addglue = decoded_options[ii].value;
 	    }
 	  if (addglue)
 	    {

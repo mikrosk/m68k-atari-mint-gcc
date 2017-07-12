@@ -229,6 +229,7 @@ case "${host_os}" in
   amiga*)
         os_include_dir="os/newlib"
         CFLAGS="-Os -noixemul"
+        CPPFLAGS="-Os -noixemul"
         ;;
   bsd*)
     # Plain BSD attempts to share FreeBSD files.

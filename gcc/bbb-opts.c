@@ -3608,7 +3608,7 @@ track_regs ()
 			j != reg2slot.end () && j->first == k->first;)
 		      {
 			values[j->second] = 0;
-			reg2slot.erase (j++);
+			j = reg2slot.erase (j);
 		      }
 		  }
 	    }
@@ -3649,7 +3649,7 @@ track_regs ()
 		  j != reg2slot.end () && j->first == k->first;)
 		{
 		  values[j->second] = 0;
-		  reg2slot.erase (j++);
+		  j = reg2slot.erase (j);
 		}
 	    }
 
@@ -3670,7 +3670,7 @@ track_regs ()
 		  j != reg2slot.end () && j->first == k->first;)
 		{
 		  values[j->second] = 0;
-		  reg2slot.erase (j++);
+		  j = reg2slot.erase (j);
 		}
 	    }
 
@@ -3886,9 +3886,9 @@ opt_absolute (void)
 	      bool k_src = kk.is_src_mem () && (kk.has_src_addr () || kk.get_src_symbol ()) && !kk.has_src_memreg ()
 		  && kk.get_src_symbol () == with_symbol;
 	      if (k_dst && kk.get_dst_addr () - base > 0x7ffc)
-		found.erase (k++);
+		k = found.erase (k);
 	      else if (k_src && kk.get_src_mem_addr () - base > 0x7ffc)
-		found.erase (k++);
+		k = found.erase (k);
 	      else
 		++k;
 	    }

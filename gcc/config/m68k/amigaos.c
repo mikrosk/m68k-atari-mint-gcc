@@ -885,3 +885,35 @@ amigaos_static_chain_rtx (const_tree decl, bool incoming ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/*
+ * decline src like:
+(plus:SI (reg/f:SI 0 d0 [210])
+            (const:SI (minus:SI (not:SI (reg:SI 12 a4))
+ *
+ */
+bool
+amigaos_legitimate_combined_insn (rtx_insn * insn)
+{
+  rtx set = single_set(insn);
+  if (!set)
+    return true;
+
+  rtx x = SET_SRC(set);
+  if (GET_CODE(x) != PLUS)
+    return true;
+
+  x = XEXP(x, 1);
+  if (GET_CODE(x) != CONST)
+    return true;
+
+  x = XEXP(x, 0);
+  if (GET_CODE(x) != MINUS)
+    return true;
+
+  x = XEXP(x, 0);
+  if (GET_CODE(x) != NOT)
+    return true;
+
+  x = XEXP(x, 0);
+  return !REG_P(x);
+}

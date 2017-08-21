@@ -4626,7 +4626,7 @@ print_operand (FILE *file, rtx op, int letter)
       /* Use `print_operand_address' instead of `output_addr_const'
 	 to ensure that we print relevant PIC stuff.  */
       asm_fprintf (file, "%I");
-      if (TARGET_PCREL
+      if ((TARGET_PCREL || flag_pic > 2)
 	  && (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == CONST))
 	print_operand_address (file, op);
       else

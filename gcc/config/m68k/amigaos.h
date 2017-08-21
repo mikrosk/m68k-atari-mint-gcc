@@ -477,3 +477,8 @@ amigaos_struct_value_rtx(tree fntype,
 rtx
 amigaos_static_chain_rtx(const_tree fntype,
 			       bool incoming ATTRIBUTE_UNUSED);
+
+#undef TARGET_LEGITIMATE_COMBINED_INSN
+#define TARGET_LEGITIMATE_COMBINED_INSN amigaos_legitimate_combined_insn
+bool
+amigaos_legitimate_combined_insn (rtx_insn *insn ATTRIBUTE_UNUSED);

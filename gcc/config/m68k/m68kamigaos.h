@@ -540,6 +540,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "  \
   "%{g:-amiga-debug-hunk} "                                       \
   "%{mcpu=68020:-fl libm020} "					  \
+  "%{mcpu=68030:-fl libm020} "					  \
+  "%{mcpu=68040:-fl libm020} "					  \
+  "%{mcpu=68060:-fl libm020} "					  \
   "%{m68020:-fl libm020} "                                        \
   "%{mc68020:-fl libm020} "                                       \
   "%{m68030:-fl libm020} "                                        \

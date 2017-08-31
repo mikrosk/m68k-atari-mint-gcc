@@ -1003,6 +1003,9 @@ insn_info::scan_rtx (rtx x)
 	    def |= d;
 	  }
     }
+
+  if (code == CLOBBER)
+    def |= use;
 }
 
 void

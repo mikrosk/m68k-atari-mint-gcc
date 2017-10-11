@@ -105,6 +105,7 @@ union long_double_long
 
 #ifndef EXTFLOAT
 
+#ifdef __UNORDSF2
 int
 __unordsf2(float a, float b)
 {
@@ -118,7 +119,9 @@ __unordsf2(float a, float b)
     return 1;
   return 0;
 }
+#endif
 
+#ifdef __UNORDDF2
 int
 __unorddf2(double a, double b)
 {
@@ -134,7 +137,9 @@ __unorddf2(double a, double b)
     return 1;
   return 0;
 }
+#endif
 
+#ifdef __FLOATUNSIDF
 /* convert unsigned int to double */
 double
 __floatunsidf (unsigned long a1)
@@ -167,7 +172,9 @@ __floatunsidf (unsigned long a1)
 
   return dl.d;
 }
+#endif
 
+#ifdef __FLOATSIDF
 /* convert int to double */
 double
 __floatsidf (long a1)
@@ -213,7 +220,9 @@ __floatsidf (long a1)
 
   return dl.d;
 }
+#endif
 
+#ifdef __FLOATUNSISF
 /* convert unsigned int to float */
 float
 __floatunsisf (unsigned long l)
@@ -221,7 +230,10 @@ __floatunsisf (unsigned long l)
   double foo = __floatunsidf (l);
   return foo;
 }
+#endif
 
+
+#ifdef __FLOATSISF
 /* convert int to float */
 float
 __floatsisf (long l)
@@ -229,7 +241,10 @@ __floatsisf (long l)
   double foo = __floatsidf (l);
   return foo;
 }
+#endif
 
+
+#ifdef __EXTENDSFDF2
 /* convert float to double */
 double
 __extendsfdf2 (float a1)
@@ -268,7 +283,9 @@ __extendsfdf2 (float a1)
 	
   return dl.d;
 }
+#endif
 
+#ifdef __TRUNCDFSF2
 /* convert double to float */
 float
 __truncdfsf2 (double a1)
@@ -336,7 +353,9 @@ __truncdfsf2 (double a1)
   fl.l = PACK (SIGND (dl1), exp, mant);
   return (fl.f);
 }
+#endif
 
+#ifdef __FIXDFSI
 /* convert double to int */
 long
 __fixdfsi (double a1)
@@ -368,7 +387,9 @@ __fixdfsi (double a1)
 
   return (SIGND (dl1) ? -l : l);
 }
+#endif
 
+#ifdef __FIXSFSI
 /* convert float to int */
 long
 __fixsfsi (float a1)
@@ -376,6 +397,7 @@ __fixsfsi (float a1)
   double foo = a1;
   return __fixdfsi (foo);
 }
+#endif
 
 #else /* EXTFLOAT */
 

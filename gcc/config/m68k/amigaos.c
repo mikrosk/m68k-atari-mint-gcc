@@ -848,10 +848,10 @@ read_only_operand (rtx operand)
 rtx
 amigaos_struct_value_rtx (tree fntype, int incoming ATTRIBUTE_UNUSED)
 {
-  if (fntype && aggregate_value_p (TREE_TYPE(fntype), fntype))
+//  if (fntype && aggregate_value_p (TREE_TYPE(fntype), fntype))
     return gen_rtx_REG (Pmode, M68K_STRUCT_VALUE_REGNUM);
 
-  return 0;
+//  return 0;
 }
 
 rtx

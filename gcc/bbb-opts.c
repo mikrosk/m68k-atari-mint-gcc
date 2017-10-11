@@ -926,7 +926,7 @@ insn_info::scan ()
 	  rtx op, reg;
 
 	  if (GET_CODE (op = XEXP (link, 0)) == USE && REG_P(reg = XEXP (op, 0)))
-	    for (unsigned r = REGNO(reg); r <= END_REGNO (reg); ++r)
+	    for (unsigned r = REGNO(reg); r < END_REGNO (reg); ++r)
 	      mark_myuse (r);
 	}
       /* mark scratch registers. */

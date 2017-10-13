@@ -418,6 +418,8 @@ float __truncdfsf2 (double);
 long __fixdfsi (double);
 long __fixsfsi (float);
 
+#if !defined(EXTFLOATCMP)
+
 int
 __unordxf2(long double a, long double b)
 {
@@ -465,38 +467,6 @@ __extenddfxf2 (double d)
 
   /*printf ("dfxf out: %s\n", dumpxf (ldl.ld));*/
   return ldl.ld;
-}
-
-/* convert long double to double */
-double
-__truncxfdf2 (long double ld)
-{
-  register long exp;
-  register union double_long dl;
-  register union long_double_long ldl;
-
-  ldl.ld = ld;
-  /*printf ("xfdf in: %s\n", dumpxf (ld));*/
-
-  dl.l.upper = SIGNX (ldl);
-  if ((ldl.l.upper & ~SIGNBIT) == 0 && !ldl.l.middle && !ldl.l.lower)
-    {
-      dl.l.lower = 0;
-      return dl.d;
-    }
-
-  exp = EXPX (ldl) - EXCESSX + EXCESSD;
-  /* ??? quick and dirty: keep `exp' sane */
-  if (exp >= EXPDMASK)
-    exp = EXPDMASK - 1;
-  dl.l.upper |= exp << (32 - (EXPDBITS + 1));
-  /* +1-1: add one for sign bit, but take one off for explicit-integer-bit */
-  dl.l.upper |= (ldl.l.middle & MANTXMASK) >> (EXPDBITS + 1 - 1);
-  dl.l.lower = (ldl.l.middle & MANTXMASK) << (32 - (EXPDBITS + 1 - 1));
-  dl.l.lower |= ldl.l.lower >> (EXPDBITS + 1 - 1);
-
-  /*printf ("xfdf out: %g\n", dl.d);*/
-  return dl.d;
 }
 
 /* convert a float to a long double */
@@ -571,6 +541,8 @@ __negxf2 (long double x1)
   return - (double) x1;
 }
 
+#else
+
 long
 __cmpxf2 (long double x1, long double x2)
 {
@@ -612,6 +584,39 @@ __gexf2 (long double x1, long double x2)
 {
   return __cmpdf2 ((double) x1, (double) x2);
 }
+
+/* convert long double to double */
+double
+__truncxfdf2 (long double ld)
+{
+  register long exp;
+  register union double_long dl;
+  register union long_double_long ldl;
+
+  ldl.ld = ld;
+  /*printf ("xfdf in: %s\n", dumpxf (ld));*/
+
+  dl.l.upper = SIGNX (ldl);
+  if ((ldl.l.upper & ~SIGNBIT) == 0 && !ldl.l.middle && !ldl.l.lower)
+    {
+      dl.l.lower = 0;
+      return dl.d;
+    }
+
+  exp = EXPX (ldl) - EXCESSX + EXCESSD;
+  /* ??? quick and dirty: keep `exp' sane */
+  if (exp >= EXPDMASK)
+    exp = EXPDMASK - 1;
+  dl.l.upper |= exp << (32 - (EXPDBITS + 1));
+  /* +1-1: add one for sign bit, but take one off for explicit-integer-bit */
+  dl.l.upper |= (ldl.l.middle & MANTXMASK) >> (EXPDBITS + 1 - 1);
+  dl.l.lower = (ldl.l.middle & MANTXMASK) << (32 - (EXPDBITS + 1 - 1));
+  dl.l.lower |= ldl.l.lower >> (EXPDBITS + 1 - 1);
+
+  /*printf ("xfdf out: %g\n", dl.d);*/
+  return dl.d;
+}
+#endif /* EXTFLOATCMP */
 
 #endif /* !__mcoldfire__ */
 #endif /* EXTFLOAT */

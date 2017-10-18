@@ -3755,11 +3755,16 @@ opt_elim_dead_assign (unsigned blocked_regno)
 	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];
 	  rtx cached_value2 = 0;
 	  if (cached_value && REG_P(cached_value) && REGNO(cached_value) < FIRST_PSEUDO_REGISTER)
-	    cached_value2 = ii.get_track_var ()->get_values ()[REGNO(cached_value)];
+	    {
+	      cached_value2 = ii.get_track_var ()->get_values ()[REGNO(cached_value)];
+	      if (!cached_value2) // no value for the reg -> reg is invalid too
+		cached_value = 0;
+	    }
 	  if (cached_value
 	      && (rtx_equal_p (cached_value, SET_SRC(set))
 		  || (cached_value2 && rtx_equal_p (cached_value2, SET_SRC(set)))))
 	    {
+//	      fprintf(stderr, "cached_value: "); debug_rtx(cached_value);
 	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
 	      ++change_count;

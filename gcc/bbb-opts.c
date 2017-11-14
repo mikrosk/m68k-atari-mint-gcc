@@ -2993,12 +2993,17 @@ opt_merge_add (void)
 static unsigned
 track_sp ()
 {
-// reset visited flags
+// reset visited flags - also check if sp is used as REG src.
   for (unsigned index = 0; index < infos.size (); ++index)
     {
       insn_info & ii = infos[index];
       ii.clear_visited ();
       ii.set_sp_offset (0);
+
+      // if sp is used as source, we cannot shrink the stack yet
+      // too complicated
+      if (ii.get_src_regno() == STACK_POINTER_REGNUM)
+	return -1;
     }
 
 // add entry point

@@ -2996,12 +2996,17 @@ opt_merge_add (void)
 static unsigned
 track_sp ()
 {
-// reset visited flags
+// reset visited flags - also check if sp is used as REG src.
   for (unsigned index = 0; index < infos.size (); ++index)
     {
       insn_info & ii = infos[index];
       ii.clear_visited ();
       ii.set_sp_offset (0);
+
+      // if sp is used as source, we cannot shrink the stack yet
+      // too complicated
+      if (ii.get_src_regno() == STACK_POINTER_REGNUM)
+	return -1;
     }
 
 // add entry point
@@ -4198,7 +4203,7 @@ opt_autoinc ()
 
       rtx reg = 0;
       if (ii.is_src_mem () && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
-	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ())
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
 
       if (!reg && ii.is_dst_mem () && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
@@ -4275,16 +4280,16 @@ namespace
     if (be_very_verbose)
       be_verbose = true;
 
-    bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
     bool do_commute_add_move = strchr (string_bbb_opts, 'a') || strchr (string_bbb_opts, '+');
-    bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
-    bool do_const_cmp_to_sub = strchr (string_bbb_opts, 'c') || strchr (string_bbb_opts, '+');
-    bool do_merge_add = strchr (string_bbb_opts, 'm') || strchr (string_bbb_opts, '+');
-    bool do_elim_dead_assign = strchr (string_bbb_opts, 'e') || strchr (string_bbb_opts, '+');
-    bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
-    bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
     bool do_absolute = strchr (string_bbb_opts, 'b') || strchr (string_bbb_opts, '+');
+    bool do_const_cmp_to_sub = strchr (string_bbb_opts, 'c') || strchr (string_bbb_opts, '+');
+    bool do_elim_dead_assign = strchr (string_bbb_opts, 'e') || strchr (string_bbb_opts, '+');
+    bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
+    bool do_merge_add = strchr (string_bbb_opts, 'm') || strchr (string_bbb_opts, '+');
+    bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
+    bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
+    bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
 
     if (be_very_verbose)
       log ("ENTER\n");

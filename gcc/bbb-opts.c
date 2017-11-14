@@ -118,69 +118,72 @@ enum proepis
 
 class track_var
 {
+  unsigned * indexes;
   rtx * values;
   unsigned * versions;
 
 public:
   track_var (track_var const * o = 0) :
-      values ((rtx *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(rtx))), versions (
+      indexes ((unsigned *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(unsigned))), values (
+	  (rtx *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(rtx))), versions (
 	  (unsigned *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(unsigned)))
   {
     if (o)
       assign (o);
   }
 
-  rtx *
-  get_values () const
+  void
+  set (unsigned regno, unsigned index, rtx rtx, unsigned ver)
   {
-    return values;
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return;
+
+    indexes[regno] = index;
+    values[regno] = rtx;
+    versions[regno] = ver;
   }
 
-  void
-  set_version (unsigned regno, unsigned ver)
-  {
-    if (regno < FIRST_PSEUDO_REGISTER)
-      versions[regno] = ver;
+  unsigned get_index(unsigned regno) const {
+    return indexes[regno];
+  }
+
+  rtx get_value(unsigned regno) const {
+    return values[regno];
+  }
+
+  unsigned get_version(unsigned regno) const {
+    return versions[regno];
   }
 
   void
   assign (track_var const * o) const
   {
+    memcpy (indexes, o->indexes, FIRST_PSEUDO_REGISTER * sizeof(unsigned));
     memcpy (values, o->values, FIRST_PSEUDO_REGISTER * sizeof(rtx));
     memcpy (versions, o->versions, FIRST_PSEUDO_REGISTER * sizeof(unsigned));
   }
 
   /* only keep common values in both sides. */
   void
-  merge (track_var * o)
+  merge (track_var * o, unsigned at)
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (values[i] && o->values[i] && rtx_equal_p (values[i], o->values[i]))
-	  {
-	    int code = GET_CODE(values[i]);
-	    if (code != CONST_INT && code != CONST_FIXED && code != CONST_DOUBLE && versions[i] != o->versions[i])
-	      values[i] = o->values[i] = 0;
-	  }
-	else
+	indexes[i] = at;
+	if (versions[i] != o->versions[0] || !values[i] || !o->values[i] || !rtx_equal_p (values[i], o->values[i]))
 	  values[i] = o->values[i] = 0;
       }
   }
 
   /* true if a merge would not change anything.  */
   bool
-  contains (track_var const * o) const
+  no_merge_needed (track_var const * o) const
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (values[i] && o->values[i] && rtx_equal_p (values[i], o->values[i]))
-	  {
-	    int code = GET_CODE(values[i]);
-	    if (code != CONST_INT && code != CONST_FIXED && code != CONST_DOUBLE && versions[i] != o->versions[i])
-	      return false;
-	  }
-	else if (values[i])
-	  return false;
+	if (versions[i] != o->versions[0] || !values[i] || !o->values[i] || !rtx_equal_p (values[i], o->values[i]))
+	  if (values[i])
+	    return false;
       }
     return true;
   }
@@ -826,8 +829,8 @@ public:
 bool
 insn_info::make_post_inc (int regno)
 {
-  rtx pattern = PATTERN(insn);
-  rtx_insn * new_insn = make_insn_raw(pattern);
+  rtx pattern = PATTERN (insn);
+  rtx_insn * new_insn = make_insn_raw (pattern);
 
   // convert into POST_INC
   rtx set0 = single_set (new_insn);
@@ -852,8 +855,8 @@ insn_info::make_post_inc (int regno)
 
   SET_INSN_DELETED(insn);
   (get_dst_mem_regno () == regno ? dst_autoinc : src_autoinc) = GET_MODE_SIZE(mode);
-  insn = emit_insn_after (PATTERN(new_insn), insn);
-  insn_invalid_p(insn, 0);
+  insn = emit_insn_after (PATTERN (new_insn), insn);
+  insn_invalid_p (insn, 0);
 
   return 1;
 }
@@ -1018,7 +1021,7 @@ insn_info::scan_rtx (rtx x)
 	  if ((GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG))
 	    use |= u;
 	  else
-	  use = u;
+	    use = u;
 	  myuse = mu;
 	}
       scan_rtx (SET_SRC(x));
@@ -1053,8 +1056,8 @@ insn_info::scan_rtx (rtx x)
 	  }
     }
 
-  if (code == CLOBBER)
-    def |= use;
+  if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
+    def |= myuse;
 }
 
 void
@@ -2617,11 +2620,12 @@ opt_strcpy ()
 			  log ("(s) opt_strcpy condition met, removing compare and joining insns - omit reg %s\n",
 			  reg_names[REGNO(dst)]);
 
-			  emit_insn_after (newinsn, reg2x);
-
 			  SET_INSN_DELETED(x2reg);
 			  SET_INSN_DELETED(reg2x);
 			  SET_INSN_DELETED(insn);
+
+			  insn = emit_insn_after (pattern, reg2x);
+			  insn_invalid_p (insn, 0);
 
 			  ++change_count;
 			}
@@ -3600,7 +3604,55 @@ opt_shrink_stack_frame (void)
   return changed;
 }
 
-/* Update the insn_infos to 'know' the value for each register. */
+/* Update the insn_infos to 'know' the value for each register.
+ *
+ * atm only assignments to registers are optimized.
+ *
+ * We track register aliases:
+ *
+ * ;10
+ *    move.l 4(a0),d0
+ *
+ * ;15
+ *    move.l d0,d1
+ *
+ *
+ * ;18
+ *    move.l d1,d2
+ *
+ *  - results into d0 is an alias for d1 (and vice versa).
+ *  - to identify if a register is still changed, we also track the line where it was assigned.
+ *  - in addition to register aliases memory reads are tracked too for normal memory access (e.g. no auto inc)
+ *    but not if the memory read is marked as volatile
+ *
+ * E.g.
+ *
+ * d0[10]: 4(a0)[10]
+ * d1[15]: d0[10]
+ * d2[18]: d1[15]
+ *
+ * with that information we know that d2[18] also contains 4(a0)[10]
+ *
+ * info to track per register:
+ *   line index where the value was assigned
+ *   rtx which was assigned - or null if not a usable rtx
+ *   reg line index - if rtx is a register
+ *
+ * for each assignment which is not to a register the rtx are scanned and set to null on match
+ *
+ * on jumps the current state is duplicated and merged at the given label
+ *
+ * on merge only identical info is kept, rest is discarded
+ *
+ * for each insn first the track info for all defined regs is discarded before the new one is set.
+ *
+ *
+ * after the track info is complete, each insn is evaluated agains the track info.
+ *
+ * now redundant loads are found and eliminated
+ * also unused assignments are found an eliminated
+ *
+ */
 static unsigned
 track_regs ()
 {
@@ -3624,47 +3676,21 @@ track_regs ()
       track_var * const track = todo.begin ()->second;
       todo.erase (todo.begin ());
 
-      rtx * values = track->get_values ();
-      // track register aliases: know which register is used in what slot
-      // if a register changes, invalidate each slot
-      std::multimap<unsigned, unsigned> reg2slot;
-      for (unsigned slot = 0; slot < FIRST_PSEUDO_REGISTER; ++slot)
-	if (values[slot])
-	  {
-	    insn_info vv;
-	    vv.scan_rtx (values[slot]);
-	    for (unsigned regno = 0, m = vv.get_myuse (); m; ++regno, m >>= 1)
-	      if (m & 1)
-		reg2slot.insert (std::make_pair (regno, slot));
-	  }
-
-      unsigned version = startpos;
 
       for (unsigned index = startpos; index < infos.size (); ++index)
 	{
 	  insn_info & ii = infos[index];
 
 	  // already visited?
-	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->contains (track))
+	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->no_merge_needed(track))
 	    break;
 
 	  // only keep common values at labels
 	  if (ii.is_label ())
 	    {
-	      version = index;
 	      if (ii.is_visited ())
 		{
-		  ii.get_track_var ()->merge (track);
-		  reg2slot.clear ();
-		  for (unsigned slot = 0; slot < FIRST_PSEUDO_REGISTER; ++slot)
-		    if (values[slot])
-		      {
-			insn_info vv;
-			vv.scan_rtx (values[slot]);
-			for (unsigned regno = 0, m = vv.get_myuse (); m; ++regno, m >>= 1)
-			  if (m & 1)
-			    reg2slot.insert (std::make_pair (regno, slot));
-		      }
+		  ii.get_track_var ()->merge (track, index);
 		}
 	      else
 		{
@@ -3678,25 +3704,23 @@ track_regs ()
 	  ii.mark_visited ();
 	  ii.get_track_var ()->assign (track);
 
-	  if (ii.is_compare ())
-	    continue;
-
+	  int dregno = ii.get_dst_regno ();
 	  unsigned def = ii.get_def ();
 	  if (def)
 	    {
-	      for (int regno = 0; regno < 16; ++regno)
-		if ((1 << regno) & def)
-		  {
-		    values[regno] = 0;
-		    // invalidate all referring registers
-		    for (std::multimap<unsigned, unsigned>::iterator j = reg2slot.find (regno), k = j;
-			j != reg2slot.end () && j->first == k->first;)
-		      {
-			values[j->second] = 0;
-			j = reg2slot.erase (j);
-		      }
-		  }
+	      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
+		{
+		  // register changed or used somehow
+		  if ( ((1 << regno) & def) || (infos[track->get_index(regno)].get_myuse() & def))
+		    track->set(regno, index, 0, index);
+		}
+	      // clear on self update
+	      if (def & ii.get_myuse())
+		track->set(dregno, index, 0, index);
 	    }
+
+	  if (ii.is_compare ())
+	    continue;
 
 	  if (ii.is_call ())
 	    continue;
@@ -3713,90 +3737,41 @@ track_regs ()
 		todo.insert (std::make_pair (i->second, new track_var (track)));
 
 	      if (set && GET_CODE(SET_SRC(set)) == IF_THEN_ELSE)
-		{
-		  version = index;
 		  continue;
-		}
 
 	      // unconditional jump
 	      break;
 	    }
 
-	  if (!set)
+	  if (!set || !ii.get_def ())
 	    continue;
 
-	  rtx src, dest;
-	  if (ii.get_src_autoinc ())
-	    {
-	      int regno = ii.get_src_mem_regno ();
-	      values[regno] = 0;
-	      for (std::multimap<unsigned, unsigned>::iterator j = reg2slot.find (regno), k = j;
-		  j != reg2slot.end () && j->first == k->first;)
-		{
-		  values[j->second] = 0;
-		  j = reg2slot.erase (j);
-		}
-	    }
+	  if (dregno < 0)
+	    continue;
 
+	  // operation, autoinf or more than one register used: can't cache
 	  if (ii.get_src_op () || ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
-	    src = 0;
+	    continue;
+
+	  rtx src = SET_SRC(set);
+	  if (ii.is_src_mem () && src->volatil)
+	    continue;
+
+	  // add the entry - determine the version - use 0 for const values
+	  unsigned version;
+	  if (GET_CODE(src) != CONST_INT && GET_CODE(src) != CONST_FIXED && GET_CODE(src) != CONST_DOUBLE)
+	    {
+	      if (ii.get_src_regno() >= 0)
+		version = track->get_index(ii.get_src_regno());
+	      else if (ii.get_src_mem_regno() >= 0)
+		version = track->get_index(ii.get_src_mem_regno());
+	      else
+		version = index;
+	    }
 	  else
-	    {
-	      src = SET_SRC(set);
-	      if (ii.is_src_mem () && src->volatil)
-		src = 0;
-	    }
+	    version = 0;
 
-	  if (ii.get_dst_autoinc ())
-	    {
-	      int regno = ii.get_dst_mem_regno ();
-	      values[regno] = 0;
-	      for (std::multimap<unsigned, unsigned>::iterator j = reg2slot.find (regno), k = j;
-		  j != reg2slot.end () && j->first == k->first;)
-		{
-		  values[j->second] = 0;
-		  j = reg2slot.erase (j);
-		}
-	    }
-
-	  if (src == 0 || ii.get_src_op () || ii.get_dst_autoinc ())
-	    dest = 0;
-	  else
-	    dest = SET_DEST(set);
-
-	  // track register values for now
-	  int dregno = ii.get_dst_regno ();
-	  int sregno = ii.get_src_regno ();
-
-	  // track reg2slot
-	  if (dregno >= 0)
-	    {
-	      for (unsigned regno = 0, m = ii.get_myuse (); m; ++regno, m >>= 1)
-		if (m & 1)
-		  reg2slot.insert (std::make_pair (regno, dregno));
-
-	      if (sregno >= 0)
-		{
-		  reg2slot.insert (std::make_pair (dregno, sregno));
-		  reg2slot.insert (std::make_pair (sregno, dregno));
-		}
-	    }
-
-	  if (sregno >= 0)
-	    {
-	      values[sregno] = dest;
-	      track->set_version (sregno, version);
-	      for (unsigned i = sregno + 1; i < END_REGNO (ii.get_src_reg ()); ++i)
-		values[i] = 0;
-	    }
-
-	  if (dregno >= 0)
-	    {
-	      values[dregno] = src;
-	      track->set_version (dregno, version);
-	      for (unsigned i = dregno + 1; i < END_REGNO (ii.get_dst_reg ()); ++i)
-		values[i] = 0;
-	    }
+	  track->set(dregno, index, src, version);
 	}
       delete track;
     }
@@ -3824,33 +3799,30 @@ opt_elim_dead_assign (int blocked_regno)
       if (!set)
 	continue;
 
-      if (ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
+      if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
 	{
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	  SET_INSN_DELETED(insn);
 	  ++change_count;
 	  continue;
 	}
+
+      // check for redundant load
       if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
 	  && !ii.is_use (ii.get_dst_regno ()))
 	{
-	  rtx cached_value = ii.get_track_var ()->get_values ()[ii.get_dst_regno ()];
-	  rtx cached_value2 = 0;
-	  if (cached_value && REG_P(cached_value) && REGNO(cached_value) < FIRST_PSEUDO_REGISTER)
+	  track_var * track = ii.get_track_var();
+	  rtx src = SET_SRC(set);
+	  if (rtx_equal_p(track->get_value(ii.get_dst_regno()), src))
 	    {
-	      cached_value2 = ii.get_track_var ()->get_values ()[REGNO(cached_value)];
-	      if (!cached_value2) // no value for the reg -> reg is invalid too
-		cached_value = 0;
-	    }
-	  if (cached_value
-	      && (rtx_equal_p (cached_value, SET_SRC(set))
-		  || (cached_value2 && rtx_equal_p (cached_value2, SET_SRC(set)))))
-	    {
-//	      fprintf(stderr, "cached_value: "); debug_rtx(cached_value);
-	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      SET_INSN_DELETED(insn);
-	      ++change_count;
-	      continue;
+	      if ((REG_P(src) && track->get_version(ii.get_dst_regno()) == track->get_index(REGNO(src)))
+		  || !REG_P(src))
+		{
+		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  SET_INSN_DELETED(insn);
+		  ++change_count;
+		  continue;
+		}
 	    }
 	}
     }

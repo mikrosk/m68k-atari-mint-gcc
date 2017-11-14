@@ -45,4 +45,19 @@ Specify startup binary
 
 fbbb=
 Target RejectNegative Report Var(string_bbb_opts) Joined
--fbbb=\t\tEnable Bebbo's optimizations. Default: -fbbb=+\n  valid letters:\n\t\t+\t\tenable all\n\t\t-\t\tdisable all\n\t\ta\t\tadd move optimization\n\t\tc\t\tcompare to sub\n\t\te\t\teliminate dead assignments\n\t\tf\t\tshrink stack frame\n\t\tm\t\tmerge add statements\n\t\tp\t\tpropagate move pairs from loops\n\t\tr\t\tadditional reg rename pass\n\t\tv\t\tbe verbose\n\t\tx or X\t\tdump insns 
+-fbbb=Enable Bebbo's optimizations.               \
++    enable all optimizations                     \
+a    commute add move instructions                \
+b    use register for base addresses              \
+c    convert load const and compare into a sub    \
+e    eliminate dead assignments + redundant loads \
+f    shrink stack frame                           \
+i    use post increment on addresses              \
+m    merge add and move statements                \
+p    propagate move assignment pairs out of loops \
+r    register renaming to maybe save registers    \
+s    a strcpy optimization                        \
+v    be verbose                                   \
+V    be very verbose                              \
+x    dump insns                                   \                                     
+Default: -fbbb=+

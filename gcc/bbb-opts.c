@@ -1056,8 +1056,8 @@ insn_info::scan_rtx (rtx x)
 	  }
     }
 
-  if (code == CLOBBER)
-    def |= use;
+  if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
+    def |= myuse;
 }
 
 void
@@ -3704,9 +3704,6 @@ track_regs ()
 	  ii.mark_visited ();
 	  ii.get_track_var ()->assign (track);
 
-	  if (ii.is_compare ())
-	    continue;
-
 	  int dregno = ii.get_dst_regno ();
 	  unsigned def = ii.get_def ();
 	  if (def)
@@ -3721,6 +3718,9 @@ track_regs ()
 	      if (def & ii.get_myuse())
 		track->set(dregno, index, 0, index);
 	    }
+
+	  if (ii.is_compare ())
+	    continue;
 
 	  if (ii.is_call ())
 	    continue;
@@ -3799,7 +3799,7 @@ opt_elim_dead_assign (int blocked_regno)
       if (!set)
 	continue;
 
-      if (ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
+      if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
 	{
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	  SET_INSN_DELETED(insn);

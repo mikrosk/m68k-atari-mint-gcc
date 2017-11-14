@@ -3706,14 +3706,19 @@ track_regs ()
 	  if (ii.is_compare ())
 	    continue;
 
+	  int dregno = ii.get_dst_regno ();
 	  unsigned def = ii.get_def ();
 	  if (def)
 	    {
-	      for (int regno = 0; regno < 24; ++regno)
+	      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
 		{
-		  if ((1 << regno) & def)
+		  // register changed or used somehow
+		  if ( ((1 << regno) & def) || (infos[track->get_index(regno)].get_myuse() & def))
 		    track->set(regno, index, 0, index);
 		}
+	      // clear on self update
+	      if (def & ii.get_myuse())
+		track->set(dregno, index, 0, index);
 	    }
 
 	  if (ii.is_call ())
@@ -3740,18 +3745,6 @@ track_regs ()
 	  if (!set || !ii.get_def ())
 	    continue;
 
-	  // invalidate all which are using the value from dest since that value changed
-	  rtx dst = SET_DEST(set);
-	  if (MEM_P(dst))
-	    {
-	      for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-		{
-		  if (rtx_equal_p(dst, track->get_value(i)))
-		    track->set(i, index, 0, index);
-		}
-	    }
-
-	  int dregno = ii.get_dst_regno ();
 	  if (dregno < 0)
 	    continue;
 

@@ -2620,11 +2620,12 @@ opt_strcpy ()
 			  log ("(s) opt_strcpy condition met, removing compare and joining insns - omit reg %s\n",
 			  reg_names[REGNO(dst)]);
 
-			  emit_insn_after (newinsn, reg2x);
-
 			  SET_INSN_DELETED(x2reg);
 			  SET_INSN_DELETED(reg2x);
 			  SET_INSN_DELETED(insn);
+
+			  insn = emit_insn_after (pattern, reg2x);
+			  insn_invalid_p (insn, 0);
 
 			  ++change_count;
 			}

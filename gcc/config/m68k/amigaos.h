@@ -456,16 +456,6 @@ while (0)
 bool
 amigaos_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 
-/* SBF: macro to test for const via pic_reg. */
-#define CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x) \
-     (GET_CODE(x) == CONST \
-    && GET_CODE(XEXP(x, 0)) == PLUS \
-    && REG_P(XEXP(XEXP(x, 0), 0)) \
-    && REGNO(XEXP(XEXP(x, 0), 0)) == PIC_REG \
-    && GET_CODE(XEXP(XEXP(x, 0), 1)) == CONST \
-    && GET_CODE(XEXP(XEXP(XEXP(x, 0), 1), 0)) == UNSPEC \
-    )
-
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX amigaos_struct_value_rtx
 rtx

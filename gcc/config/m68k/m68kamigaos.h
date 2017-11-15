@@ -755,3 +755,13 @@ extern int amiga_is_const_pic_ref(const_rtx x);
 
 extern int
 amigaos_function_arg_reg(unsigned regno);
+
+/* SBF: macro to test for const via pic_reg. */
+#define CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x) \
+     (GET_CODE(x) == CONST \
+    && GET_CODE(XEXP(x, 0)) == PLUS \
+    && REG_P(XEXP(XEXP(x, 0), 0)) \
+    && REGNO(XEXP(XEXP(x, 0), 0)) == PIC_REG \
+    && GET_CODE(XEXP(XEXP(x, 0), 1)) == CONST \
+    && GET_CODE(XEXP(XEXP(XEXP(x, 0), 1), 0)) == UNSPEC \
+    )

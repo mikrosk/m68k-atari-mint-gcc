@@ -913,23 +913,41 @@ insn_info::auto_inc_fixup (int regno, int size)
       else
 	XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
     }
-  else
+  else if (get_src_mem_regno () == regno)
     {
-      rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
-      // goto mem if there is an op
-      if (get_src_mem_regno () == regno && src_op)
-	mem = XEXP(mem, 1);
-
+      // src mem used ?
+      rtx mem = SET_SRC(set);
+      if (src_op)
+	{
+	  if (MEM_P(XEXP(mem, 0)))
+	    mem = XEXP(mem, 0);
+	  else
+	    mem = XEXP(mem, 1);
+	}
       rtx plus = XEXP(mem, 0);
-      if ((get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) == (unsigned) size)
+
+      if (src_mem_addr == (unsigned) size)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
-	  (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) = 0;
-	  (get_dst_mem_regno () == regno ? dst_plus : src_plus) = false;
+	  src_mem_addr = 0;
+	  src_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)),
-					   (get_dst_mem_regno () == regno ? dst_mem_addr : src_mem_addr) -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), src_mem_addr -= size);
+    }
+
+  if (get_dst_mem_regno () == regno)
+    {
+      rtx mem = SET_DEST(set);
+      rtx plus = XEXP(mem, 0);
+      if (dst_mem_addr == (unsigned) size)
+	{
+	  XEXP(mem, 0) = XEXP(plus, 0);
+	  dst_mem_addr  = 0;
+	  dst_plus = false;
+	}
+      else
+	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), dst_mem_addr -= size);
     }
 
   rtx pattern = add_clobbers (insn);
@@ -4019,7 +4037,7 @@ opt_absolute (void)
 static int
 try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 {
-  int regno = REGNO(reg);
+  int const regno = REGNO(reg);
   unsigned size = GET_MODE_SIZE(ii.get_mode ());
   if (size > 4)
     return 0;
@@ -4034,18 +4052,14 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
   todo.push_back (index + 1);
 
   bool match_size = false;
-  bool ok = true;
   std::set<unsigned> visited;
-  while (ok && todo.size () > 0)
+  while (todo.size () > 0)
     {
       unsigned pos = todo[todo.size () - 1];
       todo.pop_back ();
 
       if (pos == index)
-	{
-	  ok = false;
-	  break;
-	}
+	return 0;
 
       if (visited.find (pos) != visited.end ())
 	continue;
@@ -4063,13 +4077,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 		{
 		  insn_info * ll = insn2info.find (j->second)->second;
 		  if (ll->is_use (regno))
-		    {
-		      ok = false;
-		      break;
-		    }
+		    return 0;
 		}
-	      if (ok)
-		continue;
 	      break;
 	    }
 
@@ -4078,10 +4087,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	    break;
 
 	  if (jj.in_proepi ())
-	    {
-	      ok = false;
-	      break;
-	    }
+	    return 0;
 
 	  // add all labels
 	  if (jj.is_jump ())
@@ -4097,43 +4103,36 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 
 	  // can't fixup such kind of insn (yet)
 	  if (single_set (jj.get_insn ()) == 0)
-	    {
-	      ok = false;
-	      break;
-	    }
+	    return 0;
+
 
 	  // if reg is src reg, op must be add and addend must be large enough
-	  if (jj.get_src_regno () == regno || jj.get_src_mem_regno () == regno)
+	  bool fix = false;
+	  if (jj.get_src_mem_regno () == regno)
 	    {
-	      if (jj.get_src_mem_addr () < size || (jj.get_dst_mem_regno () == regno && jj.get_dst_mem_addr () < size))
-		{
-		  ok = false;
-		  break;
-		}
+	      if (jj.get_src_mem_addr () < size)
+		return 0;
 
 	      if (jj.get_src_mem_addr () == size)
 		match_size = true;
 
-	      fixups.insert (pos);
+	      fix = true;
 	    }
-	  else if (jj.get_dst_mem_regno () == regno)
+	  if (jj.get_dst_mem_regno () == regno)
 	    {
 	      if (jj.get_dst_mem_addr () < size)
-		{
-		  ok = false;
-		  break;
-		}
+		return 0;
 
 	      if (jj.get_dst_mem_addr () == size)
 		match_size = true;
 
-	      fixups.insert (pos);
+	      fix = true;
 	    }
-	  else
-	    {
-	      ok = false;
-	      break;
-	    }
+
+	  if (!fix)
+	    return 0;
+
+	  fixups.insert (pos);
 
 	  // done if this is an add
 	  if (ii.is_def (regno))
@@ -4141,8 +4140,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	}
     }
 
-  if (!ok || !match_size || !fixups.size ())
-    return 0;;
+  if (!match_size || !fixups.size ())
+    return 0;
 
   if (!ii.make_post_inc (regno))
     return 0;

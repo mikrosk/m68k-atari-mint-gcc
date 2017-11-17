@@ -144,14 +144,20 @@ public:
   }
 
   unsigned get_index(unsigned regno) const {
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return 0;
     return indexes[regno];
   }
 
   rtx get_value(unsigned regno) const {
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return 0;
     return values[regno];
   }
 
   unsigned get_version(unsigned regno) const {
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return 0;
     return versions[regno];
   }
 
@@ -169,8 +175,7 @@ public:
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	indexes[i] = at;
-	if (versions[i] != o->versions[0] || !values[i] || !o->values[i] || !rtx_equal_p (values[i], o->values[i]))
+	if (versions[i] != o->versions[0] || !rtx_equal_p (values[i], o->values[i]))
 	  values[i] = o->values[i] = 0;
       }
   }
@@ -181,7 +186,7 @@ public:
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (versions[i] != o->versions[0] || !values[i] || !o->values[i] || !rtx_equal_p (values[i], o->values[i]))
+	if (versions[i] != o->versions[0] || !rtx_equal_p (values[i], o->values[i]))
 	  if (values[i])
 	    return false;
       }
@@ -3723,13 +3728,13 @@ track_regs ()
 	  ii.get_track_var ()->assign (track);
 
 	  int dregno = ii.get_dst_regno ();
-	  unsigned def = ii.get_def ();
+	  unsigned def = ii.get_def () & 0xffffff;
 	  if (def)
 	    {
 	      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
 		{
 		  // register changed or used somehow
-		  if ( ((1 << regno) & def) || (infos[track->get_index(regno)].get_myuse() & def))
+		  if ( ((1 << regno) & def) || (track->get_index(regno) && (infos[track->get_index(regno)].get_myuse() & def)))
 		    track->set(regno, index, 0, index);
 		}
 	      // clear on self update
@@ -3827,14 +3832,32 @@ opt_elim_dead_assign (int blocked_regno)
 
       // check for redundant load
       if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
-	  && !ii.is_use (ii.get_dst_regno ()))
+	  && !ii.is_myuse (ii.get_dst_regno ()))
 	{
 	  track_var * track = ii.get_track_var();
+
+//	  if (ii.get_src_regno() == 8 && ii.get_dst_regno() == 7)
+//	    printf("%d: move %d,%d: v=%d (%d->%d), i=%d (%d->%d)\n", index, ii.get_src_regno(), ii.get_dst_regno(),
+//		   track->get_version(ii.get_src_regno()), infos[track->get_version(ii.get_src_regno())].get_src_regno(), infos[track->get_version(ii.get_src_regno())].get_dst_regno(),
+//		   track->get_index(ii.get_dst_regno()), infos[track->get_index(ii.get_dst_regno())].get_src_regno(), infos[track->get_index(ii.get_dst_regno())].get_dst_regno());
+
 	  rtx src = SET_SRC(set);
 	  if (rtx_equal_p(track->get_value(ii.get_dst_regno()), src))
 	    {
-	      if ((REG_P(src) && track->get_version(ii.get_dst_regno()) == track->get_index(REGNO(src)))
+	      if ((REG_P(src) && track->get_version(ii.get_dst_regno()) == track->get_index(ii.get_src_regno()))
 		  || !REG_P(src))
+		{
+		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  SET_INSN_DELETED(insn);
+		  ++change_count;
+		  continue;
+		}
+	    }
+	  // check reverse assignment
+	  if (REG_P(src))
+	    {
+	      if (REG_P(src) && rtx_equal_p(track->get_value(ii.get_src_regno()), SET_DEST(set))
+		  && track->get_version(ii.get_src_regno()) == track->get_index(ii.get_dst_regno()))
 		{
 		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 		  SET_INSN_DELETED(insn);
@@ -4308,10 +4331,10 @@ namespace
 	    if (do_merge_add && opt_merge_add ())
 	      done = 0;
 
-	    if (do_absolute && opt_absolute ())
+	    if (do_elim_dead_assign && opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      done = 0, update_insns ();
 
-	    if (do_elim_dead_assign && opt_elim_dead_assign (STACK_POINTER_REGNUM))
+	    if (do_absolute && opt_absolute ())
 	      done = 0, update_insns ();
 
 	    if (do_autoinc && opt_autoinc ())

@@ -4441,7 +4441,32 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 	attributes = tree_cons (get_identifier ("omp declare target"),
 				NULL_TREE, attributes);
     }
-  return decl_attributes (node, attributes, flags);
+
+  tree returned_attrs = decl_attributes (node, attributes, flags);
+
+#ifdef TARGET_AMIGA
+  /* add an attribute to the function decl's type if there are asm register parameters. */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      char * synthetic = "";
+      for (tree params = TYPE_ARG_TYPES(TREE_TYPE(*node)); params; params = TREE_CHAIN(params))
+	{
+	  tree asmattr = lookup_attribute("asm", TYPE_ATTRIBUTES(TREE_VALUE(params)));
+	  if (asmattr)
+	    synthetic = concat(synthetic, reg_names[TREE_FIXED_CST_PTR(TREE_VALUE(asmattr))->data.low], 0);
+	}
+      if (strlen(synthetic) > 0)
+	{
+	  tree asmid = get_identifier("asmregs");
+	  tree syntheticid = get_identifier(synthetic);
+	  tree newattr = tree_cons(asmid, syntheticid, NULL_TREE);
+
+	  TYPE_ATTRIBUTES(TREE_TYPE(*node)) = chainon(newattr, TYPE_ATTRIBUTES(TREE_TYPE(*node)));
+	}
+    }
+#endif
+
+  return returned_attrs;
 }
 
 
@@ -5114,7 +5139,7 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
 	      TYPE_ATTRIBUTES(atype) = chainon (attrs, TYPE_ATTRIBUTES(atype));
 	    }
 	  TREE_TYPE(decl) = atype;
-//	  printf("%s using %s, cdecl=%p, type=%p\n", IDENTIFIER_POINTER(DECL_NAME (decl), asmspec, decl, atype);
+//	  printf("%s using %s, cdecl=%p, type=%p\n", IDENTIFIER_POINTER(DECL_NAME (decl)), asmspec, decl, atype);
 	}
     }
 #endif

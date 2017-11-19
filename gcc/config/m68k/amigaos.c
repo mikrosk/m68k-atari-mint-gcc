@@ -393,7 +393,7 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 
   if (fntype)
     {
-      tree attrs = decl ? DECL_ATTRIBUTES(decl) : NULL;
+      tree attrs = TYPE_ATTRIBUTES(fntype);
       if (attrs)
 	{
 	  if (lookup_attribute ("stkparm", attrs))
@@ -622,27 +622,57 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
    ways of passing arguments. */
   if (TREE_CODE(type1) == FUNCTION_TYPE || TREE_CODE(type1) == METHOD_TYPE)
     {
-      tree arg1, arg2;
-      arg1 = TYPE_ARG_TYPES(type1);
-      arg2 = TYPE_ARG_TYPES(type2);
-      for (; arg1 && arg2; arg1 = TREE_CHAIN(arg1), arg2 = TREE_CHAIN(arg2))
+      tree attrs1 = TYPE_ATTRIBUTES(type1);
+
+      tree asm1 = lookup_attribute("asmregs", attrs1);
+      tree stack1 = lookup_attribute("stkparm", attrs1);
+      tree reg1 = lookup_attribute("regparm", attrs1);
+
+      tree attrs2 = TYPE_ATTRIBUTES(type2);
+
+      tree asm2 = lookup_attribute("asmregs", attrs2);
+      tree stack2 = lookup_attribute("stkparm", attrs2);
+      tree reg2 = lookup_attribute("regparm", attrs2);
+
+      if (reg1)
 	{
-	  tree attr1 = TYPE_ATTRIBUTES(arg1);
-	  tree attr2 = TYPE_ATTRIBUTES(arg2);
-	  if (strcmp ("asm", IDENTIFIER_POINTER(TREE_PURPOSE(attr1))))
-	    attr1 = NULL_TREE;
-	  if (strcmp ("asm", IDENTIFIER_POINTER(TREE_PURPOSE(attr2))))
-	    attr2 = NULL_TREE;
-	  if (attr1 && attr2)
-	    {
-	      if (TREE_FIXED_CST_PTR(TREE_VALUE(attr1))->data.low != TREE_FIXED_CST_PTR(TREE_VALUE(attr2))->data.low)
-		return 0;
-	    }
-	  else if (attr1 || attr2)
-	    return 0; /* asm attribute only on one side. */
+	  if (stack2 || asm2)
+	    return 0;
+
+	  int no1 = TREE_INT_CST_LOW(TREE_VALUE(reg1));
+	  int no2 = reg2 ? TREE_INT_CST_LOW(TREE_VALUE(reg2)) : amigaos_regparm;
+	  return no1 == no2;
 	}
-      if (arg1 || arg2)
-	return 0; /* different count of parameters. */
+
+      if (reg2)
+	{
+	  if (stack1 || asm1)
+	    return 0;
+
+	  int no2 = TREE_INT_CST_LOW(TREE_VALUE(reg2));
+	  return amigaos_regparm == no2;
+	}
+
+      if (stack1) {
+	  if (stack2)
+	    return 1;
+	  return amigaos_regparm  == 0;
+      }
+
+      if (stack2)
+	  return amigaos_regparm  == 0;
+
+      if (asm1)
+	{
+	  if (!asm2)
+	    return 0;
+
+	  return 0 == strcmp(IDENTIFIER_POINTER(TREE_VALUE(asm1)), IDENTIFIER_POINTER(TREE_VALUE(asm2)));
+	}
+
+      if (asm2)
+	return 0;
+
     }
   return 1;
 }

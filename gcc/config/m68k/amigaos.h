@@ -444,10 +444,11 @@ while (0)
 /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
      affects_type_identity } */
 #define SUBTARGET_ATTRIBUTES                                            \
-  { "regparm", 1, 1, true,  false, false, amigaos_handle_type_attribute,\
-    false }, \
-  { "stkparm", 0, 0, true,  false, false, amigaos_handle_type_attribute,\
-    false },
+  { "asmregs", 0, 0, false,  false, false, 0, true }, \
+  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
+    true }, \
+  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute,\
+    true },
 
 #define GOT_SYMBOL_NAME ""
 

@@ -941,7 +941,7 @@ amigaos_legitimate_combined_insn (rtx_insn * insn)
     return true;
 
   x = XEXP(x, 0);
-  if (GET_CODE(x) != NOT)
+  if (GET_CODE(x) != NOT && GET_CODE(x) != NEG)
     return true;
 
   x = XEXP(x, 0);

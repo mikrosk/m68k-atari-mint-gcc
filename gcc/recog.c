@@ -3254,6 +3254,8 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
   for (int i = 0; i <= match_len; ++i)
     {
       rtx_insn * insn0 = peep2_insn_data[i].insn;
+      if (!PATTERN(insn0))
+	continue;
       rtx set0 = single_set(insn0);
       if (set0 && CONST_PLUS_PIC_REG_CONST_UNSPEC_P(SET_SRC(set0)) && MEM_P(SET_DEST(set0)))
 	return 0;

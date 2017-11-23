@@ -2276,18 +2276,14 @@ void dump_insns(char const * name)
   for (insn = get_insns(); insn; insn = next)
     {
       next = NEXT_INSN(insn);
-      debug_rtx(insn);
-#if 0
+#if 1
       if (NONJUMP_INSN_P (insn))
 	{
-	  rtx x, y, set= single_set (insn);
+	  rtx set= single_set (insn);
 	  if (!set)
 	    continue;
-	  x = y = SET_SRC(set);
 
-	  while (GET_CODE(y) == CONST || GET_CODE(y) == PLUS)
-	    y = XEXP(y, 0);
-	  if (x != y && REG_P(y) && REGNO(y) == PIC_REG)
+	  if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(SET_SRC(set)) && MEM_P(SET_DEST(set)))
 	    debug_rtx(insn);
 	}
 #endif

@@ -143,19 +143,25 @@ public:
     versions[regno] = ver;
   }
 
-  unsigned get_index(unsigned regno) const {
+  unsigned
+  get_index (unsigned regno) const
+  {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return 0;
     return indexes[regno];
   }
 
-  rtx get_value(unsigned regno) const {
+  rtx
+  get_value (unsigned regno) const
+  {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return 0;
     return values[regno];
   }
 
-  unsigned get_version(unsigned regno) const {
+  unsigned
+  get_version (unsigned regno) const
+  {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return 0;
     return versions[regno];
@@ -948,7 +954,7 @@ insn_info::auto_inc_fixup (int regno, int size)
       if (dst_mem_addr == (unsigned) size)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
-	  dst_mem_addr  = 0;
+	  dst_mem_addr = 0;
 	  dst_plus = false;
 	}
       else
@@ -3029,7 +3035,7 @@ track_sp ()
 
       // if sp is used as source, we cannot shrink the stack yet
       // too complicated
-      if (ii.get_src_regno() == STACK_POINTER_REGNUM)
+      if (ii.get_src_regno () == STACK_POINTER_REGNUM)
 	return -1;
     }
 
@@ -3699,13 +3705,12 @@ track_regs ()
       track_var * const track = todo.begin ()->second;
       todo.erase (todo.begin ());
 
-
       for (unsigned index = startpos; index < infos.size (); ++index)
 	{
 	  insn_info & ii = infos[index];
 
 	  // already visited?
-	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->no_merge_needed(track))
+	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->no_merge_needed (track))
 	    break;
 
 	  // only keep common values at labels
@@ -3734,12 +3739,13 @@ track_regs ()
 	      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
 		{
 		  // register changed or used somehow
-		  if ( ((1 << regno) & def) || (track->get_index(regno) && (infos[track->get_index(regno)].get_myuse() & def)))
-		    track->set(regno, index, 0, index);
+		  if (((1 << regno) & def)
+		      || (track->get_index (regno) && (infos[track->get_index (regno)].get_myuse () & def)))
+		    track->set (regno, index, 0, index);
 		}
 	      // clear on self update
-	      if (def & ii.get_myuse())
-		track->set(dregno, index, 0, index);
+	      if (def & ii.get_myuse ())
+		track->set (dregno, index, 0, index);
 	    }
 
 	  if (ii.is_compare ())
@@ -3760,7 +3766,7 @@ track_regs ()
 		todo.insert (std::make_pair (i->second, new track_var (track)));
 
 	      if (set && GET_CODE(SET_SRC(set)) == IF_THEN_ELSE)
-		  continue;
+		continue;
 
 	      // unconditional jump
 	      break;
@@ -3784,17 +3790,17 @@ track_regs ()
 	  unsigned version;
 	  if (GET_CODE(src) != CONST_INT && GET_CODE(src) != CONST_FIXED && GET_CODE(src) != CONST_DOUBLE)
 	    {
-	      if (ii.get_src_regno() >= 0)
-		version = track->get_index(ii.get_src_regno());
-	      else if (ii.get_src_mem_regno() >= 0)
-		version = track->get_index(ii.get_src_mem_regno());
+	      if (ii.get_src_regno () >= 0)
+		version = track->get_index (ii.get_src_regno ());
+	      else if (ii.get_src_mem_regno () >= 0)
+		version = track->get_index (ii.get_src_mem_regno ());
 	      else
 		version = index;
 	    }
 	  else
 	    version = 0;
 
-	  track->set(dregno, index, src, version);
+	  track->set (dregno, index, src, version);
 	}
       delete track;
     }
@@ -3822,7 +3828,8 @@ opt_elim_dead_assign (int blocked_regno)
       if (!set)
 	continue;
 
-      if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno && is_reg_dead (ii.get_dst_regno (), index))
+      if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno
+	  && is_reg_dead (ii.get_dst_regno (), index))
 	{
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	  SET_INSN_DELETED(insn);
@@ -3834,7 +3841,7 @@ opt_elim_dead_assign (int blocked_regno)
       if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
 	  && !ii.is_myuse (ii.get_dst_regno ()))
 	{
-	  track_var * track = ii.get_track_var();
+	  track_var * track = ii.get_track_var ();
 
 //	  if (ii.get_src_regno() == 8 && ii.get_dst_regno() == 7)
 //	    printf("%d: move %d,%d: v=%d (%d->%d), i=%d (%d->%d)\n", index, ii.get_src_regno(), ii.get_dst_regno(),
@@ -3842,9 +3849,9 @@ opt_elim_dead_assign (int blocked_regno)
 //		   track->get_index(ii.get_dst_regno()), infos[track->get_index(ii.get_dst_regno())].get_src_regno(), infos[track->get_index(ii.get_dst_regno())].get_dst_regno());
 
 	  rtx src = SET_SRC(set);
-	  if (rtx_equal_p(track->get_value(ii.get_dst_regno()), src))
+	  if (rtx_equal_p (track->get_value (ii.get_dst_regno ()), src))
 	    {
-	      if ((REG_P(src) && track->get_version(ii.get_dst_regno()) == track->get_index(ii.get_src_regno()))
+	      if ((REG_P(src) && track->get_version (ii.get_dst_regno ()) == track->get_index (ii.get_src_regno ()))
 		  || !REG_P(src))
 		{
 		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
@@ -3856,8 +3863,8 @@ opt_elim_dead_assign (int blocked_regno)
 	  // check reverse assignment
 	  if (REG_P(src))
 	    {
-	      if (REG_P(src) && rtx_equal_p(track->get_value(ii.get_src_regno()), SET_DEST(set))
-		  && track->get_version(ii.get_src_regno()) == track->get_index(ii.get_dst_regno()))
+	      if (REG_P(src) && rtx_equal_p (track->get_value (ii.get_src_regno ()), SET_DEST(set))
+		  && track->get_version (ii.get_src_regno ()) == track->get_index (ii.get_dst_regno ()))
 		{
 		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 		  SET_INSN_DELETED(insn);
@@ -4128,7 +4135,6 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  if (single_set (jj.get_insn ()) == 0)
 	    return 0;
 
-
 	  // if reg is src reg, op must be add and addend must be large enough
 	  bool fix = false;
 	  if (jj.get_src_mem_regno () == regno)
@@ -4378,4 +4384,129 @@ rtl_opt_pass *
 make_pass_bbb_optimizations (gcc::context * ctxt)
 {
   return new pass_bbb_optimizations (ctxt);
+}
+
+namespace
+{
+
+  const pass_data pass_data_bbb_baserel =
+    { RTL_PASS, /* type */
+    "bebbo's-baserel fixer", /* name */
+    OPTGROUP_NONE, /* optinfo_flags */
+    TV_NONE, /* tv_id */
+    0, /* properties_required */
+    0, /* properties_provided */
+    0, /* properties_destroyed */
+    0, /* todo_flags_start */
+    0, //( TODO_df_finish | TODO_df_verify), /* todo_flags_finish */
+      };
+
+  class pass_bbb_baserel : public rtl_opt_pass
+  {
+  public:
+    pass_bbb_baserel (gcc::context *ctxt) :
+	rtl_opt_pass (pass_data_bbb_baserel, ctxt), pp (0)
+    {
+    }
+
+    /* opt_pass methods: */
+    virtual bool
+    gate (function *)
+    {
+      return TARGET_AMIGA && flag_pic >= 3;
+    }
+
+    virtual unsigned int
+    execute (function *)
+    {
+      return execute_bbb_baserel ();
+    }
+
+    opt_pass *
+    clone ()
+    {
+      pass_bbb_baserel * bbb = new pass_bbb_baserel (m_ctxt);
+      return bbb;
+    }
+
+    unsigned int pp;
+
+    unsigned
+    execute_bbb_baserel (void);
+  };
+// class pass_bbb_optimizations
+
+  /* Main entry point to the pass.  */
+  unsigned
+  pass_bbb_baserel::execute_bbb_baserel (void)
+  {
+    rtx_insn *insn, *next;
+    for (insn = get_insns (); insn; insn = next)
+      {
+	next = NEXT_INSN (insn);
+
+	if (NONJUMP_INSN_P(insn))
+	  {
+	    rtx set = single_set (insn);
+	    if (!set)
+	      continue;
+
+	    rtx * src = &SET_SRC(set);
+	    if (MEM_P(*src))
+	      src = &XEXP(*src, 0);
+
+	    bool ispicref = false;
+	    // fix add PLUS/MINUS into the unspec offset
+	    if (GET_CODE(*src) == PLUS || GET_CODE(*src) == MINUS)
+	      {
+		if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(*src, 0)))
+		  {
+		    bool isplus = GET_CODE(*src) == PLUS;
+		    rtx offset = XEXP(*src, 1);
+
+		    // unlink PLUS/MINUS
+		    *src = XEXP(*src, 0);
+
+		    rtx plus = XEXP(*src, 0);
+		    rtx cnst = XEXP(plus, 1);
+		    rtx unspec = XEXP(cnst, 0);
+
+		    XVECEXP(unspec, 0, 0) = gen_rtx_PLUS(SImode, XVECEXP(unspec, 0, 0), gen_rtx_CONST_INT (SImode, isplus ? INTVAL(offset) : -INTVAL(offset)));
+
+		    ispicref = true;
+		  }
+	      }
+	    else
+	      ispicref = CONST_PLUS_PIC_REG_CONST_UNSPEC_P(*src);
+
+	    if (ispicref)
+	      {
+		rtx dest = SET_DEST(set);
+		if (MEM_P(dest)  && GET_CODE(XEXP(dest, 0)) != PRE_DEC
+		  )
+		  {
+		    // split the insn
+		    rtx reg = gen_reg_rtx (Pmode);
+
+		    rtx pat0 = gen_rtx_SET(reg, *src);
+		    rtx_insn * n0 = emit_insn_before(pat0, insn);
+
+		    rtx pat1 = gen_rtx_SET(dest, reg);
+		    rtx_insn * n1 = emit_insn_before(pat1, insn);
+
+		    SET_INSN_DELETED(insn);
+		  }
+	      }
+	  }
+      }
+
+    return 0;
+  }
+
+}      // anon namespace
+
+rtl_opt_pass *
+make_pass_bbb_baserel (gcc::context * ctxt)
+{
+  return new pass_bbb_baserel (ctxt);
 }

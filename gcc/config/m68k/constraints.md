@@ -101,7 +101,7 @@
   "Used for operands that satisfy 's' without PIC stuff, when -mpcrel is not in effect."
   (and (match_code "symbol_ref,label_ref,const")
        (match_test "!TARGET_PCREL")
-       (match_test "!flag_pic || GET_CODE(op) != CONST || GET_CODE (XEXP (op, 0)) == SYMBOL_REF || GET_CODE (XEXP (op, 0)) == LABEL_REF")))
+       (match_test "!flag_pic || !CONST_PLUS_PIC_REG_CONST_UNSPEC_P(op)")))
 
 (define_memory_constraint "Q"
   "Means address register indirect addressing mode."

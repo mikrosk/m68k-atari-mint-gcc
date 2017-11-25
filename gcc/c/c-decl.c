@@ -4448,12 +4448,12 @@ c_decl_attributes (tree *node, tree attributes, int flags)
   /* add an attribute to the function decl's type if there are asm register parameters. */
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
-      char * synthetic = "";
+      char const * synthetic = "";
       for (tree params = TYPE_ARG_TYPES(TREE_TYPE(*node)); params; params = TREE_CHAIN(params))
 	{
 	  tree asmattr = lookup_attribute("asm", TYPE_ATTRIBUTES(TREE_VALUE(params)));
 	  if (asmattr)
-	    synthetic = concat(synthetic, reg_names[TREE_FIXED_CST_PTR(TREE_VALUE(asmattr))->data.low], 0);
+	    synthetic = concat(synthetic, reg_names[TREE_FIXED_CST_PTR(TREE_VALUE(asmattr))->data.low], NULL);
 	}
       if (strlen(synthetic) > 0)
 	{

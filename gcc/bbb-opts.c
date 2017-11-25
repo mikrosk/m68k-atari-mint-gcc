@@ -850,8 +850,14 @@ insn_info::make_post_inc (int regno)
   if (is_compare ())
     set = SET_SRC(set);
   rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
+
   if (src_op && get_src_mem_regno () == regno)
-    mem = XEXP(mem, 1);
+    {
+      if (src_op == NEG || src_op == NOT)
+	mem = XEXP(mem, 0);
+      else
+	mem = XEXP(mem, 1);
+    }
 
   rtx reg = XEXP(mem, 0);
 

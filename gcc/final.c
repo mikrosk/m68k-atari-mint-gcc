@@ -4002,6 +4002,7 @@ output_addr_const (FILE *file, rtx x)
       if (targetm.asm_out.output_addr_const_extra (file, x))
 	break;
 
+      debug_rtx(current_output_insn);
       output_operand_lossage ("invalid expression as operand");
     }
 }

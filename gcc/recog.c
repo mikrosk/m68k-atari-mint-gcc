@@ -3249,19 +3249,6 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
   rtx_insn *new_insn;
   bool was_call = false;
 
-#ifdef TARGET_AMIGA
-  /* SBF: splitting may yield invalid insns -> avoid it for the special pea insn! */
-  for (int i = 0; i <= match_len; ++i)
-    {
-      rtx_insn * insn0 = peep2_insn_data[i].insn;
-      if (!PATTERN(insn0))
-	continue;
-      rtx set0 = single_set(insn0);
-      if (set0 && CONST_PLUS_PIC_REG_CONST_UNSPEC_P(SET_SRC(set0)) && MEM_P(SET_DEST(set0)))
-	return 0;
-    }
-#endif
-
   /* If we are splitting an RTX_FRAME_RELATED_P insn, do not allow it to
      match more than one insn, or to be split into more than one insn.  */
   old_insn = peep2_insn_data[peep2_current].insn;

@@ -686,22 +686,8 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
-#if 0
-#undef INCLUDE_DEFAULTS
-#define INCLUDE_DEFAULTS                                    \
-  {                                                         \
-	 { GPLUSPLUS_INCLUDE_DIR, "G++", 1, 1,                  \
-	      GPLUSPLUS_INCLUDE_DIR_ADD_SYSROOT, 0 },           \
-    { GCC_INCLUDE_DIR, "GCC", 0, 0 },                       \
-    { CROSS_INCLUDE_DIR "/../../os-include", "GCC", 0, 0 }, \
-    { TOOL_INCLUDE_DIR "/../ndk/include", "GCC", 0, 0 },    \
-    { CROSS_INCLUDE_DIR, "GCC", 0, 0, 0 },                  \
-    { 0, 0, 0, 0 }                                          \
-  }
-#endif
-
 #undef FIXED_INCLUDE_DIR
-#define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../../os-include"
+#define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../../include"
 
 // this disables tree_loop_distribute_patterns
 #define C_COMMON_OVERRIDE_OPTIONS  flag_no_builtin = 1

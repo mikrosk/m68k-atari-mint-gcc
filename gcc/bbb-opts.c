@@ -4461,19 +4461,7 @@ namespace
 	      {
 		if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(*src, 0)))
 		  {
-		    bool isplus = GET_CODE(*src) == PLUS;
-		    rtx offset = XEXP(*src, 1);
-
-		    // unlink PLUS/MINUS
-		    *src = XEXP(*src, 0);
-
-		    rtx plus = XEXP(*src, 0);
-		    rtx cnst = XEXP(plus, 1);
-		    rtx unspec = XEXP(cnst, 0);
-
-		    XVECEXP(unspec, 0, 0) = gen_rtx_PLUS(SImode, XVECEXP(unspec, 0, 0), gen_rtx_CONST_INT (SImode, isplus ? INTVAL(offset) : -INTVAL(offset)));
-
-		    ispicref = true;
+		    amigaos_add_offset_to_symbol(src);
 		  }
 	      }
 	    else
@@ -4482,7 +4470,7 @@ namespace
 	    if (ispicref)
 	      {
 		rtx dest = SET_DEST(set);
-		if (MEM_P(dest)  && GET_CODE(XEXP(dest, 0)) != PRE_DEC
+		if (MEM_P(dest) && GET_CODE(XEXP(dest, 0)) != PRE_DEC
 		  )
 		  {
 		    // split the insn

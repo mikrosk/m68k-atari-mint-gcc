@@ -34,8 +34,6 @@ extern void amigaos_init_cumulative_args (CUMULATIVE_ARGS *, tree, tree);
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (amigaos_init_cumulative_args(&(CUM), (FNTYPE), (INDIRECT)))
 
-
-extern int amigaos_restore_a4 (void);
 #ifdef RTX_CODE
 extern int read_only_operand (rtx);
 extern void amigaos_select_section (tree, int, unsigned HOST_WIDE_INT);
@@ -56,3 +54,4 @@ extern tree amigaos_handle_decl_attribute (tree *, tree, tree, int, bool *);
 extern tree amigaos_handle_type_attribute (tree *, tree, tree, int, bool *);
 #endif 
 
+extern void amigaos_add_offset_to_symbol(rtx *);

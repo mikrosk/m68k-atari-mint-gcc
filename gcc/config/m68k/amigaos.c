@@ -148,26 +148,6 @@ amigaos_encode_section_info (tree decl, rtx rtl, int first)
       }
   }
 
-/* Common routine used to check if a4 should be preserved/restored.  */
-
-int
-amigaos_restore_a4 (void)
-  {
-    return (flag_pic >= 3 &&
-	(TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4
-	    || lookup_attribute ("saveds",
-		TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl)))));
-  }
-
-void
-amigaos_alternate_pic_setup (FILE *stream)
-  {
-    if (TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
-    asm_fprintf (stream, "\tjbsr %U__restore_a4\n");
-    else if (lookup_attribute ("saveds",
-	    TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
-    asm_fprintf (stream, "\tlea %U__a4_init,%Ra4\n");
-  }
 
 /* Attributes support.  */
 
@@ -242,53 +222,6 @@ amigaos_prologue_begin_hook (FILE *stream, int fsize)
       }
   }
 
-void
-amigaos_alternate_frame_setup_f (FILE *stream, int fsize)
-  {
-    if (fsize < 128)
-    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
-	"\tjcc 0f\n"
-	"\tmoveq %I%d,%Rd0\n"
-	"\tmoveq %I0,%Rd1\n"
-	"\tjbsr %U__stkext_f\n"
-	"0:\tlink %Ra5,%I%d:W\n",
-	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
-	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
-		"___stk_limit")),
-	fsize, -fsize);
-    else
-    asm_fprintf (stream, "\tmovel %I%d,%Rd0\n\tjbsr %U__link_a5_d0_f\n",
-	fsize);
-  }
-
-void
-amigaos_alternate_frame_setup (FILE *stream, int fsize)
-  {
-    if (!fsize)
-    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
-	"\tjcc 0f\n"
-	"\tmoveq %I0,%Rd0\n"
-	"\tmoveq %I0,%Rd1\n"
-	"\tjbsr %U__stkext_f\n"
-	"0:\n",
-	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
-	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
-		"___stk_limit")));
-    else if (fsize < 128)
-    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
-	"\tjcc 0f\n"
-	"\tmoveq %I%d,%Rd0\n"
-	"\tmoveq %I0,%Rd1\n"
-	"\tjbsr %U__stkext_f\n"
-	"0:\taddw %I%d,%Rsp\n",
-	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
-	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
-		"___stk_limit")),
-	fsize, -fsize);
-    else
-    asm_fprintf (stream, "\tmovel %I%d,%Rd0\n\tjbsr %U__sub_d0_sp_f\n",
-	fsize);
-  }
 
 //static rtx
 //gen_stack_management_call (rtx stack_pointer, rtx arg, const char *func)
@@ -676,58 +609,9 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
     }
   return 1;
 }
-
-/* Return zero if the attributes on TYPE1 and TYPE2 are incompatible,
- one if they are compatible, and two if they are nearly compatible
- (which causes a warning to be generated). */
-#if 0
-static int
-m68k_comp_type_attributes (tree type1, tree type2)
-  {
-
-    /* Functions or methods are incompatible if they specify mutually
-     exclusive ways of passing arguments.  */
-    if (TREE_CODE (type1) == FUNCTION_TYPE || TREE_CODE (type1) == METHOD_TYPE)
-      {
-	tree arg1, arg2;
-	if (!! lookup_attribute ("stkparm", TYPE_ATTRIBUTES (type1)) !=
-	    !! lookup_attribute ("stkparm", TYPE_ATTRIBUTES (type2))
-	    || !! lookup_attribute ("regparm", TYPE_ATTRIBUTES (type1)) !=
-	    !! lookup_attribute ("regparm", TYPE_ATTRIBUTES (type2)))
-	return 0; /* 'regparm' and 'stkparm' are mutually exclusive.  */
-
-	arg1 = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type1));
-	arg2 = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type2));
-	if (arg1 && arg2)
-	  {
-	    int num1 = 0, num2 = 0;
-	    if (TREE_VALUE (arg1) && TREE_CODE (TREE_VALUE (arg1)) == TREE_LIST)
-	      {
-		tree numofregs = TREE_VALUE (TREE_VALUE (arg1));
-		if (numofregs)
-		num1 = TREE_INT_CST_LOW (numofregs);
-	      }
-	    if (TREE_VALUE (arg2) && TREE_CODE (TREE_VALUE (arg2)) == TREE_LIST)
-	      {
-		tree numofregs = TREE_VALUE (TREE_VALUE (arg2));
-		if (numofregs)
-		num2 = TREE_INT_CST_LOW (numofregs);
-	      }
-	    if (num1 != num2)
-	    return 0; /* Different numbers, or no number in one type.  */
-	  }
-      }
-#ifdef TARGET_AMIGAOS
-    return amigaos_comp_type_attributes(type1, type2);
-#else
-    return 1;
-#endif
-  }
-#endif
-
 /* end-GG-local */
 
-/* Handle a "regparm", "stkparm" attribute;
+/* Handle a regparm, stkparm, saveds attribute;
  arguments as in struct attribute_spec.handler.  */
 tree
 amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
@@ -915,35 +799,156 @@ amigaos_static_chain_rtx (const_tree decl, bool incoming ATTRIBUTE_UNUSED)
   return 0;
 }
 
-/*
- * decline src like:
-(plus:SI (reg/f:SI 0 d0 [210])
-            (const:SI (minus:SI (not:SI (reg:SI 12 a4))
+/**
+ * Necessary to block some funny invalid combinations if baserel is used:
  *
+(const:SI (minus:SI (neg:SI (reg:SI 12 a4))
+      (const:SI (plus:SI (unspec:SI [
+		      (symbol_ref:SI ("xyz") <var_decl 0xffcf0000 xyz>)
+		      (const_int 0 [0])
+		  ] 6)
+
+(plus:SI (reg:SI 10 a2)
+    (const:SI (minus:SI (neg:SI (reg:SI 12 a4))
+	    (const:SI (plus:SI (unspec:SI [
+			    (symbol_ref:SI ("xyz") <var_decl 0xffcf0000 xyz>)
+			    (const_int 0 [0])
+			] 6)
+		    (const_int 1234 [0xe00]))))))) xyz.c:41 465 {*lea}
+
  */
 bool
-amigaos_legitimate_combined_insn (rtx_insn * insn)
+amigaos_legitimate_src (rtx src)
 {
-  rtx set = single_set(insn);
-  if (!set)
+  if (flag_pic < 3)
     return true;
 
-  rtx x = SET_SRC(set);
-  if (GET_CODE(x) != PLUS)
-    return true;
+  if (GET_CODE(src) == PLUS || GET_CODE(src) == MINUS)
+    {
+      rtx x = XEXP(src, 0);
+      if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x))
+	{
+	  amigaos_add_offset_to_symbol(&src);
+	  return true;
+	}
 
-  x = XEXP(x, 1);
-  if (GET_CODE(x) != CONST)
-    return true;
+      return amigaos_legitimate_src(x) && amigaos_legitimate_src(XEXP(src, 1));
+    }
 
-  x = XEXP(x, 0);
-  if (GET_CODE(x) != MINUS)
-    return true;
+  if (GET_CODE(src) == CONST)
+    {
+      rtx op = XEXP(src, 0);
+      if (GET_CODE(op) == MINUS || GET_CODE(op) == PLUS)
+	{
+	  rtx x = XEXP(op, 0);
+	  if (GET_CODE(x) == NOT || GET_CODE(x) == NEG)
+	    {
+	      rtx reg = XEXP(x, 0);
+	      if (!REG_P(reg))
+		return true;
 
-  x = XEXP(x, 0);
-  if (GET_CODE(x) != NOT && GET_CODE(x) != NEG)
-    return true;
+//	      debug_rtx(src);
+	      return false;
+	    }
+	}
 
-  x = XEXP(x, 0);
-  return !REG_P(x);
+      if (GET_CODE(op) == UNSPEC)
+	{
+//	  debug_rtx(src);
+	  return false;
+	}
+    }
+
+  return true;
 }
+
+void amigaos_add_offset_to_symbol(rtx * src)
+{
+  static char num[16];
+  bool isplus = GET_CODE(*src) == PLUS;
+  rtx offset = XEXP(*src, 1);
+  sprintf(num, "%d", (int)INTVAL(offset));
+
+  /* unlink PLUS/MINUS */
+  *src = XEXP(*src, 0);
+
+  rtx plus = XEXP(*src, 0);
+  rtx cnst = XEXP(plus, 1);
+  rtx unspec = XEXP(cnst, 0);
+  rtx sym = XVECEXP(unspec, 0, 0);
+  const char * s = XSTR(sym, 0);
+
+  /* create a new symbol containing the offset. */
+  const char * t = concat(s, isplus ? "+" : "-", num, NULL);
+  XVECEXP(unspec, 0, 0) = gen_rtx_SYMBOL_REF(Pmode, t);
+}
+
+
+void
+amigaos_restore_a4 (void)
+  {
+    if (flag_pic >= 3)
+      {
+	tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+	tree attr = lookup_attribute ("saveds", attrs);
+	if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
+	  {
+	    rtx a4 = gen_rtx_ASM_INPUT_loc(VOIDmode, "\tlea ___init_a4,a4", DECL_SOURCE_LOCATION (current_function_decl));
+	    a4->volatil = 1;
+	    emit_insn(a4);
+	  }
+      }
+  }
+
+void
+amigaos_alternate_frame_setup_f (int fsize)
+  {
+#if 0
+    if (fsize < 128)
+    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
+	"\tjcc 0f\n"
+	"\tmoveq %I%d,%Rd0\n"
+	"\tmoveq %I0,%Rd1\n"
+	"\tjbsr %U__stkext_f\n"
+	"0:\tlink %Ra5,%I%d:W\n",
+	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
+	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
+		"___stk_limit")),
+	fsize, -fsize);
+    else
+    asm_fprintf (stream, "\tmovel %I%d,%Rd0\n\tjbsr %U__link_a5_d0_f\n",
+	fsize);
+#endif
+  }
+
+void
+amigaos_alternate_frame_setup (int fsize)
+  {
+#if 0
+    if (!fsize)
+    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
+	"\tjcc 0f\n"
+	"\tmoveq %I0,%Rd0\n"
+	"\tmoveq %I0,%Rd1\n"
+	"\tjbsr %U__stkext_f\n"
+	"0:\n",
+	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
+	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
+		"___stk_limit")));
+    else if (fsize < 128)
+    asm_fprintf (stream, "\tcmpl %s,%Rsp\n"
+	"\tjcc 0f\n"
+	"\tmoveq %I%d,%Rd0\n"
+	"\tmoveq %I0,%Rd1\n"
+	"\tjbsr %U__stkext_f\n"
+	"0:\taddw %I%d,%Rsp\n",
+	(flag_pic == 3 ? "a4@(___stk_limit:W)" :
+	    (flag_pic == 4 ? "a4@(___stk_limit:L)" :
+		"___stk_limit")),
+	fsize, -fsize);
+    else
+    asm_fprintf (stream, "\tmovel %I%d,%Rd0\n\tjbsr %U__sub_d0_sp_f\n",
+	fsize);
+#endif
+  }
+

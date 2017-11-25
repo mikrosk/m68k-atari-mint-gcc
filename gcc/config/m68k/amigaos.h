@@ -1,4 +1,7 @@
 /* Configuration for GNU C-compiler for m68k Amiga, running AmigaOS.
+ *
+ * This file is only included and used inside m68k.c to define the target.
+ *
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2003
    Free Software Foundation, Inc.  
    Contributed by Markus M. Wild (wild@amiga.physik.unizh.ch).
@@ -288,16 +291,6 @@ while (0)
 #define PROLOGUE_BEGIN_HOOK(STREAM, FSIZE)				\
   (amigaos_prologue_begin_hook ((STREAM), (FSIZE)))
 
-#define HAVE_ALTERNATE_FRAME_SETUP_F(FSIZE) TARGET_STACKEXTEND
-
-#define ALTERNATE_FRAME_SETUP_F(STREAM, FSIZE)				\
-  (amigaos_alternate_frame_setup_f ((STREAM), (FSIZE)))
-
-#define HAVE_ALTERNATE_FRAME_SETUP(FSIZE) TARGET_STACKEXTEND
-
-#define ALTERNATE_FRAME_SETUP(STREAM, FSIZE)				\
-  (amigaos_alternate_frame_setup ((STREAM), (FSIZE)))
-
 #define HAVE_ALTERNATE_FRAME_DESTR_F(FSIZE)				\
   (TARGET_STACKEXTEND && current_function_calls_alloca)
 
@@ -445,6 +438,7 @@ while (0)
      affects_type_identity } */
 #define SUBTARGET_ATTRIBUTES                                            \
   { "asmregs", 0, 0, false,  false, false, 0, true }, \
+  { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
     true }, \
   { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute,\
@@ -469,7 +463,26 @@ rtx
 amigaos_static_chain_rtx(const_tree fntype,
 			       bool incoming ATTRIBUTE_UNUSED);
 
-#undef TARGET_LEGITIMATE_COMBINED_INSN
-#define TARGET_LEGITIMATE_COMBINED_INSN amigaos_legitimate_combined_insn
-bool
-amigaos_legitimate_combined_insn (rtx_insn *insn ATTRIBUTE_UNUSED);
+
+extern bool
+amigaos_legitimate_src (rtx src);
+
+extern void
+amigaos_restore_a4 (void);
+
+extern void
+amigaos_alternate_frame_setup_f (int fsize);
+
+extern void
+amigaos_alternate_frame_setup (int fsize);
+
+
+#define HAVE_ALTERNATE_FRAME_SETUP_F(FSIZE) TARGET_STACKEXTEND
+
+#define ALTERNATE_FRAME_SETUP_F(FSIZE)				\
+  (amigaos_alternate_frame_setup_f ((FSIZE)))
+
+#define HAVE_ALTERNATE_FRAME_SETUP(FSIZE) TARGET_STACKEXTEND
+
+#define ALTERNATE_FRAME_SETUP(FSIZE)				\
+  (amigaos_alternate_frame_setup ((FSIZE)))

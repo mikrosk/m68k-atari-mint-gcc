@@ -1058,6 +1058,11 @@ m68k_expand_prologue (void)
 
   if (frame_pointer_needed)
     {
+#ifdef TARGET_AMIGA
+      if (HAVE_ALTERNATE_FRAME_SETUP_F (fsize_with_regs))
+	ALTERNATE_FRAME_SETUP_F (fsize_with_regs);
+      else
+#endif
       if (fsize_with_regs == 0 && TUNE_68040)
 	{
 	  /* On the 68040, two separate moves are faster than link.w 0.  */
@@ -1067,6 +1072,10 @@ m68k_expand_prologue (void)
 	  m68k_set_frame_related (emit_move_insn (frame_pointer_rtx,
 						  stack_pointer_rtx));
 	}
+#ifdef TARGET_AMIGA
+  else if (HAVE_ALTERNATE_FRAME_SETUP (fsize_with_regs))
+    ALTERNATE_FRAME_SETUP (fsize_with_regs);
+#endif
       else if (fsize_with_regs < 0x8000 || TARGET_68020)
 	m68k_set_frame_related
 	  (emit_insn (gen_link (frame_pointer_rtx,
@@ -1168,6 +1177,10 @@ m68k_expand_prologue (void)
   if (!TARGET_SEP_DATA
       && crtl->uses_pic_offset_table && flag_pic < 3)
     emit_insn (gen_load_got (pic_offset_table_rtx));
+
+#ifdef TARGET_AMIGA
+  amigaos_restore_a4 ();
+#endif
 }
 
 /* Return true if a simple (return) instruction is sufficient for this
@@ -2163,6 +2176,8 @@ m68k_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   /* SBF: the baserel(32) const plus pic_ref, symbol is an address. */
   if (amiga_is_const_pic_ref(x))
     return true;
+  if (!amigaos_legitimate_src(x))
+    return false;
 #endif
 
   return m68k_decompose_address (mode, x, strict_p, &address);
@@ -2185,7 +2200,11 @@ m68k_legitimate_mem_p (rtx x, struct m68k_address *address)
 bool
 m68k_legitimate_constant_p (machine_mode mode, rtx x)
 {
-  return mode != XFmode && !m68k_illegitimate_symbolic_constant_p (x);
+  return mode != XFmode && !m68k_illegitimate_symbolic_constant_p (x)
+#ifdef TARGET_AMIGA
+      &&  amigaos_legitimate_src (x)
+#endif
+      ;
 }
 
 /* Return true if X matches the 'Q' constraint.  It must be a memory

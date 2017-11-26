@@ -672,6 +672,15 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	    }
 	  else if (is_attribute_p ("saveds", name))
 	    {
+	      if (flag_pic < 3)
+		{
+		  warning (OPT_Wattributes, "`%s' attribute is only usable with fbaserel", IDENTIFIER_POINTER(name));
+		}
+	      else
+	      if (flag_resident)
+		{
+		  error ("`saveds' can't be used with resident!\n");
+		}
 	    }
 	}
       else
@@ -762,10 +771,7 @@ read_only_operand (rtx operand)
 rtx
 amigaos_struct_value_rtx (tree fntype, int incoming ATTRIBUTE_UNUSED)
 {
-//  if (fntype && aggregate_value_p (TREE_TYPE(fntype), fntype))
     return gen_rtx_REG (Pmode, M68K_STRUCT_VALUE_REGNUM);
-
-//  return 0;
 }
 
 rtx
@@ -887,7 +893,7 @@ void amigaos_add_offset_to_symbol(rtx * src)
 void
 amigaos_restore_a4 (void)
   {
-    if (flag_pic >= 3)
+    if (flag_pic >= 3 && !flag_resident)
       {
 	tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
 	tree attr = lookup_attribute ("saveds", attrs);

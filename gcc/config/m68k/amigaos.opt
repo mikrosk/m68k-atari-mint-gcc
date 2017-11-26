@@ -32,11 +32,11 @@ Target Report Var(flag_pic,4)
 data is addressed relative to a4 with 32 bit offsets
 
 resident
-Target Common Report Var(flag_pic,3)
+Target Common Report Var(flag_resident,3)
 data is addressed relative to a4, linked as resident
 
 resident32
-Target Common Report Var(flag_pic,4)
+Target Common Report Var(flag_resident,4)
 data is addressed relative to a4 with 32 bit offsets, linked as resident
 
 mcrt=
@@ -60,4 +60,4 @@ s    a strcpy optimization
 v    be verbose                                   
 V    be very verbose                              
 x    dump insns                                                                        
-Default: -fbbb=+
+Default: -fbbb=+ which yields -fbbb=abcefimprs

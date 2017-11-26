@@ -427,6 +427,12 @@ extern tree amigaos_handle_type_attribute(tree *, tree, tree, int, bool*);
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do									\
   {									\
+    if (flag_resident)							\
+      {									\
+        if (flag_pic)							\
+	  error ("-fbaserel and -resident are mutual exclusiv\n");	\
+        flag_pic = flag_resident;					\
+      }									\
     if (!TARGET_68020 && flag_pic==4)					\
       error ("-fbaserel32 is not supported on the 68000 or 68010\n");	\
     if (amigaos_regparm > 0 && amigaos_regparm > AMIGAOS_MAX_REGPARM)   \

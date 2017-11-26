@@ -1059,7 +1059,13 @@ insn_info::scan_rtx (rtx x)
 	    use = u;
 	  myuse = mu;
 	}
+
+      // avoid side effects from myuse -> def, e.g. adding the dst reg to def by src auto inc
+      mu = myuse;
+      myuse = 0;
       scan_rtx (SET_SRC(x));
+      myuse |= mu;
+
       int code = GET_CODE(SET_SRC(x));
       if (code == ASM_OPERANDS)
 	hard |= def | use;
@@ -4181,7 +4187,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
   if (!ii.make_post_inc (regno))
     return 0;
 
-  log ("(i) auto_inc for %s at %d\n", reg_names[regno], index);
+  log ("(i) auto_inc for %s at %d - %d fixups\n", reg_names[regno], index, fixups.size());
 
   // fix all offsets / adds
   for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)

@@ -2868,7 +2868,7 @@ opt_const_cmp_to_sub (void)
 	  if (GET_MODE_SIZE(i0.get_mode()) > 4)
 	    continue;
 
-	  if (!i0.is_dst_reg () && (!i0.is_src_const () || i0.get_src_op () == PLUS))
+	  if (!i0.is_dst_reg () || !i0.is_src_const () || i0.get_src_op ())
 	    continue;
 
 	  if (i0.get_dst_regno () != i1.get_src_regno ())

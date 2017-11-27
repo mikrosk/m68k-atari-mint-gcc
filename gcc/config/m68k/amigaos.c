@@ -899,7 +899,7 @@ amigaos_restore_a4 (void)
 	tree attr = lookup_attribute ("saveds", attrs);
 	if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
 	  {
-	    rtx a4 = gen_rtx_ASM_INPUT_loc(VOIDmode, "\tlea ___init_a4,a4", DECL_SOURCE_LOCATION (current_function_decl));
+	    rtx a4 = gen_rtx_ASM_INPUT_loc(VOIDmode, "\tlea ___a4_init,a4", DECL_SOURCE_LOCATION (current_function_decl));
 	    a4->volatil = 1;
 	    emit_insn(a4);
 	  }

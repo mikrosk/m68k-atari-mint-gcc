@@ -682,10 +682,21 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 		  error ("`saveds' can't be used with resident!\n");
 		}
 	    }
+	  else
+	    {
+	      warning (OPT_Wattributes, "`%s' attribute only applies to data", IDENTIFIER_POINTER(name));
+	    }
 	}
       else
 	{
-	  warning (OPT_Wattributes, "`%s' attribute only applies to functions", IDENTIFIER_POINTER(name));
+	  if (is_attribute_p ("chip", name))
+	    {
+	      // OK
+	    }
+	  else
+	    {
+	      warning (OPT_Wattributes, "`%s' attribute only applies to functions", IDENTIFIER_POINTER(name));
+	    }
 	}
       return NULL_TREE ;
     }
@@ -693,6 +704,46 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
   // error case
   *no_add_attrs = true;
   return NULL_TREE ;
+}
+
+#define AMIGA_CHIP_SECTION_NAME ".datachip"
+
+void
+amiga_insert_attribute (tree decl, tree * attr)
+{
+  if (!*attr)
+    return;
+
+  tree name = TREE_PURPOSE(*attr);
+
+  if (is_attribute_p("chip", name))
+    {
+      if (!TREE_TYPE(decl) == VAR_DECL)
+	{
+	  error ("`chip' attribute can only be specified for variables");
+	  return;
+	}
+
+      if (! TREE_STATIC (decl) && ! DECL_EXTERNAL (decl))
+	{
+	  error ("`chip' attribute cannot be specified for local variables");
+	  return;
+	}
+      /* The decl may have already been given a section attribute from
+	     a previous declaration.  Ensure they match.  */
+      if (DECL_SECTION_NAME (decl) == NULL)
+	      warning (OPT_Wattributes, "`%s' attribute is not yet supported", IDENTIFIER_POINTER(name));
+//	set_decl_section_name(decl, AMIGA_CHIP_SECTION_NAME);
+      else if (strcmp (DECL_SECTION_NAME (decl), AMIGA_CHIP_SECTION_NAME) )
+	{
+	  error_at (DECL_SOURCE_LOCATION(decl),
+		  "`chip' attribute conflicts with previous declaration");
+	}
+    }
+  else
+    {
+//      warning (OPT_Wattributes, "`%s' attribute unknown", IDENTIFIER_POINTER(name));
+    }
 }
 
 extern bool
@@ -832,11 +883,10 @@ amigaos_legitimate_src (rtx src)
   if (GET_CODE(src) == PLUS || GET_CODE(src) == MINUS)
     {
       rtx x = XEXP(src, 0);
+
+      /** handled in print_operand_address(...) */
       if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x))
-	{
-	  amigaos_add_offset_to_symbol(&src);
 	  return true;
-	}
 
       return amigaos_legitimate_src(x) && amigaos_legitimate_src(XEXP(src, 1));
     }
@@ -867,28 +917,6 @@ amigaos_legitimate_src (rtx src)
 
   return true;
 }
-
-void amigaos_add_offset_to_symbol(rtx * src)
-{
-  static char num[16];
-  bool isplus = GET_CODE(*src) == PLUS;
-  rtx offset = XEXP(*src, 1);
-  sprintf(num, "%d", (int)INTVAL(offset));
-
-  /* unlink PLUS/MINUS */
-  *src = XEXP(*src, 0);
-
-  rtx plus = XEXP(*src, 0);
-  rtx cnst = XEXP(plus, 1);
-  rtx unspec = XEXP(cnst, 0);
-  rtx sym = XVECEXP(unspec, 0, 0);
-  const char * s = XSTR(sym, 0);
-
-  /* create a new symbol containing the offset. */
-  const char * t = concat(s, isplus ? "+" : "-", num, NULL);
-  XVECEXP(unspec, 0, 0) = gen_rtx_SYMBOL_REF(Pmode, t);
-}
-
 
 void
 amigaos_restore_a4 (void)

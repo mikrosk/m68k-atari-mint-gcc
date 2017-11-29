@@ -53,5 +53,3 @@ extern struct rtx_def *amigaos_function_arg (CUMULATIVE_ARGS *, enum machine_mod
 extern tree amigaos_handle_decl_attribute (tree *, tree, tree, int, bool *);
 extern tree amigaos_handle_type_attribute (tree *, tree, tree, int, bool *);
 #endif 
-
-extern void amigaos_add_offset_to_symbol(rtx *);

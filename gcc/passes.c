@@ -2276,7 +2276,8 @@ void dump_insns(char const * name)
   for (insn = get_insns(); insn; insn = next)
     {
       next = NEXT_INSN(insn);
-#if 1
+	    debug_rtx(insn);
+#if 0
       if (NONJUMP_INSN_P (insn))
 	{
 	  rtx set= single_set (insn);
@@ -2290,6 +2291,7 @@ void dump_insns(char const * name)
     }
 }
 
+
 /* Execute PASS. */
 
 bool
@@ -2299,7 +2301,8 @@ execute_one_pass (opt_pass *pass)
 
   bool gate_status;
 
-//  dump_insns(pass->name);
+  if (string_bbb_opts && strchr (string_bbb_opts, 'Y'))
+    dump_insns(pass->name);
 
   /* IPA passes are executed on whole program, so cfun should be NULL.
      Other passes need function context set.  */

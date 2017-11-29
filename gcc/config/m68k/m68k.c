@@ -4835,6 +4835,14 @@ print_operand_address (FILE *file, rtx addr)
       print_operand_address(file, XEXP(addr, 0));
       return;
     }
+  if (GET_CODE(addr) == PLUS && CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(addr, 0)))
+    {
+      fprintf (file, "%d+", (int) INTVAL (XEXP(addr, 1)));
+      print_operand_address(file, XEXP(XEXP(addr, 0),0));
+      return;
+    }
+
+
   if (symbolic_operand(addr, VOIDmode))
     {
       memset (&address, 0, sizeof (address));
@@ -4843,7 +4851,10 @@ print_operand_address (FILE *file, rtx addr)
   else
 #endif
   if (!m68k_decompose_address (QImode, addr, true, &address))
-    gcc_unreachable ();
+    {
+      debug_rtx(addr);
+      gcc_unreachable ();
+    }
 
   if (address.code == PRE_DEC)
     fprintf (file, MOTOROLA ? "-(%s)" : "%s@-",

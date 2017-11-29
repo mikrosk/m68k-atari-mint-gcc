@@ -177,7 +177,7 @@ public:
 
   /* only keep common values in both sides. */
   void
-  merge (track_var * o, unsigned at)
+  merge (track_var * o, unsigned )
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
@@ -2732,44 +2732,29 @@ opt_commute_add_move (void)
 
   for (unsigned index = 0; index + 1 < infos.size (); ++index)
     {
-      rtx_insn * insn = infos[index].get_insn ();
-      rtx set = single_set (insn);
-      if (!set)
+      insn_info & ii = infos[index];
+      if (ii.get_dst_regno() < 8 || ii.get_dst_regno() > 15  || ii.get_src_op() != PLUS || ii.get_src_regno() == ii.get_dst_regno() || !ii.get_src_intval())
 	continue;
 
-      rtx reg1dst = SET_DEST(set);
-      if (!REG_P(reg1dst))
+      insn_info & jj = infos[index + 1];
+
+      if (!jj.get_dst_mem_reg() || jj.get_dst_mem_regno() != ii.get_src_regno()
+	  || jj.get_src_regno() == ii.get_dst_regno()
+	  || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval())
 	continue;
 
-      rtx plus = SET_SRC(set);
-      if (GET_CODE(plus) != PLUS)
-	continue;
+      rtx_insn * insn = ii.get_insn ();
 
-      rtx reg1src = XEXP(plus, 0);
-      if (!REG_P(reg1src) || reg1src == reg1dst)
-	continue;
-
-      rtx cnst = XEXP(plus, 1);
-      if (!CONST_INT_P(cnst))
-	continue;
-
-      rtx_insn * next = infos[index + 1].get_insn ();
+      rtx_insn * next = jj.get_insn ();
       rtx set2 = single_set (next);
-      if (!set2)
-	continue;
-
       rtx dst = SET_DEST(set2);
-      if (!MEM_P(dst) || GET_MODE_SIZE(GET_MODE(dst)) != INTVAL(cnst))
+      if (!MEM_P(dst))
 	continue;
 
-      rtx memreg = XEXP(dst, 0);
-      if (!REG_P(memreg) || REGNO(memreg) != REGNO(reg1src))
-	continue;
-
-      rtx pinc = gen_rtx_POST_INC(GET_MODE(dst), reg1dst);
+      rtx pinc = gen_rtx_POST_INC(GET_MODE(dst), ii.get_dst_reg());
       rtx newmem = replace_equiv_address_nv (dst, pinc);
 
-      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET(reg1dst, reg1src));
+      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET(ii.get_dst_reg(), ii.get_src_reg()));
 
       if (!insn_invalid_p (newinsn, 1) && validate_change (next, &SET_DEST(set2), newmem, 1) && apply_change_group ())
 	{
@@ -2779,7 +2764,7 @@ opt_commute_add_move (void)
 
 	  insn = emit_insn_before (newinsn, next);
 
-	  add_reg_note (next, REG_INC, reg1dst);
+	  add_reg_note (next, REG_INC, ii.get_dst_reg());
 
 	  ++change_count;
 	}
@@ -4470,12 +4455,7 @@ namespace
 	    bool ispicref = false;
 	    // fix add PLUS/MINUS into the unspec offset
 	    if (GET_CODE(*src) == PLUS || GET_CODE(*src) == MINUS)
-	      {
-		if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(*src, 0)))
-		  {
-		    amigaos_add_offset_to_symbol(src);
-		  }
-	      }
+	      ispicref = CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(*src, 0));
 	    else
 	      ispicref = CONST_PLUS_PIC_REG_CONST_UNSPEC_P(*src);
 
@@ -4489,10 +4469,12 @@ namespace
 		    rtx reg = gen_reg_rtx (Pmode);
 
 		    rtx pat0 = gen_rtx_SET(reg, *src);
-		    rtx_insn * n0 = emit_insn_before(pat0, insn);
+		    //rtx_insn * n0 =
+			emit_insn_before(pat0, insn);
 
 		    rtx pat1 = gen_rtx_SET(dest, reg);
-		    rtx_insn * n1 = emit_insn_before(pat1, insn);
+		    //rtx_insn * n1 =
+			emit_insn_before(pat1, insn);
 
 		    SET_INSN_DELETED(insn);
 		  }

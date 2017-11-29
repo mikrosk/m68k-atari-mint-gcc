@@ -444,6 +444,7 @@ while (0)
      affects_type_identity } */
 #define SUBTARGET_ATTRIBUTES                                            \
   { "asmregs", 0, 0, false,  false, false, 0, true }, \
+  { "chip", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
     true }, \
@@ -492,3 +493,9 @@ amigaos_alternate_frame_setup (int fsize);
 
 #define ALTERNATE_FRAME_SETUP(FSIZE)				\
   (amigaos_alternate_frame_setup ((FSIZE)))
+
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES amiga_insert_attribute
+
+void
+amiga_insert_attribute (tree decl, tree * attr);

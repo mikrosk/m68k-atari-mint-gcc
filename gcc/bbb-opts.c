@@ -177,7 +177,7 @@ public:
 
   /* only keep common values in both sides. */
   void
-  merge (track_var * o, unsigned )
+  merge (track_var * o, unsigned)
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
@@ -928,7 +928,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	  SET_SRC(set) = XEXP(src, 0);
 	}
       else
-	XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
+	  XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
     }
   else if (get_src_mem_regno () == regno)
     {
@@ -2733,14 +2733,14 @@ opt_commute_add_move (void)
   for (unsigned index = 0; index + 1 < infos.size (); ++index)
     {
       insn_info & ii = infos[index];
-      if (ii.get_dst_regno() < 8 || ii.get_dst_regno() > 15  || ii.get_src_op() != PLUS || ii.get_src_regno() == ii.get_dst_regno() || !ii.get_src_intval())
+      if (ii.get_dst_regno () < 8 || ii.get_dst_regno () > 15 || ii.get_src_op () != PLUS
+	  || ii.get_src_regno () == ii.get_dst_regno () || !ii.get_src_intval ())
 	continue;
 
       insn_info & jj = infos[index + 1];
 
-      if (!jj.get_dst_mem_reg() || jj.get_dst_mem_regno() != ii.get_src_regno()
-	  || jj.get_src_regno() == ii.get_dst_regno()
-	  || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval())
+      if (!jj.get_dst_mem_reg () || jj.get_dst_mem_regno () != ii.get_src_regno ()
+	  || jj.get_src_regno () == ii.get_dst_regno () || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval ())
 	continue;
 
       rtx_insn * insn = ii.get_insn ();
@@ -2751,10 +2751,10 @@ opt_commute_add_move (void)
       if (!MEM_P(dst))
 	continue;
 
-      rtx pinc = gen_rtx_POST_INC(GET_MODE(dst), ii.get_dst_reg());
+      rtx pinc = gen_rtx_POST_INC(GET_MODE(dst), ii.get_dst_reg ());
       rtx newmem = replace_equiv_address_nv (dst, pinc);
 
-      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET(ii.get_dst_reg(), ii.get_src_reg()));
+      rtx_insn * newinsn = make_insn_raw (gen_rtx_SET(ii.get_dst_reg (), ii.get_src_reg ()));
 
       if (!insn_invalid_p (newinsn, 1) && validate_change (next, &SET_DEST(set2), newmem, 1) && apply_change_group ())
 	{
@@ -2764,7 +2764,7 @@ opt_commute_add_move (void)
 
 	  insn = emit_insn_before (newinsn, next);
 
-	  add_reg_note (next, REG_INC, ii.get_dst_reg());
+	  add_reg_note (next, REG_INC, ii.get_dst_reg ());
 
 	  ++change_count;
 	}
@@ -4136,6 +4136,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  bool fix = false;
 	  if (jj.get_src_mem_regno () == regno)
 	    {
+	      if (jj.get_dst_regno () == regno)
+		return 0;
+
 	      if (jj.get_src_mem_addr () < size)
 		return 0;
 
@@ -4146,6 +4149,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	    }
 	  if (jj.get_dst_mem_regno () == regno)
 	    {
+	      if (jj.get_src_regno () == regno)
+		return 0;
+
 	      if (jj.get_dst_mem_addr () < size)
 		return 0;
 
@@ -4172,7 +4178,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
   if (!ii.make_post_inc (regno))
     return 0;
 
-  log ("(i) auto_inc for %s at %d - %d fixups\n", reg_names[regno], index, fixups.size());
+  log ("(i) auto_inc for %s at %d - %d fixups\n", reg_names[regno], index, fixups.size ());
 
   // fix all offsets / adds
   for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)
@@ -4220,13 +4226,12 @@ opt_autoinc ()
 //      if ((ii.get_myuse () & 0xff0000))
 //	continue;
 
-      rtx reg = 0;
       if (ii.is_src_mem () && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
 
-      if (!reg && ii.is_dst_mem () && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
-	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ())
+      if (ii.is_dst_mem () && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg ());
 
     }
@@ -4462,19 +4467,18 @@ namespace
 	    if (ispicref)
 	      {
 		rtx dest = SET_DEST(set);
-		if (MEM_P(dest) && GET_CODE(XEXP(dest, 0)) != PRE_DEC
-		  )
+		if (MEM_P(dest) && GET_CODE(XEXP(dest, 0)) != PRE_DEC)
 		  {
 		    // split the insn
 		    rtx reg = gen_reg_rtx (Pmode);
 
 		    rtx pat0 = gen_rtx_SET(reg, *src);
 		    //rtx_insn * n0 =
-			emit_insn_before(pat0, insn);
+		    emit_insn_before (pat0, insn);
 
 		    rtx pat1 = gen_rtx_SET(dest, reg);
 		    //rtx_insn * n1 =
-			emit_insn_before(pat1, insn);
+		    emit_insn_before (pat1, insn);
 
 		    SET_INSN_DELETED(insn);
 		  }

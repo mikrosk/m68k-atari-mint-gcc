@@ -845,6 +845,9 @@ insn_info::make_post_inc (int regno)
 
   // convert into POST_INC
   rtx set0 = single_set (new_insn);
+  if (!set0)
+    return false;
+
   rtx set = set0;
 
   if (is_compare ())

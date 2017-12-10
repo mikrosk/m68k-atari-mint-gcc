@@ -70,11 +70,19 @@
 #include "tree-pass.h"
 #include "conditions.h"
 #include "langhooks.h"
+#include <vector>
+#include <set>
+#include <map>
 
 int be_very_verbose;
 bool be_verbose;
 
 extern struct lang_hooks lang_hooks;
+
+static void
+update_insn_infos (void);
+static unsigned
+track_regs ();
 
 /* Lookup of the current function name. */
 extern tree current_function_decl;
@@ -116,63 +124,210 @@ enum proepis
   IN_CODE, IN_PROLOGUE, IN_EPILOGUE, IN_EPILOGUE_PARALLEL_POP
 };
 
+/**
+ * What's needed to track values?
+ */
 class track_var
 {
-  unsigned * indexes;
-  rtx * values;
-  unsigned * versions;
+  rtx value[FIRST_PSEUDO_REGISTER];
+  unsigned mask[FIRST_PSEUDO_REGISTER];
+
+  bool
+  extend (rtx * z, unsigned * mask, machine_mode dstMode, rtx x)
+  {
+    switch (GET_CODE(x))
+      {
+      case CONST_INT:
+      case CONST_FIXED:
+      case CONST_DOUBLE:
+      case SYMBOL_REF:
+      case LABEL_REF:
+	/* these can be used directly. */
+	*z = x;
+	return true;
+
+      case REG:
+	{
+	  rtx v = value[REGNO(x)];
+	  /* try to expand the register. */
+	  if (v)
+	    {
+	      if (GET_MODE(v) != VOIDmode && dstMode != GET_MODE(v))
+		return false;
+
+	      *mask |= mask[REGNO(x)];
+	      *z = value[REGNO(x)];
+	      return true;
+	    }
+
+	  /* store the reg otherwise. */
+	  *mask |= (1 << REGNO(x));
+	  *z = x;
+	  return true;
+	}
+      case PLUS:
+      case MINUS:
+	// handle only in combination with const
+	{
+	  rtx y = XEXP(x, 0);
+	  if (GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref(y))
+	    return false;
+
+	  if (GET_CODE(x) == PLUS) // create an own plus to be able to modify the constant offset (later).
+	    *z = gen_rtx_PLUS(GET_MODE(x), y, XEXP(x, 1));
+	  else
+	    *z = gen_rtx_MINUS(GET_MODE(x), y, XEXP(x, 1));
+	  return true;
+	}
+
+	/* memory reads. */
+      case MEM:
+	{
+	  rtx m = XEXP(x, 0);
+	  switch (GET_CODE(m))
+	    {
+	    case SYMBOL_REF:
+	    case LABEL_REF:
+	      /* these can be used directly. */
+	      *z = x;
+	      return true;
+
+	    case REG:
+	      if (!extend (&m, mask, dstMode, m))
+		return false;
+
+	      *z = gen_rtx_MEM (GET_MODE(x), m);
+	      return true;
+
+	    case PLUS:
+	    case MINUS:
+	      // handle only in combination with const
+	      {
+		rtx y = XEXP(m, 0);
+		if (!REG_P(
+		    y) && GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref(y))
+		  return false;
+
+		if (REG_P(y))
+		  if (!extend (&y, mask, dstMode, y))
+		    return false;
+
+		if (GET_CODE(x) == PLUS) // create an own plus to be able to modify the constant offset (later).
+		  m = gen_rtx_PLUS(GET_MODE(m), y, XEXP(m, 1));
+		else
+		  m = gen_rtx_MINUS(GET_MODE(m), y, XEXP(m, 1));
+
+		*z = gen_rtx_MEM (GET_MODE(x), m);
+		return true;
+	      }
+	    }
+	  return false;
+	}
+
+      default:
+	return false;
+      }
+  }
 
 public:
-  track_var (track_var const * o = 0) :
-      indexes ((unsigned *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(unsigned))), values (
-	  (rtx *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(rtx))), versions (
-	  (unsigned *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof(unsigned)))
+  track_var (track_var const * o = 0)
   {
     if (o)
       assign (o);
+    else
+      for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+	{
+	  value[i] = 0;
+	  mask[i] = 0;
+	}
+  }
+
+  rtx
+  get (unsigned regno)
+  {
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return 0;
+
+    return value[regno];
   }
 
   void
-  set (unsigned regno, unsigned index, rtx rtx, unsigned ver)
+  set (machine_mode mode, unsigned regno, rtx x, unsigned index)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
-    indexes[regno] = index;
-    values[regno] = rtx;
-    versions[regno] = ver;
+    if (!extend (&value[regno], &mask[regno], mode, x))
+      {
+	clear (regno, index);
+      }
   }
 
-  unsigned
-  get_index (unsigned regno) const
+  bool
+  equals (unsigned regno, rtx x)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
-      return 0;
-    return indexes[regno];
-  }
+      return false;
 
-  rtx
-  get_value (unsigned regno) const
-  {
-    if (regno >= FIRST_PSEUDO_REGISTER)
-      return 0;
-    return values[regno];
-  }
+    if (x == 0 || value[regno] == 0)
+      return false;
 
-  unsigned
-  get_version (unsigned regno) const
-  {
-    if (regno >= FIRST_PSEUDO_REGISTER)
-      return 0;
-    return versions[regno];
+    rtx z = 0;
+    unsigned m = 0;
+    if (!extend (&z, &m, GET_MODE(x), x))
+      return false;
+
+    return rtx_equal_p (z, value[regno]);
   }
 
   void
-  assign (track_var const * o) const
+  clear (unsigned regno, unsigned index)
   {
-    memcpy (indexes, o->indexes, FIRST_PSEUDO_REGISTER * sizeof(unsigned));
-    memcpy (values, o->values, FIRST_PSEUDO_REGISTER * sizeof(rtx));
-    memcpy (versions, o->versions, FIRST_PSEUDO_REGISTER * sizeof(unsigned));
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return;
+
+    value[regno] = gen_rtx_CONST_INT (VOIDmode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
+    mask[regno] = FIRST_PSEUDO_REGISTER;
+  }
+
+  void
+  clear_aftercall (unsigned index)
+  {
+    for (int i = 2; i < FIRST_PSEUDO_REGISTER; ++i)
+      {
+	if (mask[i])
+	  {
+	    value[i] = 0;
+	    mask[i] = 0;
+	  }
+      }
+    clear (0, index);
+    clear (1, index);
+    clear (8, index);
+    clear (9, index);
+  }
+
+  void
+  clear_for_mask (unsigned def, unsigned index)
+  {
+    if (!def)
+      return;
+    for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
+      {
+	// register changed or used somehow
+	if ((1 << regno) & def)
+	  clear (regno, index);
+      }
+  }
+
+  void
+  assign (track_var const * o)
+  {
+    for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+      {
+	value[i] = o->value[i];
+	mask[i] = o->mask[i];
+      }
   }
 
   /* only keep common values in both sides. */
@@ -181,8 +336,11 @@ public:
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (versions[i] != o->versions[0] || !rtx_equal_p (values[i], o->values[i]))
-	  values[i] = o->values[i] = 0;
+	if (!rtx_equal_p (value[i], o->value[i]))
+	  {
+	    value[i] = o->value[i] = 0;
+	    mask[i] = mask[i] = 0;
+	  }
       }
   }
 
@@ -192,9 +350,8 @@ public:
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (versions[i] != o->versions[0] || !rtx_equal_p (values[i], o->values[i]))
-	  if (values[i])
-	    return false;
+	if (!rtx_equal_p (value[i], o->value[i]))
+	  return false;
       }
     return true;
   }
@@ -931,7 +1088,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	  SET_SRC(set) = XEXP(src, 0);
 	}
       else
-	  XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
+	XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
     }
   else if (get_src_mem_regno () == regno)
     {
@@ -1367,11 +1524,11 @@ update_insn2index ()
 static void
 update_label2jump ()
 {
+  update_insn2index ();
+
   for (unsigned index = 0; index < infos.size (); ++index)
     {
       insn_info & ii = infos[index];
-      insn2info.insert (std::make_pair (ii.get_insn (), &ii));
-
       if (ii.is_label ())
 	for (l2j_iterator i = label2jump.find (ii.get_insn ()->u2.insn_uid), k = i;
 	    i != label2jump.end () && i->first == k->first; ++i)
@@ -1598,12 +1755,47 @@ is_reg_dead (unsigned regno, unsigned _pos)
   return true;
 }
 
+bool dump_reg_track;
+void
+append_reg_cache (FILE * f, rtx_insn * insn)
+{
+  i2i_iterator i = insn2info.find (insn);
+  if (i == insn2info.end ())
+    return;
+
+  insn_info & jj = *i->second;
+  unsigned index = jj.get_index ();
+  if (index + 1 < infos.size ())
+    ++index;
+  insn_info & ii = infos[index];
+
+  track_var * track = ii.get_track_var ();
+  if (track == 0)
+    return;
+
+  fprintf (f, "\n");
+
+  for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
+    {
+      rtx v = track->get (regno);
+      if (v == 0)
+	continue;
+
+//      if (GET_CODE(v) == CONST_INT && GET_MODE(v) == VOIDmode)
+//	continue;
+
+      fprintf (f, "%s=", reg_names[regno]);
+
+      print_inline_rtx (f, v, 12);
+      fprintf (f, "\n");
+    }
+}
+
 /* helper stuff to enhance the asm output. */
 int my_flag_regusage;
 void
 append_reg_usage (FILE * f, rtx_insn * insn)
 {
-
   i2i_iterator i = insn2info.find (insn);
   if (i == insn2info.end ())
     return;
@@ -3635,53 +3827,48 @@ opt_shrink_stack_frame (void)
 
 /* Update the insn_infos to 'know' the value for each register.
  *
- * atm only assignments to registers are optimized.
+ * assignments to registers are optimized by knowing the value. If the same value is assigned, omit that insn.
  *
- * We track register aliases:
+ * I'm tracking
  *
- * ;10
+ *  rtx - the value
+ *
+ *  mask - the referenced registers in the value, 0 means that rtx is const, with baserel a4 is not tracked
+ *
+ *  if there is a value for the referenced register(s), the value is extended
+ *
+ * e.g.
+ *
+ * ; line 2
+ *    move.l 12(a7),a0
+ *
+ * -> rtx = mem(plus(a7, 12));   0x8000
+ *
+ * ; line 10
  *    move.l 4(a0),d0
  *
+ * -> rtx = mem(plus(mem(plus(a7, 12)), 4));   0x8000; extended with value from a0, thus a7 is used only
+ *
  * ;15
- *    move.l d0,d1
+ *    lea _label,a1
  *
- *
- * ;18
- *    move.l d1,d2
- *
- *  - results into d0 is an alias for d1 (and vice versa).
- *  - to identify if a register is still changed, we also track the line where it was assigned.
- *  - in addition to register aliases memory reads are tracked too for normal memory access (e.g. no auto inc)
- *    but not if the memory read is marked as volatile
- *
- * E.g.
- *
- * d0[10]: 4(a0)[10]
- * d1[15]: d0[10]
- * d2[18]: d1[15]
- *
- * with that information we know that d2[18] also contains 4(a0)[10]
- *
- * info to track per register:
- *   line index where the value was assigned
- *   rtx which was assigned - or null if not a usable rtx
- *   reg line index - if rtx is a register
- *
- * for each assignment which is not to a register the rtx are scanned and set to null on match
+ * -> rtx = symbol_ref(_label) ; 0x0000 == const
  *
  * on jumps the current state is duplicated and merged at the given label
  *
  * on merge only identical info is kept, rest is discarded
  *
- * for each insn first the track info for all defined regs is discarded before the new one is set.
+ * for each insn for all defined regs the value and mask  is discarded before a new value is set.
+ *
+ * for each insn which is writing to memory, all non const values are discarded.
  *
  *
- * after the track info is complete, each insn is evaluated agains the track info.
+ * after the track info is complete, each insn setting a register is evaluated against the track info.
  *
  * now redundant loads are found and eliminated
- * also unused assignments are found an eliminated
  *
  */
+
 static unsigned
 track_regs ()
 {
@@ -3733,26 +3920,19 @@ track_regs ()
 	  ii.get_track_var ()->assign (track);
 
 	  int dregno = ii.get_dst_regno ();
+	  track->clear (dregno, index);
+
 	  unsigned def = ii.get_def () & 0xffffff;
-	  if (def)
-	    {
-	      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
-		{
-		  // register changed or used somehow
-		  if (((1 << regno) & def)
-		      || (track->get_index (regno) && (infos[track->get_index (regno)].get_myuse () & def)))
-		    track->set (regno, index, 0, index);
-		}
-	      // clear on self update
-	      if (def & ii.get_myuse ())
-		track->set (dregno, index, 0, index);
-	    }
+	  track->clear_for_mask (def, index);
 
 	  if (ii.is_compare ())
 	    continue;
 
 	  if (ii.is_call ())
-	    continue;
+	    {
+	      track->clear_aftercall (index);
+	      continue;
+	    }
 
 	  rtx set = single_set (ii.get_insn ());
 
@@ -3786,21 +3966,7 @@ track_regs ()
 	  if (ii.is_src_mem () && src->volatil)
 	    continue;
 
-	  // add the entry - determine the version - use 0 for const values
-	  unsigned version;
-	  if (GET_CODE(src) != CONST_INT && GET_CODE(src) != CONST_FIXED && GET_CODE(src) != CONST_DOUBLE)
-	    {
-	      if (ii.get_src_regno () >= 0)
-		version = track->get_index (ii.get_src_regno ());
-	      else if (ii.get_src_mem_regno () >= 0)
-		version = track->get_index (ii.get_src_mem_regno ());
-	      else
-		version = index;
-	    }
-	  else
-	    version = 0;
-
-	  track->set (dregno, index, src, version);
+	  track->set (ii.get_mode (), dregno, src, index);
 	}
       delete track;
     }
@@ -3843,35 +4009,23 @@ opt_elim_dead_assign (int blocked_regno)
 	{
 	  track_var * track = ii.get_track_var ();
 
-//	  if (ii.get_src_regno() == 8 && ii.get_dst_regno() == 7)
-//	    printf("%d: move %d,%d: v=%d (%d->%d), i=%d (%d->%d)\n", index, ii.get_src_regno(), ii.get_dst_regno(),
-//		   track->get_version(ii.get_src_regno()), infos[track->get_version(ii.get_src_regno())].get_src_regno(), infos[track->get_version(ii.get_src_regno())].get_dst_regno(),
-//		   track->get_index(ii.get_dst_regno()), infos[track->get_index(ii.get_dst_regno())].get_src_regno(), infos[track->get_index(ii.get_dst_regno())].get_dst_regno());
-
 	  rtx src = SET_SRC(set);
-	  if (rtx_equal_p (track->get_value (ii.get_dst_regno ()), src))
+	  if (track->equals (ii.get_dst_regno (), src))
 	    {
-	      if ((REG_P(src) && track->get_version (ii.get_dst_regno ()) == track->get_index (ii.get_src_regno ()))
-		  || !REG_P(src))
-		{
-		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-		  SET_INSN_DELETED(insn);
-		  ++change_count;
-		  continue;
-		}
+	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	      SET_INSN_DELETED(insn);
+	      ++change_count;
+	      continue;
 	    }
-	  // check reverse assignment
-	  if (REG_P(src))
+
+	  if (ii.get_src_reg () && track->equals (ii.get_src_regno (), SET_DEST(set)))
 	    {
-	      if (REG_P(src) && rtx_equal_p (track->get_value (ii.get_src_regno ()), SET_DEST(set))
-		  && track->get_version (ii.get_src_regno ()) == track->get_index (ii.get_dst_regno ()))
-		{
-		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-		  SET_INSN_DELETED(insn);
-		  ++change_count;
-		  continue;
-		}
+	      log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	      SET_INSN_DELETED(insn);
+	      ++change_count;
+	      continue;
 	    }
+
 	}
     }
   return change_count;
@@ -4300,6 +4454,7 @@ namespace
   unsigned
   pass_bbb_optimizations::execute_bbb_optimizations (void)
   {
+    dump_reg_track = strchr (string_bbb_opts, 'R') != 0;
     be_very_verbose = strchr (string_bbb_opts, 'V') != 0;
     be_verbose = strchr (string_bbb_opts, 'v') != 0;
     if (be_verbose && be_very_verbose)
@@ -4379,6 +4534,12 @@ namespace
 
     if (strchr (string_bbb_opts, 'X') || strchr (string_bbb_opts, 'x'))
       dump_insns ("bbb", strchr (string_bbb_opts, 'X'));
+
+    if (dump_reg_track)
+      {
+	update_insns ();
+	track_regs ();
+      }
 
     return r;
   }
@@ -4463,9 +4624,9 @@ namespace
 	    bool ispicref = false;
 	    // fix add PLUS/MINUS into the unspec offset
 	    if (GET_CODE(*src) == PLUS || GET_CODE(*src) == MINUS)
-	      ispicref = CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(*src, 0));
+	      ispicref = amiga_is_const_pic_ref(XEXP(*src, 0));
 	    else
-	      ispicref = CONST_PLUS_PIC_REG_CONST_UNSPEC_P(*src);
+	      ispicref = amiga_is_const_pic_ref(*src);
 
 	    if (ispicref)
 	      {

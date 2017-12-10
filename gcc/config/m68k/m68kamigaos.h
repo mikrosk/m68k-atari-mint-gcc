@@ -700,18 +700,17 @@ extern int amiga_is_const_pic_ref(const_rtx x);
 ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
  || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
  || GET_CODE (X) == HIGH \
- ) && !amiga_is_const_pic_ref(X))
+ ))
+
 
 
 /* Given that symbolic_operand(X), return TRUE if no special
    base relative relocation is necessary */
 
-#define LEGITIMATE_BASEREL_OPERAND_P(X)					\
-  (flag_pic >= 3 && read_only_operand (X))
-
 #undef LEGITIMATE_PIC_OPERAND_P
 #define LEGITIMATE_PIC_OPERAND_P(X) (					\
-   ! symbolic_operand (X, VOIDmode) || LEGITIMATE_BASEREL_OPERAND_P (X))
+    ! symbolic_operand (X, VOIDmode) &&					\
+    ! amiga_is_const_pic_ref(X))
 
 // (GET_CODE(X) == CONST && (GET_CODE(XEXP(X, 0)) == SYMBOL_REF || GET_CODE(XEXP(X, 0)) == LABEL_REF) && !CONSTANT_POOL_ADDRESS_P (XEXP(X, 0))) ||
 
@@ -742,12 +741,4 @@ extern int amiga_is_const_pic_ref(const_rtx x);
 extern int
 amigaos_function_arg_reg(unsigned regno);
 
-/* SBF: macro to test for const via pic_reg. */
-#define CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x) \
-     (GET_CODE(x) == CONST \
-    && GET_CODE(XEXP(x, 0)) == PLUS \
-    && REG_P(XEXP(XEXP(x, 0), 0)) \
-    && REGNO(XEXP(XEXP(x, 0), 0)) == PIC_REG \
-    && GET_CODE(XEXP(XEXP(x, 0), 1)) == CONST \
-    && GET_CODE(XEXP(XEXP(XEXP(x, 0), 1), 0)) == UNSPEC \
-    )
+//extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands);

@@ -2284,7 +2284,7 @@ void dump_insns(char const * name)
 	  if (!set)
 	    continue;
 
-	  if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(SET_SRC(set)) && MEM_P(SET_DEST(set)))
+	  if (amiga_is_const_pic_ref(SET_SRC(set)) && MEM_P(SET_DEST(set)))
 	    debug_rtx(insn);
 	}
 #endif

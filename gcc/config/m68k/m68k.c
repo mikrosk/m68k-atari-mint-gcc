@@ -2176,8 +2176,10 @@ m68k_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   /* SBF: the baserel(32) const plus pic_ref, symbol is an address. */
   if (amiga_is_const_pic_ref(x))
     return true;
+
   if (!amigaos_legitimate_src(x))
     return false;
+
 #endif
 
   return m68k_decompose_address (mode, x, strict_p, &address);
@@ -2530,7 +2532,7 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
       /* SBF: Does the symbol use common or bss and qualifies for pic_reg?
        * Do not ref to .text via pic_reg!
        */
-	  if (!SYMBOL_REF_FUNCTION_P(orig) && decl && (DECL_COMMON (decl) || bss_initializer_p (decl)))
+	  if (GET_CODE (orig) == SYMBOL_REF && !SYMBOL_REF_FUNCTION_P(orig) && decl && (DECL_COMMON (decl) || bss_initializer_p (decl)))
 	    {
 	      /* SBF: unfortunately using the wrapped symbol without MEM does not work.
 	       * The pic_ref reference gets decomposed and leads to no working code.
@@ -4603,7 +4605,7 @@ print_operand (FILE *file, rtx op, int letter)
 	       && INTVAL (XEXP (op, 0)) >= -0x8000)
 #ifdef TARGET_AMIGA
 /* SBF: Do not append some 'l' with baserel(32). */
-	       && !CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(op, 0))
+	       && !amiga_is_const_pic_ref(XEXP(op, 0))
 #endif
 	       )
 		fprintf (file, MOTOROLA ? ".l" : ":l");
@@ -4830,12 +4832,35 @@ print_operand_address (FILE *file, rtx addr)
   /*
    * SBF: remove the const wrapper.
    */
-  if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(addr))
+  if (amiga_is_const_pic_ref(addr))
     {
-      print_operand_address(file, XEXP(addr, 0));
+      /* handle (plus (unspec ) (const_int) */
+      rtx *x = &addr;
+      while (GET_CODE(*x) != PLUS)
+	x = &XEXP(*x, 0);
+
+      x = &XEXP(*x, 1); // CONST
+      if (GET_CODE(*x) == CONST)
+	x = &XEXP(*x, 0);
+
+      /* if there is a plus - swap it.
+       * we want n+symbol:W (not symbol:W+n)
+       */
+      if (GET_CODE(*x) == PLUS)
+	{
+	  rtx plus = *x;
+	  fprintf (file, "%d+", (int) INTVAL (XEXP(plus, 1)));
+
+	  *x = XEXP(plus, 0);
+	  print_operand_address(file, XEXP(addr, 0));
+	  *x = plus;
+	}
+      else
+	print_operand_address(file, XEXP(addr, 0));
+
       return;
     }
-  if (GET_CODE(addr) == PLUS && CONST_PLUS_PIC_REG_CONST_UNSPEC_P(XEXP(addr, 0)))
+  if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))
     {
       fprintf (file, "%d+", (int) INTVAL (XEXP(addr, 1)));
       print_operand_address(file, XEXP(XEXP(addr, 0),0));

@@ -793,16 +793,46 @@ amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_U
 /**
  * Does x reference the pic_reg and is const or plus?
  */
-int
-amiga_is_const_pic_ref (const_rtx x)
+static int
+_amiga_is_const_pic_ref (const_rtx x)
 {
-  const_rtx y = x;
-  if (flag_pic < 3)
+  if (GET_CODE(x) == PLUS || GET_CODE(x) == MINUS)
+    {
+      if (GET_CODE(XEXP(x, 1)) == CONST_INT)
+	return _amiga_is_const_pic_ref(XEXP(x, 0));
+      return false;
+    }
+
+  if (GET_CODE(x) == CONST)
+    x = XEXP(x, 0);
+  if (GET_CODE(x) != PLUS)
     return false;
-  while (GET_CODE(y) == CONST || GET_CODE(y) == PLUS)
-    y = XEXP(y, 0);
-  return (x != y && REG_P(y) && REGNO(y) == PIC_REG);
+
+  const_rtx reg = XEXP(x, 0);
+  if (!REG_P(reg) && REGNO(reg) != PIC_REG)
+    return false;
+
+  const_rtx unspec = XEXP(x, 1);
+  while (GET_CODE(unspec) == PLUS || GET_CODE(unspec) == CONST)
+    unspec = XEXP(unspec, 0);
+
+  if (GET_CODE(unspec) != UNSPEC)
+    return false;
+
+  return true;
 }
+
+int
+amiga_is_const_pic_ref (const_rtx cnst)
+{
+  if (flag_pic < 3)
+    return true;
+  int r = _amiga_is_const_pic_ref (cnst);
+//  fprintf(stderr, r ? "valid pic: " : "invalid pic: ");
+//  debug_rtx(cnst);
+  return r;
+}
+
 
 /* Does operand (which is a symbolic_operand) live in text space? If
  so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.
@@ -880,15 +910,27 @@ amigaos_legitimate_src (rtx src)
   if (flag_pic < 3)
     return true;
 
+  if (MEM_P(src))
+    {
+      rtx x = XEXP(src, 0);
+      if (GET_CODE(x) == PLUS || GET_CODE(x) == MINUS) {
+	  if (amiga_is_const_pic_ref(XEXP(x, 0))
+	      || amiga_is_const_pic_ref(XEXP(x, 1)))
+	    return false;
+      }
+      return true;
+    }
+
   if (GET_CODE(src) == PLUS || GET_CODE(src) == MINUS)
     {
       rtx x = XEXP(src, 0);
+      rtx y = XEXP(src, 1);
 
       /** handled in print_operand_address(...) */
-      if (CONST_PLUS_PIC_REG_CONST_UNSPEC_P(x))
-	  return true;
+      if (amiga_is_const_pic_ref(x))
+	  return GET_CODE(y) == CONST_INT;
 
-      return amigaos_legitimate_src(x) && amigaos_legitimate_src(XEXP(src, 1));
+      return amigaos_legitimate_src(x) && amigaos_legitimate_src(y) && !amiga_is_const_pic_ref(y);
     }
 
   if (GET_CODE(src) == CONST)
@@ -903,16 +945,12 @@ amigaos_legitimate_src (rtx src)
 	      if (!REG_P(reg))
 		return true;
 
-//	      debug_rtx(src);
 	      return false;
 	    }
 	}
 
       if (GET_CODE(op) == UNSPEC)
-	{
-//	  debug_rtx(src);
-	  return false;
-	}
+	return false;
     }
 
   return true;
@@ -986,3 +1024,13 @@ amigaos_alternate_frame_setup (int fsize)
 #endif
   }
 
+#if 0
+extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands)
+{
+  fprintf(stderr, "%s: %d ", txt, which_alternative);
+  for (int i = 0; i < n; ++i)
+    print_rtl(stderr, operands[i]);
+  fprintf(stderr, "\n--\n");
+  return true;
+}
+#endif

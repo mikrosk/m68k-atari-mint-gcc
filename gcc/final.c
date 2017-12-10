@@ -3626,6 +3626,10 @@ output_asm_insn (const char *templ, rtx *operands)
 {
   extern bool be_very_verbose;
   extern void append_reg_usage(FILE *, rtx_insn *);
+
+  extern bool dump_reg_track;
+  void append_reg_cache (FILE * f, rtx_insn * insn);
+
   const char *p;
   int c;
 #ifdef ASSEMBLER_DIALECT
@@ -3784,6 +3788,8 @@ output_asm_insn (const char *templ, rtx *operands)
 
   if (be_very_verbose)
     append_reg_usage(asm_out_file, current_insn);
+  if (dump_reg_track)
+    append_reg_cache(asm_out_file, current_insn);
 
   /* Write out the variable names for operands, if we know them.  */
   if (flag_verbose_asm)

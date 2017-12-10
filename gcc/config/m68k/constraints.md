@@ -1,5 +1,5 @@
 ;; Constraint definitions for m68k
-;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 ;; This file is part of GCC.
 
@@ -96,12 +96,6 @@
   (and (match_code "symbol_ref,label_ref,const")
        (match_test "!TARGET_PCREL")
        (match_test "!flag_pic || LEGITIMATE_PIC_OPERAND_P (op)")))
-
-(define_constraint "t"
-  "Used for operands that satisfy 's' without PIC stuff, when -mpcrel is not in effect."
-  (and (match_code "symbol_ref,label_ref,const")
-       (match_test "!TARGET_PCREL")
-       (match_test "!flag_pic || !CONST_PLUS_PIC_REG_CONST_UNSPEC_P(op)")))
 
 (define_memory_constraint "Q"
   "Means address register indirect addressing mode."

@@ -142,6 +142,8 @@ class track_var
       case CONST_DOUBLE:
       case SYMBOL_REF:
       case LABEL_REF:
+	if (GET_MODE(x) != dstMode)
+	  return false;
 	/* these can be used directly. */
 	*z = x;
 	return true;
@@ -152,7 +154,7 @@ class track_var
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (GET_MODE(v) != VOIDmode && dstMode != GET_MODE(v))
+	      if (dstMode != GET_MODE(v))
 		return false;
 
 	      *mask |= mask[REGNO(x)];
@@ -286,7 +288,7 @@ public:
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
-    value[regno] = gen_rtx_CONST_INT (VOIDmode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
+    value[regno] = gen_rtx_CONST_INT (SImode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
     mask[regno] = FIRST_PSEUDO_REGISTER;
   }
 

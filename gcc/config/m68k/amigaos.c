@@ -826,7 +826,7 @@ int
 amiga_is_const_pic_ref (const_rtx cnst)
 {
   if (flag_pic < 3)
-    return true;
+    return false;
   int r = _amiga_is_const_pic_ref (cnst);
 //  fprintf(stderr, r ? "valid pic: " : "invalid pic: ");
 //  debug_rtx(cnst);

@@ -2173,6 +2173,8 @@ m68k_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   struct m68k_address address;
 
 #ifdef TARGET_AMIGA
+  if (MEM_P(x))
+    return false;
   /* SBF: the baserel(32) const plus pic_ref, symbol is an address. */
   if (amiga_is_const_pic_ref(x))
     return true;

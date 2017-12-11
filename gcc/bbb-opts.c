@@ -153,7 +153,7 @@ class track_var
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || mr == (1<<FIRST_PSEUDO_REGISTER)))
+	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || mr == (1 << FIRST_PSEUDO_REGISTER)))
 		return false;
 
 	      *mask |= mr;
@@ -166,7 +166,7 @@ class track_var
 	  if (GET_MODE(x) == dstMode)
 	    *z = x;
 	  else
-	    *z = gen_rtx_REG(dstMode, REGNO(x));
+	    *z = gen_rtx_REG (dstMode, REGNO(x));
 	  return true;
 	}
       case PLUS:
@@ -174,7 +174,7 @@ class track_var
 	// handle only in combination with const
 	{
 	  rtx y = XEXP(x, 0);
-	  if (GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref(y))
+	  if (GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref (y))
 	    return false;
 
 	  if (GET_CODE(x) == PLUS) // create an own plus to be able to modify the constant offset (later).
@@ -208,8 +208,7 @@ class track_var
 	      // handle only in combination with const
 	      {
 		rtx y = XEXP(m, 0);
-		if (!REG_P(
-		    y) && GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref(y))
+		if (!REG_P(y) && GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref (y))
 		  return false;
 
 		if (REG_P(y))
@@ -261,6 +260,9 @@ public:
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
+    if (mode == SFmode && regno < 16)
+      mode = SImode;
+
     if (!extend (&value[regno], &mask[regno], mode, x))
       {
 	clear (mode, regno, index);
@@ -290,8 +292,10 @@ public:
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
-    value[regno] = gen_rtx_raw_CONST_INT (mode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
-    mask[regno] = 1<<FIRST_PSEUDO_REGISTER;
+    if (mode == SFmode && regno < 16)
+      mode = SImode;
+    value[regno] = gen_rtx_raw_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
+    mask[regno] = 1 << FIRST_PSEUDO_REGISTER;
   }
 
   void
@@ -299,7 +303,7 @@ public:
   {
     for (int i = 2; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (mask[i] && mask[i] < 1<<FIRST_PSEUDO_REGISTER)
+	if (mask[i] && mask[i] < 1 << FIRST_PSEUDO_REGISTER)
 	  {
 	    value[i] = 0;
 	    mask[i] = 0;
@@ -3927,7 +3931,7 @@ track_regs ()
 	    continue;
 
 	  int dregno = ii.get_dst_regno ();
-	  track->clear (ii.get_mode(), dregno, index);
+	  track->clear (ii.get_mode (), dregno, index);
 
 	  unsigned def = ii.get_def () & 0xffffff;
 	  track->clear_for_mask (def, index);
@@ -4628,9 +4632,9 @@ namespace
 	    bool ispicref = false;
 	    // fix add PLUS/MINUS into the unspec offset
 	    if (GET_CODE(*src) == PLUS || GET_CODE(*src) == MINUS)
-	      ispicref = amiga_is_const_pic_ref(XEXP(*src, 0));
+	      ispicref = amiga_is_const_pic_ref (XEXP(*src, 0));
 	    else
-	      ispicref = amiga_is_const_pic_ref(*src);
+	      ispicref = amiga_is_const_pic_ref (*src);
 
 	    if (ispicref)
 	      {

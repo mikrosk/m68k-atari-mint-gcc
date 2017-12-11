@@ -4075,7 +4075,9 @@ pass_rtl_pre::gate (function *fun)
 {
   return optimize > 0 && flag_gcse
     && !fun->calls_setjmp
+#ifndef TARGET_AMIGA
     && optimize_function_for_speed_p (fun)
+#endif
     && dbg_cnt (pre);
 }
 
@@ -4118,6 +4120,9 @@ public:
 bool
 pass_rtl_hoist::gate (function *)
 {
+#ifdef TARGET_AMIGA
+  return false;
+#else
   return optimize > 0 && flag_gcse
     && !cfun->calls_setjmp
     /* It does not make sense to run code hoisting unless we are optimizing
@@ -4125,6 +4130,7 @@ pass_rtl_hoist::gate (function *)
        bigger if we did PRE (when optimizing for space, we don't run PRE).  */
     && optimize_function_for_size_p (cfun)
     && dbg_cnt (hoist);
+#endif
 }
 
 } // anon namespace

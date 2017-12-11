@@ -290,7 +290,7 @@ public:
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
-    value[regno] = gen_rtx_CONST_INT (mode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
+    value[regno] = gen_rtx_raw_CONST_INT (mode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
     mask[regno] = 1<<FIRST_PSEUDO_REGISTER;
   }
 

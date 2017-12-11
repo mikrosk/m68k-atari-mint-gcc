@@ -142,8 +142,6 @@ class track_var
       case CONST_DOUBLE:
       case SYMBOL_REF:
       case LABEL_REF:
-	if (GET_MODE(x) != dstMode)
-	  return false;
 	/* these can be used directly. */
 	*z = x;
 	return true;
@@ -154,7 +152,7 @@ class track_var
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (dstMode != GET_MODE(v))
+	      if (dstMode != GET_MODE(v) && GET_CODE(v) != CONST_INT)
 		return false;
 
 	      *mask |= mask[REGNO(x)];
@@ -289,7 +287,7 @@ public:
       return;
 
     value[regno] = gen_rtx_CONST_INT (SImode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
-    mask[regno] = FIRST_PSEUDO_REGISTER;
+    mask[regno] = 1<<FIRST_PSEUDO_REGISTER;
   }
 
   void
@@ -297,7 +295,7 @@ public:
   {
     for (int i = 2; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (mask[i])
+	if (mask[i] && mask[i] < 1<<FIRST_PSEUDO_REGISTER)
 	  {
 	    value[i] = 0;
 	    mask[i] = 0;
@@ -3921,14 +3919,14 @@ track_regs ()
 	  ii.mark_visited ();
 	  ii.get_track_var ()->assign (track);
 
+	  if (ii.is_compare ())
+	    continue;
+
 	  int dregno = ii.get_dst_regno ();
 	  track->clear (dregno, index);
 
 	  unsigned def = ii.get_def () & 0xffffff;
 	  track->clear_for_mask (def, index);
-
-	  if (ii.is_compare ())
-	    continue;
 
 	  if (ii.is_call ())
 	    {

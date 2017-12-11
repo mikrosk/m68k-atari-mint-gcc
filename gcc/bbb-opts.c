@@ -149,20 +149,24 @@ class track_var
       case REG:
 	{
 	  rtx v = value[REGNO(x)];
+	  unsigned mr = mask[REGNO(x)];
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (dstMode != GET_MODE(v) && GET_CODE(v) != CONST_INT)
+	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || mr == (1<<FIRST_PSEUDO_REGISTER)))
 		return false;
 
-	      *mask |= mask[REGNO(x)];
-	      *z = value[REGNO(x)];
+	      *mask |= mr;
+	      *z = v;
 	      return true;
 	    }
 
 	  /* store the reg otherwise. */
 	  *mask |= (1 << REGNO(x));
-	  *z = x;
+	  if (GET_MODE(x) == dstMode)
+	    *z = x;
+	  else
+	    *z = gen_rtx_REG(dstMode, REGNO(x));
 	  return true;
 	}
       case PLUS:
@@ -259,7 +263,7 @@ public:
 
     if (!extend (&value[regno], &mask[regno], mode, x))
       {
-	clear (regno, index);
+	clear (mode, regno, index);
       }
   }
 
@@ -281,12 +285,12 @@ public:
   }
 
   void
-  clear (unsigned regno, unsigned index)
+  clear (machine_mode mode, unsigned regno, unsigned index)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
-    value[regno] = gen_rtx_CONST_INT (SImode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
+    value[regno] = gen_rtx_CONST_INT (mode, 0x100000000000000LL | ((long long int) (regno) << 32) | index);
     mask[regno] = 1<<FIRST_PSEUDO_REGISTER;
   }
 
@@ -301,10 +305,10 @@ public:
 	    mask[i] = 0;
 	  }
       }
-    clear (0, index);
-    clear (1, index);
-    clear (8, index);
-    clear (9, index);
+    clear (SImode, 0, index);
+    clear (SImode, 1, index);
+    clear (SImode, 8, index);
+    clear (SImode, 9, index);
   }
 
   void
@@ -316,7 +320,7 @@ public:
       {
 	// register changed or used somehow
 	if ((1 << regno) & def)
-	  clear (regno, index);
+	  clear (SImode, regno, index);
       }
   }
 
@@ -3923,7 +3927,7 @@ track_regs ()
 	    continue;
 
 	  int dregno = ii.get_dst_regno ();
-	  track->clear (dregno, index);
+	  track->clear (ii.get_mode(), dregno, index);
 
 	  unsigned def = ii.get_def () & 0xffffff;
 	  track->clear_for_mask (def, index);

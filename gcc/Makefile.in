@@ -3271,7 +3271,7 @@ endif
 install-strip: install
 
 # Handle cpp installation.
-install-cpp: installdirs cpp$(exeext)
+install-cpp: installdirs cpp$(exeext) all.cross
 	-if test "$(enable_as_accelerator)" != "yes" ; then \
 	  rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext); \

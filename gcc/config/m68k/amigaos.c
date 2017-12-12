@@ -939,7 +939,7 @@ amigaos_legitimate_src (rtx src)
       if (GET_CODE(op) == MINUS || GET_CODE(op) == PLUS)
 	{
 	  rtx x = XEXP(op, 0);
-	  if (GET_CODE(x) == NOT || GET_CODE(x) == NEG)
+	  if (GET_CODE(x) == NOT || GET_CODE(x) == NEG || GET_CODE(x) == SIGN_EXTEND)
 	    {
 	      rtx reg = XEXP(x, 0);
 	      if (!REG_P(reg))

@@ -1021,7 +1021,7 @@ insn_info::make_post_inc (int regno)
 
   if (src_op && get_src_mem_regno () == regno)
     {
-      if (src_op == NEG || src_op == NOT)
+      if (src_op == NEG || src_op == NOT || src_op == SIGN_EXTEND)
 	mem = XEXP(mem, 0);
       else
 	mem = XEXP(mem, 1);

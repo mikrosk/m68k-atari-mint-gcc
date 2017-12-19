@@ -2006,7 +2006,8 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
 	   * we need replicated labels, if the labels are too far away,
 	   * since on 68000 there are only 8 bits for the offset.
 	   */
-	  if (TARGET_68020 || TARGET_68040)
+	  if (!TARGET_68020 && !TARGET_68040)
+	    return false;
 #endif
 
 	  /* Replace references to LABEL1 with LABEL2.  */
@@ -2026,9 +2027,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
      normal and EH predecessor edges.  */
   if ((newpos2 == BB_HEAD (src2)
       && !(EDGE_PRED (src2, 0)->flags & EDGE_EH))
-#ifdef TARGET_AMIGA
-      || (!TARGET_68020 && !TARGET_68040)
-#endif
       )
     redirect_to = src2;
   else

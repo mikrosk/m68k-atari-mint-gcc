@@ -118,7 +118,8 @@ Boston, MA 02111-1307, USA.  */
       N_("Do not restore a4 in all functions") }
 
 
-/* Support sections in chip memory, currently '.datachip' only.  */
+/* Support sections in chip, fast memory, currently '.datachip', '.datafast'
+ * and '.datafar' to abs addressing with baserel.  */
 extern void
 amiga_named_section (const char *name, unsigned int flags, tree decl);
 
@@ -445,6 +446,8 @@ while (0)
 #define SUBTARGET_ATTRIBUTES                                            \
   { "asmregs", 0, 0, false,  false, false, 0, true }, \
   { "chip", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
+  { "fast", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
+  { "far",  0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
     true }, \

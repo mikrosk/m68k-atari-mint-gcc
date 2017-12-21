@@ -52,152 +52,6 @@
 //int amiga_declare_object;
 
 #if 0
-static int amigaos_put_in_text (tree);
-static rtx gen_stack_management_call (rtx, rtx, const char *);
-
-/* Baserel support.  */
-
-/* Does operand (which is a symbolic_operand) live in text space? If
- so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.
-
- This function is used in base relative code generation. */
-
-int
-read_only_operand (rtx operand)
-  {
-    if (GET_CODE (operand) == CONST)
-    operand = XEXP (XEXP (operand, 0), 0);
-    if (GET_CODE (operand) == SYMBOL_REF)
-    return SYMBOL_REF_FLAG (operand) || CONSTANT_POOL_ADDRESS_P (operand);
-    return 1;
-  }
-
-/* Choose the section to use for DECL.  RELOC is true if its value contains
- any relocatable expression.  */
-
-void
-amigaos_select_section (tree decl ATTRIBUTE_UNUSED, int reloc ATTRIBUTE_UNUSED,
-    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
-  {
-    // if (TREE_CODE (decl) == STRING_CST)
-//    {
-//// flag_writable_strings /data_section not in gcc4,
-////make life easy and put to same section
-////      if (! flag_writable_strings)
-////	readonly_data_section ();
-////      else
-//	//data_section ();
-//    }
-//  else if (TREE_CODE (decl) == VAR_DECL)
-//    {
-//      if (TREE_READONLY (decl)
-//	  && ! TREE_THIS_VOLATILE (decl)
-//	  && DECL_INITIAL (decl)
-//	  && (DECL_INITIAL (decl) == error_mark_node
-//	      || TREE_CONSTANT (DECL_INITIAL (decl)))
-//	  && (!flag_pic || (flag_pic<3 && !reloc)
-//	      || SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0))))
-//	readonly_data_section ();
-//      else
-//	data_section ();
-//    }
-//  else if ((!flag_pic || (flag_pic<3 && !reloc)) && DECL_P(decl)
-//	   && SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)))
-//    readonly_data_section ();
-//  else
-    //data_section ();
-  }
-
-/* This function is used while generating a base relative code.
- It returns 1 if a decl is not relocatable, i. e., if it can be put
- in the text section.
- Currently, it's very primitive: it just checks if the object size
- is less than 4 bytes (i. e., if it can hold a pointer).  It also
- supports arrays and floating point types.  */
-
-static int
-amigaos_put_in_text (tree decl)
-  {
-    tree type = TREE_TYPE (decl);
-    if (TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-    return (TREE_INT_CST_ELT(TYPE_SIZE (type), 1) == 0
-	&& TREE_INT_CST_LOW (TYPE_SIZE (type)) < 32)
-    || FLOAT_TYPE_P (type);
-  }
-
-/* Record properties of a DECL into the associated SYMBOL_REF.  */
-
-void
-amigaos_encode_section_info (tree decl, rtx rtl, int first)
-  {
-    default_encode_section_info (decl, rtl, first);
-
-    SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
-    if (TREE_CODE (decl) == FUNCTION_DECL) // huh seem do same. not in gcc4 flag_writable_strings
-    SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
-    else
-      {
-	if ((MEM_READONLY_P (rtl) && !MEM_VOLATILE_P (rtl)
-		&& (flag_pic<3 || (TREE_CODE (decl) == STRING_CST
-		    )
-		    || amigaos_put_in_text (decl)))
-	    || (TREE_CODE (decl) == VAR_DECL
-		&& DECL_SECTION_NAME (decl) != NULL))
-	SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
-      }
-  }
-
-
-/* Attributes support.  */
-
-#define AMIGA_CHIP_SECTION_NAME ".datachip"
-
-/* Handle a "chip" attribute;
- arguments as in struct attribute_spec.handler.  */
-
-tree
-amigaos_handle_decl_attribute (tree *node, tree name,
-    tree args ATTRIBUTE_UNUSED,
-    int flags ATTRIBUTE_UNUSED,
-    bool *no_add_attrs)
-  {
-    if (TREE_CODE (*node) == VAR_DECL)
-      {
-	if (is_attribute_p ("chip", name))
-#ifdef TARGET_ASM_NAMED_SECTION
-	  {
-	    if (! TREE_STATIC (*node) && ! DECL_EXTERNAL (*node))
-	    error ("`chip' attribute cannot be specified for local variables");
-	    else
-	      {
-		/* The decl may have already been given a section attribute from
-		 a previous declaration.  Ensure they match.  */
-		if (DECL_SECTION_NAME (*node) == NULL_TREE)
-		DECL_SECTION_NAME (*node) =
-		build_string (strlen (AMIGA_CHIP_SECTION_NAME) + 1,
-		    AMIGA_CHIP_SECTION_NAME);
-		else if (strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (*node)),
-			AMIGA_CHIP_SECTION_NAME) != 0)
-		  {
-		    error_with_decl (*node,
-			"`chip' for `%s' conflicts with previous declaration");
-		  }
-	      }
-	  }
-#else
-	error ("`chip' attribute is not supported for this target");
-#endif
-      }
-    else
-      {
-	warning (OPT_Wattributes, "`%s' attribute only applies to variables",
-	    IDENTIFIER_POINTER (name));
-	*no_add_attrs = true;
-      }
-
-    return NULL_TREE;
-  }
 
 //----- from 68k.c start
 
@@ -607,6 +461,31 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
 	return 0;
 
     }
+  else
+    {
+      tree attrs1 = TYPE_ATTRIBUTES(type1);
+
+      tree chip1 = lookup_attribute("chip", attrs1);
+      tree fast1 = lookup_attribute("fast", attrs1);
+      tree far1 = lookup_attribute("far", attrs1);
+
+      tree attrs2 = TYPE_ATTRIBUTES(type2);
+
+      tree chip2 = lookup_attribute("chip", attrs2);
+      tree fast2 = lookup_attribute("fast", attrs2);
+      tree far2 = lookup_attribute("far", attrs2);
+
+      if (chip1)
+	return chip2 && !fast2 && !far2;
+
+      if (fast1)
+	return !chip2 && fast2 && !far2;
+
+      if (far1)
+	return !chip2 && !fast2 && far2;
+
+      return !chip2 && !fast2 && !far2;
+    }
   return 1;
 }
 /* end-GG-local */
@@ -689,7 +568,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	}
       else
 	{
-	  if (is_attribute_p ("chip", name))
+	  if (is_attribute_p ("chip", name) || is_attribute_p ("fast", name) || is_attribute_p ("far", name))
 	    {
 	      // OK
 	    }
@@ -707,6 +586,8 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 }
 
 #define AMIGA_CHIP_SECTION_NAME ".datachip"
+#define AMIGA_FAST_SECTION_NAME ".datafast"
+#define AMIGA_FAR_SECTION_NAME  ".datafar"
 
 void
 amiga_insert_attribute (tree decl, tree * attr)
@@ -716,28 +597,37 @@ amiga_insert_attribute (tree decl, tree * attr)
 
   tree name = TREE_PURPOSE(*attr);
 
-  if (is_attribute_p("chip", name))
+  if (is_attribute_p("chip", name) || is_attribute_p("far", name) || is_attribute_p("fast", name))
     {
       if (!TREE_TYPE(decl) == VAR_DECL)
 	{
-	  error ("`chip' attribute can only be specified for variables");
+	  error ("`%s' attribute can only be specified for variables", IDENTIFIER_POINTER(name));
 	  return;
 	}
 
       if (! TREE_STATIC (decl) && ! DECL_EXTERNAL (decl))
 	{
-	  error ("`chip' attribute cannot be specified for local variables");
+	  error ("`%s' attribute cannot be specified for local variables", IDENTIFIER_POINTER(name));
 	  return;
 	}
+
+      char const * section_name;
+      if (is_attribute_p("chip", name))
+	section_name = AMIGA_CHIP_SECTION_NAME;
+      else if (is_attribute_p("fast", name))
+	section_name = AMIGA_FAST_SECTION_NAME;
+      else if (is_attribute_p("far", name))
+	section_name = AMIGA_FAR_SECTION_NAME;
+
+
       /* The decl may have already been given a section attribute from
 	     a previous declaration.  Ensure they match.  */
       if (DECL_SECTION_NAME (decl) == NULL)
-	      warning (OPT_Wattributes, "`%s' attribute is not yet supported", IDENTIFIER_POINTER(name));
-//	set_decl_section_name(decl, AMIGA_CHIP_SECTION_NAME);
-      else if (strcmp (DECL_SECTION_NAME (decl), AMIGA_CHIP_SECTION_NAME) )
+	set_decl_section_name(decl, section_name);
+      else if (strcmp (DECL_SECTION_NAME (decl), section_name) )
 	{
 	  error_at (DECL_SOURCE_LOCATION(decl),
-		  "`chip' attribute conflicts with previous declaration");
+		  "`%s' attribute conflicts with previous declaration", IDENTIFIER_POINTER(name));
 	}
     }
   else
@@ -763,11 +653,16 @@ amigaos_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno, int *tota
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 #ifndef TARGET_AMIGAOS_VASM
 extern void
-amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_UNUSED)
+amiga_named_section (const char *name, unsigned int flags, tree decl )
 {
+  // only one code section - TODO: with amiga hunk this is no longer mandatory.
   if (0 == strncmp (".text", name, 5))
     name = ".text";
-  fprintf (asm_out_file, "\t%s\n", name);
+
+  if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
+    fprintf (asm_out_file, "\t.bss%s\n", name + 5);
+  else
+    fprintf (asm_out_file, "\t%s\n", name);
 }
 #else
 extern void

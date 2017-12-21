@@ -227,11 +227,17 @@ amiga_declare_object = 0
 /* end of stuff from m68kv4.h */
 
 #ifndef TARGET_AMIGAOS_VASM
-#ifndef BSS_SECTION_ASM_OP
+#undef BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP	"\t.bss"
-#endif
 #else
 #define BSS_SECTION_ASM_OP	"\tsection\tbss"
+#endif
+
+#ifndef TARGET_AMIGAOS_VASM
+#undef DATA_SECTION_ASM_OP
+#define DATA_SECTION_ASM_OP	"\t.data"
+#else
+#define DATA_SECTION_ASM_OP	"\tsection\tdata"
 #endif
 
 #ifndef ASM_OUTPUT_ALIGNED_BSS
@@ -252,6 +258,8 @@ amiga_declare_object = 0
   do									\
     {									\
       builtin_define ("__chip=__attribute__((__chip__))");		\
+      builtin_define ("__fast=__attribute__((__fast__))");		\
+      builtin_define ("__far=__attribute__((__far__))");		\
       builtin_define ("__saveds=__attribute__((__saveds__))");		\
       builtin_define ("__interrupt=__attribute__((__interrupt__))");	\
       builtin_define ("__stackext=__attribute__((__stackext__))");	\
@@ -360,7 +368,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 #undef ASM_SPEC
 #ifndef TARGET_AMIGAOS_VASM
 #define ASM_SPEC							\
-   "%(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc}"
+   "%(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc} %{!msmall-code:-S}"
 #else
 #define ASM_SPEC							\
    "-gas -esc -ldots -Fhunk -quiet %(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc}"

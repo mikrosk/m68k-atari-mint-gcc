@@ -2534,8 +2534,13 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
       /* SBF: Does the symbol use common or bss and qualifies for pic_reg?
        * Do not ref to .text via pic_reg!
        */
-	  if (GET_CODE (orig) == SYMBOL_REF && !SYMBOL_REF_FUNCTION_P(orig) && decl && (DECL_COMMON (decl) || bss_initializer_p (decl)))
+	  char const * section = decl ? DECL_SECTION_NAME(decl) : 0;
+	  if (GET_CODE (orig) == SYMBOL_REF && !orig->frame_related && !SYMBOL_REF_FUNCTION_P(orig) && decl
+	      && !decl->common.typed.base.readonly_flag
+	      && !decl->decl_with_vis.in_text_section && !section)
 	    {
+//	      fprintf(stderr, "(a4) for: %s\n", decl->decl_minimal.name->identifier.id.str);
+
 	      /* SBF: unfortunately using the wrapped symbol without MEM does not work.
 	       * The pic_ref reference gets decomposed and leads to no working code.
 	       */

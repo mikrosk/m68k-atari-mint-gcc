@@ -252,7 +252,6 @@ get_unnamed_section (unsigned int flags, void (*callback) (const void *),
   sect->unnamed.callback = callback;
   sect->unnamed.data = data;
   sect->unnamed.next = unnamed_sections;
-
   unnamed_sections = sect;
   return sect;
 }
@@ -2228,11 +2227,17 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   else
     {
       /* Special-case handling of vtv comdat sections.  */
-      if (sect->named.name
+      if ((sect->common.flags & SECTION_STYLE_MASK) == SECTION_NAMED && sect->named.name
 	  && (strcmp (sect->named.name, ".vtable_map_vars") == 0))
 	handle_vtv_comdat_section (sect, decl);
       else
-	switch_to_section (sect);
+	{
+#ifdef TARGET_AMIGA
+	  if ((sect->common.flags & SECTION_STYLE_MASK) == SECTION_NAMED)
+	    sect->named.decl = decl;
+#endif
+	  switch_to_section (sect);
+	}
       if (align > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
       assemble_variable_contents (decl, name, dont_output_data);
@@ -4962,7 +4967,7 @@ output_constructor_regular_field (oc_local_state *local)
      if each element has the proper size.  */
   if (local->field != NULL_TREE || local->index != NULL_TREE)
     {
-      if (fieldpos > local->total_bytes)
+      if (fieldpos >= local->total_bytes)
 	{
 	  assemble_zeros (fieldpos - local->total_bytes);
 	  local->total_bytes = fieldpos;

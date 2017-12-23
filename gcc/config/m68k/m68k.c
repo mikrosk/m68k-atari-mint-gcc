@@ -2537,7 +2537,7 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
 	  if (GET_CODE (orig) == SYMBOL_REF && !orig->frame_related && !SYMBOL_REF_FUNCTION_P(orig)
 	      && (decl = SYMBOL_REF_DECL (orig)) && !(DECL_SECTION_NAME(decl))
 	      && !decl->common.typed.base.readonly_flag
-	      && !decl->decl_with_vis.in_text_section && !section)
+	      && !decl->decl_with_vis.in_text_section)
 	    {
 
 	      /* SBF: unfortunately using the wrapped symbol without MEM does not work.

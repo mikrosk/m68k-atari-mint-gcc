@@ -620,11 +620,11 @@ __transfer_from_trampoline ()					\
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)			\
   (INT_REGNO_P (REGNO)					\
-   || INT_REGNO_P (reg_renumber[REGNO]))
+   || (reg_renumber && INT_REGNO_P (reg_renumber[REGNO])))
 
 #define REGNO_OK_FOR_BASE_P(REGNO)			\
   (ADDRESS_REGNO_P (REGNO)				\
-   || ADDRESS_REGNO_P (reg_renumber[REGNO]))
+   || (reg_renumber && ADDRESS_REGNO_P (reg_renumber[REGNO])))
 
 #define REGNO_OK_FOR_INDEX_NONSTRICT_P(REGNO)		\
   (INT_REGNO_P (REGNO)					\

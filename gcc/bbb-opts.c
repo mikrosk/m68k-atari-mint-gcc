@@ -1452,11 +1452,11 @@ copy_reg (rtx reg, int newregno)
 }
 
 /* Rename the register plus track all locs to undo these changes. */
-static void
-temp_reg_rename (std::vector<std::pair<rtx *, rtx> > & loc, rtx x, unsigned oldregno, unsigned newregno)
+static rtx
+find_reg_by_no (rtx x, unsigned oldregno)
 {
   if (!x)
-    return;
+    return 0;
 
   RTX_CODE code = GET_CODE(x);
 
@@ -1469,27 +1469,25 @@ temp_reg_rename (std::vector<std::pair<rtx *, rtx> > & loc, rtx x, unsigned oldr
 	  if (REG_P(y))
 	    {
 	      if (REGNO(y) == oldregno)
-		{
-		  rtx z = copy_reg (y, newregno);
-		  loc.push_back (std::make_pair (&XEXP(x, i), y));
-		  XEXP(x, i) = z;
-		}
+		return y;
 	    }
 	  else
-	    temp_reg_rename (loc, y, oldregno, newregno);
+	    {
+	      rtx r = find_reg_by_no (y, oldregno);
+	      if (r)
+		return r;
+	    }
 	}
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  {
 	    rtx z = XVECEXP(x, i, j);
-	    if (GET_CODE(z) == CLOBBER)
-	      {
-		/* workaround for shared clobbers. */
-		XVECEXP(x, i, j) = z = gen_rtx_CLOBBER(GET_MODE(z), XEXP(z, 0));
-	      }
-	    temp_reg_rename (loc, z, oldregno, newregno);
+	    rtx r = find_reg_by_no(z, oldregno);
+	    if (r)
+	      return r;
 	  }
     }
+  return 0;
 }
 
 /*
@@ -2454,45 +2452,27 @@ opt_reg_rename (void)
 
 	  /* check the renamed insns. */
 	  std::vector<unsigned> positions;
-	  std::vector<std::pair<rtx *, rtx> > locs;
-	  std::vector<std::pair<rtx *, rtx> > patch;
-	  bool ok = true;
-
-	  for (std::set<unsigned>::iterator i = found.begin (); ok && i != found.end (); ++i)
+	  for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 	    {
 	      insn_info & rr = infos[*i];
 	      rtx_insn * insn = rr.get_insn ();
 
-	      /* temp rename. */
-	      temp_reg_rename (locs, PATTERN (insn), oldregno, newregno);
-	      if (!locs.empty ())
+	      /* get rename locations. */
+	      rtx from = find_reg_by_no(PATTERN (insn), oldregno);
+	      if (from)
 		{
-		  if (insn_invalid_p (insn, 1))
-		    ok = false;
-
-		  /* undo temp change but keep loc and new register. */
-		  for (std::vector<std::pair<rtx *, rtx> >::iterator j = locs.begin (); j != locs.end (); ++j)
-		    {
-		      patch.push_back (std::make_pair (j->first, *j->first));
-		      *j->first = j->second;
-		    }
+		  rtx to = gen_raw_REG(GET_MODE(from), newregno);
+		  validate_replace_rtx_group(from, to, insn);
 
 		  positions.push_back (*i);
-		  locs.clear ();
 		}
-	    }
-
-	  if (!ok)
-	    {
-	      cancel_changes (0);
-	      continue;
 	    }
 
 	  if (!apply_change_group ())
 	    continue;
 
 	  log ("(r) opt_reg_rename %s -> %s (%d locs, start at %d)\n", reg_names[oldregno], reg_names[newregno],
-	       patch.size (), index);
+	       positions.size (), index);
 
 	  if (be_verbose)
 	    {
@@ -2501,10 +2481,6 @@ opt_reg_rename (void)
 	      printf ("\n");
 	      fflush (stdout);
 	    }
-
-	  /* apply all changes. */
-	  for (std::vector<std::pair<rtx *, rtx> >::iterator j = patch.begin (); j != patch.end (); ++j)
-	    *j->first = j->second;
 
 	  return 1;
 	}

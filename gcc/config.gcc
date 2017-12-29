@@ -1955,6 +1955,7 @@ m68k*-*-amigaos*)
 	extra_objs=amigaos.o
 	extra_options="${extra_options} m68k/amigaos.opt"
 	gnu_ld=yes
+	CFLAGS="-Os"
 	;;
 m68k*-*-netbsdelf*)
 	default_m68k_cpu=68020

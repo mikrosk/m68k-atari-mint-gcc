@@ -10,14 +10,6 @@ amigaos.o: $(srcdir)/config/m68k/amigaos.c $(CONFIG_H)
 
 #TARGET_LIBGCC2_CFLAGS = -mfixedstack
 
-# Support for building multiple version of libgcc.
-
-LIBGCC_MULTI =	.; \
-		libb;@fbaserel \
-		libm020;@m68020 \
-		libb/libm020;@fbaserel@m68020 \
-		libb32/libm020;@fbaserel32@m68020
-
 ### begin-GG-local: dynamic libraries
 # Extra objects that get compiled and linked to collect2
 
@@ -28,3 +20,9 @@ amigacollect2.o: amigacollect2.c
 	$(CXX) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	-DA2IXDIR_PREFIX=\"$(prefix)/share/a2ixlibrary\" $< $(OUTPUT_OPTION)
 ### end-GG-local
+
+# Support for building multiple version of libgcc, libquadmath, libobjc and libstdc++-v3
+MULTILIB_OPTIONS    = m68020 fbaserel/fbaserel32
+MULTILIB_DIRNAMES   = libm020 libb libb32
+MULTILIB_EXTRA_OPTS = noixemul
+MULTILIB_EXCEPTIONS = fbaserel32 

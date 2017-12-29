@@ -1982,10 +1982,12 @@ m68k_legitimate_constant_address_p (rtx x, unsigned int reach, bool strict_p)
   if (!CONSTANT_ADDRESS_P (x))
     return false;
 
-  if (flag_pic
+  if (flag_pic && flag_pic < 3
       && !(strict_p && TARGET_PCREL)
       && symbolic_operand (x, VOIDmode))
-    return false;
+    {
+      return false;
+    }
 
   if (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P && reach > 1)
     {

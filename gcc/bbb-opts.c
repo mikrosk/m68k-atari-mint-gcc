@@ -238,12 +238,37 @@ public:
     if (o)
       assign (o);
     else
-      for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+      for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	{
 	  value[i] = 0;
 	  mask[i] = 0;
 	}
   }
+
+  void
+  invalidate_mem(rtx dst) {
+    rtx z = 0;
+    unsigned m = 0;
+    if (extend(&z, &m, GET_MODE(dst), dst))
+      {
+//	unsigned hit = 0;
+	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+	  {
+	    if (rtx_equal_p(z, value[i]))
+	      {
+		value[i] = 0;
+		mask[i] = 0;
+//		hit |= 1<<i;
+	      }
+	  }
+//	if (hit)
+//	  {
+//	    fprintf(stderr, "%08x", hit);
+//	    debug_rtx(z);
+//	  }
+      }
+  }
+
 
   rtx
   get (unsigned regno)
@@ -347,7 +372,7 @@ public:
 	if (!rtx_equal_p (value[i], o->value[i]))
 	  {
 	    value[i] = o->value[i] = 0;
-	    mask[i] = mask[i] = 0;
+	    mask[i] = 0;
 	  }
       }
   }
@@ -3940,7 +3965,10 @@ track_regs ()
 	    continue;
 
 	  if (dregno < 0)
-	    continue;
+	    {
+	      track->invalidate_mem(SET_DEST(set));
+	      continue;
+	    }
 
 	  // operation, autoinf or more than one register used: can't cache
 	  if (ii.get_src_op () || ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))

@@ -246,31 +246,32 @@ public:
 	}
   }
 
-  int find_alias(rtx src)
+  int
+  find_alias (rtx src)
   {
     rtx z = 0;
     unsigned m = 0;
-    if (extend(&z, &m, GET_MODE(src), src))
+    if (extend (&z, &m, GET_MODE(src), src))
       {
 	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	  {
 	    // do not alias small int value from -128 ... 127
-	    if (rtx_equal_p(z, value[i]) && (GET_CODE(z) != CONST_INT || INTVAL(z) > 127 || INTVAL(z) < -128))
+	    if (rtx_equal_p (z, value[i]) && (GET_CODE(z) != CONST_INT || INTVAL(z) > 127 || INTVAL(z) < -128))
 	      return i;
 	  }
       }
     return -1;
   }
   void
-  invalidate_mem(rtx dst)
+  invalidate_mem (rtx dst)
   {
     rtx z = 0;
     unsigned m = 0;
-    if (extend(&z, &m, GET_MODE(dst), dst))
+    if (extend (&z, &m, GET_MODE(dst), dst))
       {
 	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	  {
-	    if (rtx_equal_p(z, value[i]))
+	    if (rtx_equal_p (z, value[i]))
 	      {
 		value[i] = 0;
 		mask[i] = 0;
@@ -278,7 +279,6 @@ public:
 	  }
       }
   }
-
 
   rtx
   get (unsigned regno)
@@ -1517,7 +1517,7 @@ find_reg_by_no (rtx x, unsigned oldregno)
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  {
 	    rtx z = XVECEXP(x, i, j);
-	    rtx r = find_reg_by_no(z, oldregno);
+	    rtx r = find_reg_by_no (z, oldregno);
 	    if (r)
 	      return r;
 	  }
@@ -2333,8 +2333,8 @@ opt_reg_rename (void)
       unsigned mask = ii.get_free_mask ();
 
       /* the mask contains the current src register. Add this register to the mask if it's dead here. */
-      if (ii.get_src_reg() && is_reg_dead(ii.get_src_regno(), index))
-	mask |= ii.get_use();
+      if (ii.get_src_reg () && is_reg_dead (ii.get_src_regno (), index))
+	mask |= ii.get_use ();
 
       /* do not use a4 if compiling baserel */
       if (flag_pic >= 3)
@@ -2497,11 +2497,11 @@ opt_reg_rename (void)
 	      rtx_insn * insn = rr.get_insn ();
 
 	      /* get rename locations. */
-	      rtx from = find_reg_by_no(PATTERN (insn), oldregno);
+	      rtx from = find_reg_by_no (PATTERN (insn), oldregno);
 	      if (from)
 		{
-		  rtx to = gen_raw_REG(GET_MODE(from), newregno);
-		  validate_replace_rtx_group(from, to, insn);
+		  rtx to = gen_raw_REG (GET_MODE(from), newregno);
+		  validate_replace_rtx_group (from, to, insn);
 
 		  positions.push_back (*i);
 		}
@@ -3945,11 +3945,17 @@ track_regs ()
 	  if (ii.is_compare ())
 	    continue;
 
-	  int dregno = ii.get_dst_regno ();
-	  track->clear (ii.get_mode (), dregno, index);
-
 	  unsigned def = ii.get_def () & 0xffffff;
-	  track->clear_for_mask (def, index);
+	  if (def)
+	    {
+	      // more than one register set? or mask from clobber?
+	      if (((def - 1) & def) || !ii.get_dst_reg ())
+		track->clear_for_mask (def, index);
+	    }
+	  // do not clear if self assigned
+	  int dregno = ii.get_dst_regno ();
+	  if (dregno != ii.get_src_regno ())
+	    track->clear (ii.get_mode (), dregno, index);
 
 	  if (ii.is_call ())
 	    {
@@ -3980,7 +3986,7 @@ track_regs ()
 
 	  if (dregno < 0)
 	    {
-	      track->invalidate_mem(SET_DEST(set));
+	      track->invalidate_mem (SET_DEST(set));
 	      continue;
 	    }
 
@@ -4031,7 +4037,7 @@ opt_elim_dead_assign (int blocked_regno)
 
       // check for redundant load
       if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
-	  && !ii.is_myuse (ii.get_dst_regno ()))
+	  && (!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ()))
 	{
 	  track_var * track = ii.get_track_var ();
 
@@ -4055,11 +4061,11 @@ opt_elim_dead_assign (int blocked_regno)
 	  // is there a register holding that value?
 	  if (!ii.get_src_reg ())
 	    {
-	      int aliasRegno = track->find_alias(src);
-	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno())
+	      int aliasRegno = track->find_alias (src);
+	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
 		{
 		  log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
-		  validate_change (ii.get_insn(), &SET_SRC(set), gen_rtx_REG(ii.get_mode(), aliasRegno), 0);
+		  validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0);
 		  ++change_count;
 		}
 	    }

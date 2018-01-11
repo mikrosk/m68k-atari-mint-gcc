@@ -2332,6 +2332,10 @@ opt_reg_rename (void)
       /* get the mask for free registers. */
       unsigned mask = ii.get_free_mask ();
 
+      /* the mask contains the current src register. Add this register to the mask if it's dead here. */
+      if (ii.get_src_reg() && is_reg_dead(ii.get_src_regno(), index))
+	mask |= ii.get_use();
+
       /* do not use a4 if compiling baserel */
       if (flag_pic >= 3)
 	mask &= ~(1 << PIC_REG);

@@ -223,10 +223,11 @@ class track_var
 		*z = gen_rtx_MEM (GET_MODE(x), m);
 		return true;
 	      }
+	    default:
+	      return false;
 	    }
-	  return false;
+	  break;
 	}
-
       default:
 	return false;
       }
@@ -245,27 +246,36 @@ public:
 	}
   }
 
+  int find_alias(rtx src)
+  {
+    rtx z = 0;
+    unsigned m = 0;
+    if (extend(&z, &m, GET_MODE(src), src))
+      {
+	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+	  {
+	    // do not alias small int value from -128 ... 127
+	    if (rtx_equal_p(z, value[i]) && (GET_CODE(z) != CONST_INT || INTVAL(z) > 127 || INTVAL(z) < -128))
+	      return i;
+	  }
+      }
+    return -1;
+  }
   void
-  invalidate_mem(rtx dst) {
+  invalidate_mem(rtx dst)
+  {
     rtx z = 0;
     unsigned m = 0;
     if (extend(&z, &m, GET_MODE(dst), dst))
       {
-//	unsigned hit = 0;
 	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	  {
 	    if (rtx_equal_p(z, value[i]))
 	      {
 		value[i] = 0;
 		mask[i] = 0;
-//		hit |= 1<<i;
 	      }
 	  }
-//	if (hit)
-//	  {
-//	    fprintf(stderr, "%08x", hit);
-//	    debug_rtx(z);
-//	  }
       }
   }
 
@@ -4038,6 +4048,17 @@ opt_elim_dead_assign (int blocked_regno)
 	      continue;
 	    }
 
+	  // is there a register holding that value?
+	  if (!ii.get_src_reg ())
+	    {
+	      int aliasRegno = track->find_alias(src);
+	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno())
+		{
+		  log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
+		  validate_change (ii.get_insn(), &SET_SRC(set), gen_rtx_REG(ii.get_mode(), aliasRegno), 0);
+		  ++change_count;
+		}
+	    }
 	}
     }
   return change_count;

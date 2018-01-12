@@ -361,7 +361,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(cpp_libnix)} "                      \
   "%{mcrt=nix*:%(cpp_libnix)} "                     \
   "%{mcrt=ixemul:%(cpp_ixemul)} "                   \
-  "%{mcrt=clib2:%(cpp_clib2)}"
+  "%{mcrt=clib2:%(cpp_clib2)} "                     \
+  "%{!noixemul:%{!mcrt*:%(cpp_libnix)}}"
 
 /* Various -m flags require special flags to the assembler.  */
 
@@ -438,7 +439,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(startfile_libnix)} "                              \
   "%{mcrt=nix*:%(startfile_libnix)} "                             \
   "%{mcrt=ixemul:%(startfile_ixemul)} "                           \
-  "%{mcrt=clib2:%(startfile_clib2)}"
+  "%{mcrt=clib2:%(startfile_clib2)} "                             \
+  "%{!noixemul:%{!mcrt*:%(startfile_libnix)}}"
 #endif
 
 #define ENDFILE_IXEMUL_SPEC ""
@@ -450,7 +452,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(endfile_libnix)} "                                \
   "%{mcrt=nix*:%(endfile_libnix)} "                               \
   "%{mcrt=ixemul:%(endfile_ixemul)} "                             \
-  "%{mcrt=clib2:%(endfile_clib2)}"
+  "%{mcrt=clib2:%(endfile_clib2)} "                               \
+  "%{!noixemul:%{!mcrt*:%(endfile_libnix)}}"
 
 
 /* Automatically search libamiga.a for AmigaOS specific functions.  Note
@@ -489,7 +492,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(lib_libnix)} "                                    \
   "%{mcrt=nix*:%(lib_libnix)} "                                   \
   "%{mcrt=ixemul:%(lib_ixemul)} "                                 \
-  "%{mcrt=clib2:%(lib_clib2)}"
+  "%{mcrt=clib2:%(lib_clib2)} "                                   \
+  "%{!noixemul:%{!mcrt*:%(lib_libnix)}}"
 #endif
 
 #define LIBGCC_IXEMUL_SPEC ""
@@ -501,7 +505,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(libgcc_libnix)} "                                 \
   "%{mcrt=nix*:%(libgcc_libnix)} "                                \
   "%{mcrt=ixemul:%(libgcc_ixemul)} "                              \
-  "%{mcrt=clib2:%(libgcc_clib2)}"
+  "%{mcrt=clib2:%(libgcc_clib2)} "                                \
+  "%{!noixemul:%{!mcrt*:%(libgcc_libnix)}}"
+
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD
    compatible debug hunk.
@@ -523,6 +529,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=nix*:%(link_libnix)} "                                  \
   "%{mcrt=ixemul:%(link_ixemul)} "                                \
   "%{mcrt=clib2:%(link_clib2)} "                                  \
+  "%{!noixemul:%{!mcrt*:%(link_libnix)}} "                        \
   "%{fbaserel:%{!resident:-m amiga_bss -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "               \
   "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "      \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "         \
@@ -542,6 +549,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=nix*:%(link_libnix)} "                                  \
   "%{mcrt=ixemul:%(link_ixemul)} "                                \
   "%{mcrt=clib2:%(link_clib2)} "                                  \
+  "%{!noixemul:%{!mcrt*:%(link_libnix)}} "                        \
   "%{fbaserel:%{!resident:-m amiga_bss -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "               \
   "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "      \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "         \

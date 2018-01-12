@@ -378,7 +378,6 @@ along with GCC; see the file COPYING3.  If not see
   /* Arg pointer.  */           \
   1 }
 
-#if 0
 #define REG_ALLOC_ORDER		\
 { /* d0/d1/a0/a1 */		\
   0, 1, 8, 9,			\
@@ -389,18 +388,6 @@ along with GCC; see the file COPYING3.  If not see
   /* fp0-fp7 */			\
   16, 17, 18, 19, 20, 21, 22, 23\
 }
-#endif
-#define REG_ALLOC_ORDER		\
-{ /* d0/d1/a0/a1 */		\
-  0, 8, 9, 1, 			\
-  /* a2-a7 */		\
-  10, 11, 12, 13, 14, 15,	\
-  /* d2-d7/arg */			\
-  2, 3, 4, 5, 6, 7, 24,		\
-  /* fp0-fp7 */			\
-  16, 17, 18, 19, 20, 21, 22, 23\
-}
-
 
 /* On the m68k, ordinary registers hold 32 bits worth;
    for the 68881 registers, a single register is always enough for

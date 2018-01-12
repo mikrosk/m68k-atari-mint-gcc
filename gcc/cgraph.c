@@ -1259,7 +1259,6 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
   cgraph_edge *e = this;
 
   tree decl = gimple_call_fndecl (e->call_stmt);
-  tree lhs = gimple_call_lhs (e->call_stmt);
   gcall *new_stmt;
   gimple_stmt_iterator gsi;
   bool skip_bounds = false;
@@ -1529,6 +1528,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
     gimple_call_set_fntype (new_stmt, TREE_TYPE (e->callee->decl));
 
   /* If the call becomes noreturn, remove the LHS if possible.  */
+  tree lhs = gimple_call_lhs (new_stmt);
   if (lhs
       && (gimple_call_flags (new_stmt) & ECF_NORETURN)
       && (VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (new_stmt)))
@@ -2086,6 +2086,8 @@ cgraph_node::dump (FILE *f)
     fprintf (f, " only_called_at_exit");
   if (tm_clone)
     fprintf (f, " tm_clone");
+  if (calls_comdat_local)
+    fprintf (f, " calls_comdat_local");
   if (icf_merged)
     fprintf (f, " icf_merged");
   if (merged_comdat)

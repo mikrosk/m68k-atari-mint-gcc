@@ -969,7 +969,8 @@ sparc_do_work_around_errata (void)
 	       && NONJUMP_INSN_P (insn)
 	       && (set = single_set (insn)) != NULL_RTX
 	       && GET_MODE_SIZE (GET_MODE (SET_SRC (set))) <= 4
-	       && mem_ref (SET_SRC (set)) != NULL_RTX
+	       && (mem_ref (SET_SRC (set)) != NULL_RTX
+		   || INSN_CODE (insn) == CODE_FOR_movsi_pic_gotdata_op)
 	       && REG_P (SET_DEST (set))
 	       && REGNO (SET_DEST (set)) < 32)
 	{
@@ -1006,6 +1007,11 @@ sparc_do_work_around_errata (void)
 			       && REGNO (src) < 32
 			       && REGNO (src) != REGNO (x)))
 		       && !reg_mentioned_p (x, XEXP (dest, 0)))
+		insert_nop = true;
+
+	      /* GOT accesses uses LD.  */
+	      else if (INSN_CODE (next) == CODE_FOR_movsi_pic_gotdata_op
+		       && !reg_mentioned_p (x, XEXP (XEXP (src, 0), 1)))
 		insert_nop = true;
 	    }
 	}
@@ -1503,15 +1509,18 @@ sparc_option_override (void)
     target_flags &= ~MASK_STACK_BIAS;
 
   /* Supply a default value for align_functions.  */
-  if (align_functions == 0
-      && (sparc_cpu == PROCESSOR_ULTRASPARC
+  if (align_functions == 0)
+    {
+      if (sparc_cpu == PROCESSOR_ULTRASPARC
 	  || sparc_cpu == PROCESSOR_ULTRASPARC3
 	  || sparc_cpu == PROCESSOR_NIAGARA
 	  || sparc_cpu == PROCESSOR_NIAGARA2
 	  || sparc_cpu == PROCESSOR_NIAGARA3
-	  || sparc_cpu == PROCESSOR_NIAGARA4
-	  || sparc_cpu == PROCESSOR_NIAGARA7))
-    align_functions = 32;
+	  || sparc_cpu == PROCESSOR_NIAGARA4)
+	align_functions = 32;
+      else if (sparc_cpu == PROCESSOR_NIAGARA7)
+	align_functions = 64;
+    }
 
   /* Validate PCC_STRUCT_RETURN.  */
   if (flag_pcc_struct_return == DEFAULT_PCC_STRUCT_RETURN)
@@ -5752,6 +5761,9 @@ void
 sparc_expand_epilogue (bool for_eh)
 {
   HOST_WIDE_INT size = sparc_frame_size;
+
+  if (cfun->calls_alloca)
+    emit_insn (gen_frame_blockage ());
 
   if (sparc_n_global_fp_regs > 0)
     emit_save_or_restore_global_fp_regs (sparc_frame_base_reg,

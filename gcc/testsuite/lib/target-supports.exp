@@ -1060,8 +1060,8 @@ proc check_effective_target_pie { } {
 	return 1;
     }
     if { [istarget *-*-solaris2.1\[1-9\]*] } {
-	# Full PIE support was added in Solaris 11.x and Solaris 12, but gcc
-	# errors out if missing, so check for that.
+	# Full PIE support was added in Solaris 11.3, but gcc errors out
+	# if missing, so check for that.
 	return [check_no_compiler_messages pie executable {
 	    int main (void) { return 0; }
 	} "-pie -fpie"]
@@ -1422,6 +1422,14 @@ proc check_effective_target_static_libgfortran { } {
 	print *, 'test'
 	end
     } "-static"]
+}
+
+# Return 1 if we can use the -rdynamic option, 0 otherwise.
+
+proc check_effective_target_rdynamic { } {
+  return [check_no_compiler_messages rdynamic executable {
+     int main() { return 0; }
+  } "-rdynamic"]
 }
 
 # Return 1 if cilk-plus is supported by the target, 0 otherwise.

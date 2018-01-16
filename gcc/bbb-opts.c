@@ -3952,9 +3952,9 @@ track_regs ()
 	      if (((def - 1) & def) || !ii.get_dst_reg ())
 		track->clear_for_mask (def, index);
 	    }
-	  // do not clear if self assigned
+	  // do not clear if self assigned unless there is an operator
 	  int dregno = ii.get_dst_regno ();
-	  if (dregno != ii.get_src_regno ())
+	  if (dregno != ii.get_src_regno () || ii.get_src_op ())
 	    track->clear (ii.get_mode (), dregno, index);
 
 	  if (ii.is_call ())

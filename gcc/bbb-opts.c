@@ -3942,9 +3942,6 @@ track_regs ()
 	  ii.mark_visited ();
 	  ii.get_track_var ()->assign (track);
 
-	  if (ii.is_compare ())
-	    continue;
-
 	  unsigned def = ii.get_def () & 0xffffff;
 	  if (def)
 	    {
@@ -3956,6 +3953,9 @@ track_regs ()
 	  int dregno = ii.get_dst_regno ();
 	  if (dregno != ii.get_src_regno () || ii.get_src_op ())
 	    track->clear (ii.get_mode (), dregno, index);
+
+	  if (ii.is_compare ())
+	    continue;
 
 	  if (ii.is_call ())
 	    {

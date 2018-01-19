@@ -2421,7 +2421,9 @@ opt_reg_rename (void)
 	      insn_info & jj = infos[pos];
 
 	      /* marked as hard reg -> invalid rename */
-	      if (jj.get_use () & jj.get_hard () & rename_regbit)
+	      if ((jj.get_use () & jj.get_hard () & rename_regbit)
+		      /* or register is used and defined - with double register usage. */
+		  || ((jj.get_myuse () & rename_regbit) && (jj.get_def () & rename_regbit) && (((0xffffff & jj.get_def()) - 1) & jj.get_def())))
 		{
 		  mask = 0;
 		  break;

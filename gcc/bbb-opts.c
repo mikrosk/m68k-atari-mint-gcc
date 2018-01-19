@@ -2330,7 +2330,7 @@ opt_reg_rename (void)
       const unsigned rename_regno = bit2regno (rename_regbit);
 
       /* two registers set? do not touch! */
-      if ((ii.get_def () & rename_regbit) && ((ii.get_def() - 1) & ~ii.get_def()))
+      if ((ii.get_def () & rename_regbit) && ((ii.get_def() - 1) & ii.get_def()))
 	continue;
 
       /* get the mask for free registers. */

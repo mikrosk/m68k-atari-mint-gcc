@@ -2690,7 +2690,7 @@ opt_propagate_moves ()
 			  if (is_reg_touched_between (REGNO(srci), current_label_index, *i) // label ... move src,x
 			  || is_reg_touched_between (REGNO(srci), *i, *j) // move src,x ... move x,src
 			      || is_reg_touched_between (REGNO(srci), *j, index) // move x,src ... jcc
-			      || is_reg_touched_between (REGNO(dsti), *j, index) // label ... move src,x
+			      || is_reg_touched_between (REGNO(dsti), current_label_index, *i) // label ... move src,x
 			      || is_reg_touched_between (REGNO(dsti), *j, index) // move x,src ... jcc
 							 )
 			    {

@@ -452,7 +452,7 @@ class insn_info
   int dst_autoinc;
   int src_autoinc;
 
-  bool multi_reg; /* true if a register pair is used. */
+  unsigned multi_reg; /* bit field for register pairs. */
 
 // values for all variables - if used
   track_var * track;
@@ -463,12 +463,12 @@ public:
 	  false), compare (false), dst_mem (false), src_mem (false), dst_plus (false), src_plus (false), src_op (
 	  (rtx_code) 0), src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (
 	  0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
-	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(false), track (0)
+	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
   {
   }
 
-  bool
-  is_multi_reg () const
+  unsigned
+  get_multi_reg () const
   {
     return multi_reg;
   }
@@ -724,6 +724,7 @@ public:
     hard = o.hard;
     use = o.use;
     def = o.def;
+    multi_reg = o.multi_reg;
   }
 
   inline rtx_insn *
@@ -920,6 +921,7 @@ public:
     use = (use & ~o.def) | o.use;
     def |= o.def;
     hard |= o.hard;
+    multi_reg = o.multi_reg;
     return *this;
   }
 
@@ -1240,11 +1242,13 @@ insn_info::scan_rtx (rtx x)
 {
   if (REG_P(x))
     {
-      int n = REG_NREGS(x);
-      if (n > 1)
-	multi_reg = true;
-      for (int r = REGNO(x); n > 0; --n, ++r)
-	mark_myuse (r);
+      int n0 = REG_NREGS(x);
+      for (int n = n0, r = REGNO(x); n > 0; --n, ++r)
+	{
+	  mark_myuse (r);
+	  if (n0 > 1)
+	    multi_reg |= 1<<r;
+	}
       return;
     }
 
@@ -1313,6 +1317,8 @@ insn_info::scan_rtx (rtx x)
 
   if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
     def |= myuse;
+  if (code == CLOBBER)
+    multi_reg |= def;
 }
 
 void
@@ -2340,8 +2346,8 @@ opt_reg_rename (void)
 
       const unsigned rename_regno = bit2regno (rename_regbit);
 
-      /* two registers set? do not touch! */
-      if (ii.is_multi_reg ())
+      /* part of multi registers? do not touch! */
+      if (ii.get_multi_reg () & rename_regbit)
 	continue;
 
       /* get the mask for free registers. */
@@ -2378,7 +2384,8 @@ opt_reg_rename (void)
 	      if (found.find (pos) != found.end ())
 		break;
 
-	      rtx_insn * insn = infos[pos].get_insn ();
+	      insn_info & jj = infos[pos];
+	      rtx_insn * insn = jj.get_insn ();
 	      if (LABEL_P(insn))
 		{
 		  found.insert (pos);
@@ -2429,12 +2436,10 @@ opt_reg_rename (void)
 		  continue;
 		}
 
-	      insn_info & jj = infos[pos];
-
 	      /* marked as hard reg -> invalid rename */
 	      if ((jj.get_use () & jj.get_hard () & rename_regbit)
 		      /* or register is used and defined - with double register usage. */
-		  || jj.is_multi_reg ())
+		  || (jj.get_multi_reg () & rename_regbit))
 		{
 		  mask = 0;
 		  break;
@@ -2458,6 +2463,7 @@ opt_reg_rename (void)
 	      /* update free regs. */
 	      mask &= ~jj.get_use ();
 	      mask &= ~jj.get_def ();
+	      mask &= ~jj.get_multi_reg();
 	      if (!mask)
 		break;
 

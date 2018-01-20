@@ -443,11 +443,11 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
       if (stack1) {
 	  if (stack2)
 	    return 1;
-	  return amigaos_regparm  == 0;
+	  return amigaos_regparm  <= 0;
       }
 
       if (stack2)
-	  return amigaos_regparm  == 0;
+	  return amigaos_regparm  <= 0;
 
       if (asm1)
 	{

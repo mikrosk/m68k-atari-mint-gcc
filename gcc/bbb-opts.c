@@ -2507,7 +2507,7 @@ opt_reg_rename (void)
 	    }
 	}
 
-      if (mask)
+      if (mask && found.size() > 1)
 	{
 	  int oldregno = bit2regno (rename_regbit);
 	  int newregno = bit2regno (mask);

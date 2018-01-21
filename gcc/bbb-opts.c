@@ -2334,6 +2334,12 @@ static unsigned
 opt_reg_rename (void)
 {
   update_label2jump ();
+
+  if (infos.size () < 2)
+    return 0;
+
+  unsigned usable_regs = 0x7fff & (infos[0].get_use() | infos[1].get_use() | 0x303);
+
 //  dump_insns ("rename", 1);
   for (unsigned index = 0; index < infos.size (); ++index)
     {
@@ -2351,7 +2357,7 @@ opt_reg_rename (void)
 	continue;
 
       /* get the mask for free registers. */
-      unsigned mask = ii.get_free_mask ();
+      unsigned mask = ii.get_free_mask () & usable_regs;
 
       /* the mask contains the current src register. Add this register to the mask if it's dead here. */
       if (ii.get_src_reg () && is_reg_dead (ii.get_src_regno (), index))

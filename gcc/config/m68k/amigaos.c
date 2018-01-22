@@ -363,8 +363,7 @@ amigaos_function_arg (cumulative_args_t cum_v, machine_mode mode, const_tree typ
 
   struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
 
-  tree asmtree = type ? TYPE_ATTRIBUTES(cum->formal_type ? TREE_VALUE(cum->formal_type) : type) : NULL_TREE;
-  //tree asmtree = type ? TYPE_ATTRIBUTES(type) : NULL_TREE;
+  tree asmtree = type && cum->formal_type ? TYPE_ATTRIBUTES(TREE_VALUE(cum->formal_type)) : NULL_TREE;
 
   if (asmtree && 0 == strcmp ("asm", IDENTIFIER_POINTER(TREE_PURPOSE(asmtree))))
     {
@@ -599,7 +598,7 @@ amiga_insert_attribute (tree decl, tree * attr)
 
   if (is_attribute_p("chip", name) || is_attribute_p("far", name) || is_attribute_p("fast", name))
     {
-      if (!TREE_TYPE(decl) == VAR_DECL)
+      if (TREE_TYPE(decl)->base.code == VAR_DECL)
 	{
 	  error ("`%s' attribute can only be specified for variables", IDENTIFIER_POINTER(name));
 	  return;

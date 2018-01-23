@@ -174,6 +174,23 @@ suitable_for_tail_call_opt_p (void)
     if (TREE_ADDRESSABLE (param))
       return false;
 
+#ifdef TARGET_AMIGA
+  if (DECL_ARGUMENTS (current_function_decl))
+    {
+      tree attrs = TYPE_ATTRIBUTES(TREE_TYPE(current_function_decl));
+      if (attrs)
+	{
+	  if (lookup_attribute ("regparm", attrs))
+	    return false;
+	  if (lookup_attribute ("asmregs", attrs))
+	    return false;
+	  if (amigaos_regparm > 0 && !lookup_attribute ("stkparm", attrs))
+	    return false;
+
+	}
+    }
+#endif
+
   return true;
 }
 

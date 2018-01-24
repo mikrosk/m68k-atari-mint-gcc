@@ -400,8 +400,6 @@ bool func_is_using_regparms(const_tree func)
   if (attrs)
     {
       tree attr;
-      if (0 != (attr = lookup_attribute ("regparm", attrs)))
-	return TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(attr))) > 2;
       if (0 != (attr = lookup_attribute ("asmregs", attrs)))
 	{
 	  // this is a string containing all register names like "d0a2d3a4"
@@ -412,8 +410,9 @@ bool func_is_using_regparms(const_tree func)
 		return true;
 	      ++p;
 	    }
-	  return false;
 	}
+      if (0 != (attr = lookup_attribute ("regparm", attrs)))
+	return TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(attr))) > 2;
       if (amigaos_regparm > 2 && !lookup_attribute ("stkparm", attrs))
 	return true;
     }

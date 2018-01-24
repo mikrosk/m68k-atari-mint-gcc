@@ -4154,9 +4154,9 @@ m68k_output_movem (rtx *operands, rtx pattern,
   else
     {
       if (store_p)
-	return "movem%.l %1,%a0";
+	return "movem%.l %M1,%a0";
       else
-	return "movem%.l %a0,%1";
+	return "movem%.l %a0,%N1";
     }
 }
 
@@ -4557,7 +4557,35 @@ floating_exact_log2 (rtx x)
 void
 print_operand (FILE *file, rtx op, int letter)
 {
-  if (letter == '.')
+  if (letter == 'N')
+    { // movem regs,ax
+      unsigned regbits = INTVAL (op);
+      unsigned regno;
+      for (regno = 0; regbits; ++regno, regbits >>= 1)
+	{
+	  if (regbits & 1)
+	    {
+	      fprintf (file, reg_names[regno]);
+	      if (regbits > 1)
+		fprintf (file, "/");
+	    }
+	}
+    }
+  else if (letter == 'M')
+    { // movem regs,ax
+      unsigned regbits = INTVAL (op);
+      unsigned regno;
+      for (regno = 15; regbits; --regno, regbits >>= 1)
+	{
+	  if (regbits & 1)
+	    {
+	      fprintf (file, reg_names[regno]);
+	      if (regbits > 1)
+		fprintf (file, "/");
+	    }
+	}
+    }
+  else if (letter == '.')
     {
       if (MOTOROLA)
 	fprintf (file, ".");

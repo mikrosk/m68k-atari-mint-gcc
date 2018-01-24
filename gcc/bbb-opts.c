@@ -941,9 +941,9 @@ public:
   }
 
   inline insn_info &
-  or_use (insn_info const & o)
+  or_def (insn_info const & o)
   {
-    use |= o.myuse | o.def | o.hard;
+    def |= o.def;
     return *this;
   }
 
@@ -2104,26 +2104,26 @@ update_insn_infos (void)
 	}
     }
 
-  /* fill the mask of general used regs. */
+  /* fill the mask of regs which are assigned a value. */
   insn_info zz;
   for (unsigned i = 0; i < infos.size (); ++i)
     {
       insn_info & ii = infos[i];
-      if (ii.in_proepi () != IN_PROLOGUE)
-	break;
+      if (ii.in_proepi ())
+	continue;
 
-      zz.or_use (ii);
+      zz.or_def (ii);
     }
 
   /* always allow a0/a1, d0/d1. */
-  usable_regs = zz.get_use () | 0x303;
+  usable_regs = zz.get_def () | 0x303;
   if (flag_pic)
     usable_regs &= ~(1 << PIC_REG);
 
   if (infos.size () && infos[0].is_use (FRAME_POINTER_REGNUM))
     usable_regs &= ~(1 << FRAME_POINTER_REGNUM);
 
-  usable_regs &= ~(1 << STACK_POINTER_REGNUM);
+  usable_regs &= 0x7fff;
 }
 
 enum AbortCodes
@@ -2352,8 +2352,6 @@ opt_reg_rename (void)
 
   if (infos.size () < 2)
     return 0;
-
-  unsigned usable_regs = 0x7fff & (infos[0].get_use() | infos[1].get_use() | 0x303);
 
 //  dump_insns ("rename", 1);
   for (unsigned index = 0; index < infos.size (); ++index)
@@ -3578,17 +3576,8 @@ opt_shrink_stack_frame (void)
 	}
       ++pos;
     }
-  /* gather usage stats without prologue/epilogue */
-  insn_info ii;
-  for (unsigned i = 0; i < infos.size (); ++i)
-    {
-      insn_info & jj = infos[i];
-      if (jj.in_proepi () != IN_CODE)
-	continue;
 
-      ii.or_use (jj);
-    }
-  unsigned freemask = ~ii.get_use () & 0x7fff;
+  unsigned freemask = 0x7fff & ~usable_regs;
 
   rtx a7 = gen_raw_REG (SImode, STACK_POINTER_REGNUM);
   rtx a5 = gen_raw_REG (SImode, FRAME_POINTER_REGNUM);
@@ -3845,7 +3834,7 @@ opt_shrink_stack_frame (void)
 	      if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
 		{
 		  ii.a5_to_a7 (a7);
-		  if (regs_seen && ii.in_proepi () == IN_EPILOGUE_PARALLEL_POP)
+		  if (regs_total_size && regs_seen && ii.in_proepi () == IN_EPILOGUE_PARALLEL_POP)
 		    {
 		      // exit sp insn needs an +
 		      rtx pattern = PATTERN (ii.get_insn ());

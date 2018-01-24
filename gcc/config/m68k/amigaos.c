@@ -188,23 +188,13 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 	  else
 	    {
 	      tree ratree = lookup_attribute ("regparm", attrs);
-	      cum->num_of_regs = amigaos_regparm != 0 ?
-	      amigaos_regparm :
+	      cum->num_of_regs = amigaos_regparm != 0 ? amigaos_regparm :
 							AMIGAOS_DEFAULT_REGPARM;
 	      if (ratree)
 		{
-		  tree args = TREE_VALUE(ratree);
-
-		  if (args && TREE_CODE (args) == TREE_LIST)
-		    {
-		      tree val = TREE_VALUE(args);
-		      if (TREE_CODE (val) == INTEGER_CST)
-			{
-			  int no = TREE_INT_CST_LOW(val);
-			  if (no > 0 && no < AMIGAOS_MAX_REGPARM)
-			    cum->num_of_regs = no;
-			}
-		    }
+		  int no = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(ratree)));
+		  if (no > 0 && no < AMIGAOS_MAX_REGPARM)
+		    cum->num_of_regs = no;
 		}
 	    }
 	}
@@ -425,7 +415,7 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
 	  if (stack2 || asm2)
 	    return 0;
 
-	  int no1 = TREE_INT_CST_LOW(TREE_VALUE(reg1));
+	  int no1 = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(reg1)));
 	  int no2 = reg2 ? TREE_INT_CST_LOW(TREE_VALUE(reg2)) : amigaos_regparm;
 	  return no1 == no2;
 	}
@@ -435,7 +425,7 @@ amigaos_comp_type_attributes (const_tree type1, const_tree type2)
 	  if (stack1 || asm1)
 	    return 0;
 
-	  int no2 = TREE_INT_CST_LOW(TREE_VALUE(reg2));
+	  int no2 = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(reg2)));
 	  return amigaos_regparm == no2;
 	}
 

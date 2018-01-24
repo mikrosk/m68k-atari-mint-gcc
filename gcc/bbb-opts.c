@@ -298,7 +298,22 @@ public:
     if (mode == SFmode && regno < 16)
       mode = SImode;
 
-    if (!extend (&value[regno], &mask[regno], mode, x))
+    if (extend (&value[regno], &mask[regno], mode, x))
+      {
+	// convert reg value int regs value.
+	if (REG_P(value[regno]))
+	  {
+	    unsigned refregno = REGNO(value[regno]);
+	    rtx val = value[refregno];
+	    if (!val)
+	      {
+		val = gen_rtx_raw_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (refregno) << 32) | (0xffffffff & -index));
+		value[refregno] = val;
+	      }
+	    value[regno] = val;
+	  }
+      }
+    else
       {
 	clear (mode, regno, index);
       }

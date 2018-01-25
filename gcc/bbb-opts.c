@@ -4466,6 +4466,24 @@ opt_autoinc ()
   return change_count;
 }
 
+void print_inline_info()
+{
+  unsigned count = 0;
+  for (unsigned index = 0; index < infos.size(); ++index)
+    {
+      if (!infos[index].in_proepi())
+	++count;
+    }
+
+  for (unsigned m = usable_regs >> 2; m; m>>=1)
+    {
+      if (count && (m&1))
+	--count;
+    }
+
+  printf(":bbb: inline weight = %4d\t%s\n", count, get_current_function_name ());
+}
+
 namespace
 {
 
@@ -4610,6 +4628,9 @@ namespace
 	update_insns ();
 	track_regs ();
       }
+
+    if (be_verbose)
+      print_inline_info();
 
     return r;
   }

@@ -2117,12 +2117,6 @@ update_insn_infos (void)
 
   /* always allow a0/a1, d0/d1. */
   usable_regs = zz.get_def () | 0x303;
-  if (flag_pic)
-    usable_regs &= ~(1 << PIC_REG);
-
-  if (infos.size () && infos[0].is_use (FRAME_POINTER_REGNUM))
-    usable_regs &= ~(1 << FRAME_POINTER_REGNUM);
-
   usable_regs &= 0x7fff;
 }
 

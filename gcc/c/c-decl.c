@@ -4457,11 +4457,36 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 	}
       if (strlen(synthetic) > 0)
 	{
+	  tree t;
 	  tree asmid = get_identifier("asmregs");
 	  tree syntheticid = get_identifier(synthetic);
 	  tree newattr = tree_cons(asmid, syntheticid, NULL_TREE);
 
-	  TYPE_ATTRIBUTES(TREE_TYPE(*node)) = chainon(newattr, TYPE_ATTRIBUTES(TREE_TYPE(*node)));
+	  /* create a type copy with additional attribute. */
+	  tree atype = copy_node (TREE_TYPE(*node));
+	  tree attrs = TYPE_ATTRIBUTES(atype) = chainon(newattr, TYPE_ATTRIBUTES(atype));
+
+	  tree m = TYPE_MAIN_VARIANT(TREE_TYPE(*node));
+
+	  TYPE_POINTER_TO (atype) = 0;
+	  TYPE_REFERENCE_TO (atype) = 0;
+
+	  /* search if such variant exists. */
+	  for (t = m; t; t = TYPE_NEXT_VARIANT(t))
+	    if (comptypes (t, atype) == 1 && attribute_list_equal (TYPE_ATTRIBUTES(t), attrs))
+	      break;
+
+	  if (t)
+	    TREE_TYPE(*node) = t;
+	  else
+	    {
+	      TREE_TYPE(*node) = atype;
+	      /* Add this type to the chain of variants of TYPE.  */
+	      TYPE_NEXT_VARIANT (atype) = TYPE_NEXT_VARIANT (m);
+	      TYPE_NEXT_VARIANT (m) = atype;
+	    }
+
+	  returned_attrs = TYPE_ATTRIBUTES(TREE_TYPE(*node));
 	}
     }
 #endif
@@ -5073,6 +5098,7 @@ build_type_copy (tree type)
     return t;
   }
 #endif
+
 
 /* Given a parsed parameter declaration, decode it into a PARM_DECL
    and push that on the current scope.  EXPR is a pointer to an

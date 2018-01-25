@@ -416,6 +416,8 @@ bool func_is_using_regparms(const_tree func)
       if (amigaos_regparm > 2 && !lookup_attribute ("stkparm", attrs))
 	return true;
     }
+  else if (amigaos_regparm > 2)
+    return true;
 #endif
   return false;
 }

@@ -157,13 +157,18 @@ struct amigaos_args
 
 static struct amigaos_args mycum, othercum;
 
-bool amiga_is_a1_used(tree decl, tree exp);
-bool amiga_is_a1_used(tree decl, tree exp)
+bool amiga_is_ok_for_sibcall(tree decl, tree exp);
+/**
+ * Sibcall is only ok, if max regs d0/d1/a0 are used.
+ * a1 is used for the sibcall
+ * others might be trashed due to stack pop.
+ */
+bool amiga_is_ok_for_sibcall(tree decl, tree exp)
 {
   tree fntype = decl ? TREE_TYPE (decl) : TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (exp)));
   if (othercum.fntype == fntype)
-    return othercum.regs_already_used & (1<<9);
-  return true;
+    return (othercum.regs_already_used & ~0x0103) == 0;
+  return false;
 }
 
 /* Argument-passing support functions.  */

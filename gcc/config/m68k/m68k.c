@@ -1424,7 +1424,7 @@ m68k_reg_present_p (const_rtx parallel, unsigned int regno)
   return false;
 }
 
-extern bool amiga_is_a1_used(tree decl, tree exp);
+extern bool amiga_is_ok_for_sibcall(tree decl, tree exp);
 /* Implement TARGET_FUNCTION_OK_FOR_SIBCALL_P.  */
 
 static bool
@@ -1433,7 +1433,7 @@ m68k_ok_for_sibcall_p (tree decl, tree exp)
   enum m68k_function_kind kind;
 
 #ifdef TARGET_AMIGA
-  if (amiga_is_a1_used(decl, exp))
+  if (!amiga_is_ok_for_sibcall(decl, exp))
     return false;
 #endif
 

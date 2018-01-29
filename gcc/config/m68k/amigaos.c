@@ -184,7 +184,7 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   *cump = decl == current_function_decl;
   cum->num_of_regs = amigaos_regparm > 0 ? amigaos_regparm : 0;
   DPRINTF(
-      ("0amigaos_init_cumulative_args %s %p -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", cum, cum->num_of_regs));
+      ("0amigaos_init_cumulative_args %s %d -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, cum->num_of_regs));
 
   /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -193,12 +193,20 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   cum->last_arg_reg = -1;
   cum->regs_already_used = 0;
 
+  if (!fntype && decl)
+    fntype = TREE_TYPE(decl);
   if (fntype)
     {
       tree attrs = TYPE_ATTRIBUTES(fntype);
+      DPRINTF(
+          ("1amigaos_init_cumulative_args %s %d attrs: %p\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, attrs));
       if (attrs)
 	{
-	  if (lookup_attribute ("stkparm", attrs))
+	  tree stkp = lookup_attribute ("stkparm", attrs);
+	  tree fnspec = lookup_attribute ("fn spec", attrs);
+	  DPRINTF(
+	      ("2amigaos_init_cumulative_args %s %d stkp: %p %s\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, stkp ? stkp : fnspec, IDENTIFIER_POINTER(TREE_PURPOSE(attrs))));
+	  if (stkp || fnspec)
 	    cum->num_of_regs = 0;
 	  else
 	    {
@@ -250,7 +258,7 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   else
     /* Call to compiler-support function. */
     cum->current_param_type = cum->fntype = 0;
-  DPRINTF(("1amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
+  DPRINTF(("9amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
 }
 
 int

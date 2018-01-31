@@ -1074,7 +1074,7 @@ public:
   set_insn (rtx_insn * newinsn);
 
   void
-  a5_to_a7 (rtx a7);
+  a5_to_a7 (rtx a7, int add);
 };
 
 bool
@@ -1700,7 +1700,7 @@ replace_reg (rtx x, unsigned regno, rtx newreg, int offset)
 }
 
 void
-insn_info::a5_to_a7 (rtx a7)
+insn_info::a5_to_a7 (rtx a7, int add)
 {
   if (proepi == IN_EPILOGUE && src_mem_reg && get_src_mem_regno () == FRAME_POINTER_REGNUM)
     {
@@ -1711,7 +1711,7 @@ insn_info::a5_to_a7 (rtx a7)
 	  return;
 	}
     }
-  replace_reg (PATTERN (insn), FRAME_POINTER_REGNUM, a7, -4);
+  replace_reg (PATTERN (insn), FRAME_POINTER_REGNUM, a7, add-4);
 }
 
 void
@@ -3778,6 +3778,10 @@ opt_shrink_stack_frame (void)
 		  SET_INSN_DELETED(insn);
 		  ++changed;
 		}
+	      else
+		{
+		  regs_total_size += GET_MODE_SIZE(GET_MODE(src));
+		}
 	    }
 	  else
 	    {
@@ -3842,7 +3846,7 @@ opt_shrink_stack_frame (void)
 	      insn_info & ii = infos[i];
 	      if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
 		{
-		  ii.a5_to_a7 (a7);
+		  ii.a5_to_a7 (a7, regs_total_size);
 		  if (regs_total_size && regs_seen && ii.in_proepi () == IN_EPILOGUE_PARALLEL_POP)
 		    {
 		      // exit sp insn needs an +

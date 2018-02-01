@@ -3290,7 +3290,7 @@ opt_merge_add (void)
 
 /* Update the insn_infos to 'know' the sp offset. */
 static unsigned
-track_sp ()
+track_sp (int & a5_touched)
 {
 // reset visited flags - also check if sp is used as REG src.
   for (unsigned index = 0; index < infos.size (); ++index)
@@ -3299,8 +3299,11 @@ track_sp ()
       ii.clear_visited ();
       ii.set_sp_offset (0);
 
+      if (ii.in_proepi() == IN_CODE)
+	a5_touched |= ii.get_myuse() & 0x2000;
+
       // if sp is used as source, we cannot shrink the stack yet
-      // too complicated
+      // too complicated - well, could be done^^
       if (ii.get_src_regno () == STACK_POINTER_REGNUM)
 	return -1;
     }
@@ -3434,7 +3437,8 @@ opt_shrink_stack_frame (void)
 
   /* needed to track sp correctly. */
   update_label2jump ();
-  if (track_sp ())
+  int a5_touched = 0;
+  if (track_sp (a5_touched))
     return 0; // do nothing on stack errors
 
   std::vector<int> a5pos;
@@ -3818,7 +3822,7 @@ opt_shrink_stack_frame (void)
       /* for now only drop the frame pointer if it's not used.
        * Needs tracking of the sp to adjust the offsets.
        */
-      if (freemask & (1 << FRAME_POINTER_REGNUM))
+      if (!a5_touched)
 	{
 	  log ("(f) dropping unused frame pointer\n");
 	  for (std::vector<int>::reverse_iterator i = a5pos.rbegin (); i != a5pos.rend (); ++i)
@@ -3844,9 +3848,13 @@ opt_shrink_stack_frame (void)
 	  for (unsigned i = 0; i < infos.size (); ++i)
 	    {
 	      insn_info & ii = infos[i];
+
+	      //skip already deleted insns.
+	      if (GET_CODE(ii.get_insn()) == NOTE)
+		continue;
 	      if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
 		{
-		  ii.a5_to_a7 (a7, regs_total_size);
+		  ii.a5_to_a7 (a7, regs_total_size - ii.get_sp_offset());
 		  if (regs_total_size && regs_seen && ii.in_proepi () == IN_EPILOGUE_PARALLEL_POP)
 		    {
 		      // exit sp insn needs an +

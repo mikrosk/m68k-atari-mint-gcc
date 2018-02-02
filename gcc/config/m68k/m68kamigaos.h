@@ -750,3 +750,14 @@ extern int
 amigaos_function_arg_reg(unsigned regno);
 
 //extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands);
+
+/* SBF: modified RATIOs there 3 operand pushes, the call and the sp correction -> 5 insns.
+ *
+ * Plus the compare is a '<' => use 6 to create up to 5 clr/move insns.
+ */
+#undef MOVE_RATIO
+#undef CLEAR_RATIO
+//#define MOVE_RATIO(speed) ((speed) ? 15 : 3)
+//#define CLEAR_RATIO(speed) ((speed) ? 15 :3)
+#define MOVE_RATIO(speed) ((speed) ? 15 : 6)
+#define CLEAR_RATIO(speed) ((speed) ? 15 : 6)

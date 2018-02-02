@@ -195,6 +195,8 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 
   if (!fntype && decl)
     fntype = TREE_TYPE(decl);
+  if (decl && DECL_ARTIFICIAL(decl))
+    fntype = 0;
   if (fntype)
     {
       tree attrs = TYPE_ATTRIBUTES(fntype);

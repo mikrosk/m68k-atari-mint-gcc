@@ -4475,6 +4475,44 @@ opt_autoinc ()
   return change_count;
 }
 
+static unsigned
+opt_final()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 0; index < infos.size(); ++index)
+    {
+      insn_info &ii = infos[index];
+      // cmp #0,ax
+      if (ii.is_compare() && ii.get_dst_reg() && ii.get_dst_regno() >= 8 && ii.get_dst_regno() <= 15 && !ii.get_src_mem_reg() && ii.is_src_const() && ii.get_src_intval() == 0)
+	{
+	  // if there is a free dx register use a move
+	  unsigned avail_dx = (usable_regs & ~ii.get_use()) & 0xff;
+	  if (avail_dx)
+	    {
+	      unsigned regno = 0;
+	      while ((avail_dx & 1) == 0)
+		{
+		  ++regno;
+		  avail_dx >>= 1;
+		}
+	      rtx dx = gen_raw_REG(SImode, regno);
+	      rtx ax = gen_raw_REG(SImode, ii.get_dst_regno());
+	      rtx set = gen_rtx_SET(dx, ax);
+	      emit_insn_before (set, ii.get_insn());
+
+
+	      rtx cmp = gen_rtx_SET(cc0_rtx,
+	      				gen_rtx_COMPARE (SImode, dx, gen_rtx_CONST_INT (SImode, 0)));
+	      rtx_insn * neu = emit_insn_before (cmp, ii.get_insn());
+	      SET_INSN_DELETED(ii.get_insn());
+
+	      log ("(z) cmp.w #0,%s -> move.l %s,%s\n", reg_names[ii.get_dst_regno()], reg_names[ii.get_dst_regno()], reg_names[regno]);
+	    }
+	}
+    }
+  return change_count;
+}
+
 void print_inline_info()
 {
   unsigned count = 0;
@@ -4569,6 +4607,7 @@ namespace
     bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
     bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
     bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
+    bool do_opt_final = strchr (string_bbb_opts, 'z') || strchr (string_bbb_opts, '+');
 
     if (be_very_verbose)
       log ("ENTER\n");
@@ -4625,6 +4664,9 @@ namespace
 	/* elim stack pointer stuff last. */
 	if (do_elim_dead_assign)
 	  opt_elim_dead_assign (FIRST_PSEUDO_REGISTER);
+
+	if (do_opt_final)
+	  opt_final();
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);

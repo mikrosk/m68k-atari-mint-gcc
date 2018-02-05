@@ -1338,16 +1338,21 @@ insn_info::scan_rtx (rtx x)
 	    unsigned u = use;
 	    unsigned mu = myuse;
 	    unsigned d = def;
+	    unsigned mr = multi_reg;
 	    scan_rtx (XVECEXP(x, i, j));
 	    use |= u;
 	    myuse |= mu;
 	    def |= d;
+	    multi_reg |= mr;
 	  }
     }
 
   if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
     def |= myuse;
   if (code == CLOBBER)
+    multi_reg |= def;
+
+  if ((def - 1) & def)
     multi_reg |= def;
 }
 

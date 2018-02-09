@@ -1538,11 +1538,11 @@ copy_reg (rtx reg, int newregno)
 }
 
 /* Rename the register plus track all locs to undo these changes. */
-static rtx
-find_reg_by_no (rtx x, unsigned oldregno)
+static void
+find_reg_modes_by_no (rtx x, unsigned oldregno,std::set<machine_mode> & modes)
 {
   if (!x)
-    return 0;
+    return;
 
   RTX_CODE code = GET_CODE(x);
 
@@ -1555,25 +1555,18 @@ find_reg_by_no (rtx x, unsigned oldregno)
 	  if (REG_P(y))
 	    {
 	      if (REGNO(y) == oldregno)
-		return y;
+		modes.insert(GET_MODE(y));
 	    }
 	  else
-	    {
-	      rtx r = find_reg_by_no (y, oldregno);
-	      if (r)
-		return r;
-	    }
+	    find_reg_modes_by_no (y, oldregno, modes);
 	}
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  {
 	    rtx z = XVECEXP(x, i, j);
-	    rtx r = find_reg_by_no (z, oldregno);
-	    if (r)
-	      return r;
+	    find_reg_modes_by_no (z, oldregno, modes);
 	  }
     }
-  return 0;
 }
 
 /*
@@ -2527,41 +2520,24 @@ opt_reg_rename (void)
 
 	  /* check the renamed insns. */
 	  std::vector<unsigned> positions;
+	  std::set<machine_mode> modes;
 	  for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 	    {
 	      insn_info & rr = infos[*i];
 	      rtx_insn * insn = rr.get_insn ();
 
-	      /* get rename locations. */
-	      rtx from = find_reg_by_no (PATTERN (insn), oldregno);
-	      if (from)
+	      /* get rename modes. */
+	      modes.clear();
+	      find_reg_modes_by_no (PATTERN (insn), oldregno, modes);
+	      if (modes.size() > 0)
 		{
-		  rtx to;
-
-		  to = dstregs[newregno];
-		  if (!to)
-		    to = dstregs[newregno] = gen_raw_REG (SImode, newregno);
-		  from = dstregs[oldregno];
-		  if (!from)
-		    from = dstregs[oldregno] = gen_raw_REG (SImode, oldregno);
-		  validate_replace_rtx_group (from, to, insn);
-
-		  to = dstregs[newregno + 16];
-		  if (!to)
-		    to = dstregs[newregno + 16] = gen_raw_REG (HImode, newregno);
-		  from = dstregs[oldregno + 16];
-		  if (!from)
-		    from = dstregs[oldregno + 16] = gen_raw_REG (HImode, oldregno);
-		  validate_replace_rtx_group (from, to, insn);
-
-		  to = dstregs[newregno + 32];
-		  if (!to)
-		    to = dstregs[newregno + 32] = gen_raw_REG (QImode, newregno);
-		  from = dstregs[oldregno + 32];
-		  if (!from)
-		    from = dstregs[oldregno + 32] = gen_raw_REG (QImode, oldregno);
-		  validate_replace_rtx_group (from, to, insn);
-
+		  for (std::set<machine_mode>::iterator m = modes.begin(); m != modes.end(); ++m)
+		    {
+		      machine_mode mode = *m;
+		      rtx to = gen_raw_REG (mode, newregno);
+		      rtx from = gen_raw_REG (mode, oldregno);
+		      validate_replace_rtx_group (from, to, insn);
+		    }
 		  positions.push_back (*i);
 		}
 	    }
@@ -4637,10 +4613,6 @@ namespace
 
     if (be_very_verbose)
       log ("ENTER\n");
-
-    // 16 registers - 3 modes
-    while(dstregs.size() < 16 * 3)
-      dstregs.push_back(0);
 
     unsigned r = update_insns ();
     if (!r)

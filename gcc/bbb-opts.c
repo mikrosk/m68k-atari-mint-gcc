@@ -1599,6 +1599,9 @@ typedef std::set<unsigned>::iterator su_iterator;
 static insn_info * info0;
 static unsigned usable_regs;
 
+// registers used during rename
+static std::vector<rtx> dstregs;
+
 static void
 update_insn2index ()
 {
@@ -2533,7 +2536,30 @@ opt_reg_rename (void)
 	      rtx from = find_reg_by_no (PATTERN (insn), oldregno);
 	      if (from)
 		{
-		  rtx to = gen_raw_REG (GET_MODE(from), newregno);
+		  rtx to;
+
+		  to = dstregs[newregno];
+		  if (!to)
+		    to = dstregs[newregno] = gen_raw_REG (SImode, newregno);
+		  from = dstregs[oldregno];
+		  if (!from)
+		    from = dstregs[oldregno] = gen_raw_REG (SImode, oldregno);
+		  validate_replace_rtx_group (from, to, insn);
+
+		  to = dstregs[newregno + 16];
+		  if (!to)
+		    to = dstregs[newregno + 16] = gen_raw_REG (HImode, newregno);
+		  from = dstregs[oldregno + 16];
+		  if (!from)
+		    from = dstregs[oldregno + 16] = gen_raw_REG (HImode, oldregno);
+		  validate_replace_rtx_group (from, to, insn);
+
+		  to = dstregs[newregno + 32];
+		  if (!to)
+		    to = dstregs[newregno + 32] = gen_raw_REG (QImode, newregno);
+		  from = dstregs[oldregno + 32];
+		  if (!from)
+		    from = dstregs[oldregno + 32] = gen_raw_REG (QImode, oldregno);
 		  validate_replace_rtx_group (from, to, insn);
 
 		  positions.push_back (*i);
@@ -4611,6 +4637,10 @@ namespace
 
     if (be_very_verbose)
       log ("ENTER\n");
+
+    // 16 registers - 3 modes
+    while(dstregs.size() < 16 * 3)
+      dstregs.push_back(0);
 
     unsigned r = update_insns ();
     if (!r)

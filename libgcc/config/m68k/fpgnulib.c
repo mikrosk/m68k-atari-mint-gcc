@@ -49,6 +49,15 @@
 ** in with -msoft-float.
 */
 
+/* Prototypes for the above in case we use them.  */
+double __floatunsidf (unsigned long);
+double __floatsidf (long);
+float __floatsisf (long);
+double __extendsfdf2 (float);
+float __truncdfsf2 (double);
+long __fixdfsi (double);
+long __fixsfsi (float);
+
 /* the following deal with IEEE single-precision numbers */
 #define EXCESS		126L
 #define SIGNBIT		0x80000000L
@@ -408,15 +417,6 @@ __fixsfsi (float a1)
 /* Primitive extended precision floating point support.
 
    We assume all numbers are normalized, don't do any rounding, etc.  */
-
-/* Prototypes for the above in case we use them.  */
-double __floatunsidf (unsigned long);
-double __floatsidf (long);
-float __floatsisf (long);
-double __extendsfdf2 (float);
-float __truncdfsf2 (double);
-long __fixdfsi (double);
-long __fixsfsi (float);
 
 #if !defined(EXTFLOATCMP)
 

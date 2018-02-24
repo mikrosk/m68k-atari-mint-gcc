@@ -6360,8 +6360,11 @@ default_select_section (tree decl, int reloc,
     }
   else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
-      if (! ((flag_pic && reloc)
-	     || !TREE_READONLY (decl)
+      if (! (
+#ifndef TARGET_AMIGA
+	  (flag_pic && reloc) ||
+#endif
+	     !TREE_READONLY (decl)
 	     || TREE_SIDE_EFFECTS (decl)
 	     || !TREE_CONSTANT (decl)))
 	return readonly_data_section;

@@ -70,6 +70,7 @@
 #include "tree-pass.h"
 #include "conditions.h"
 #include "langhooks.h"
+#include "output.h"
 #include <vector>
 #include <set>
 #include <map>
@@ -4477,6 +4478,11 @@ opt_autoinc ()
   return change_count;
 }
 
+/*
+ * A final pass, with these optimizations:
+ *
+ * - convert cmp #0,ax int move.l ax,dy if there is a free dy
+ */
 static unsigned
 opt_final()
 {
@@ -4510,6 +4516,57 @@ opt_final()
 
 	      log ("(z) cmp.w #0,%s -> move.l %s,%s\n", reg_names[ii.get_dst_regno()], reg_names[ii.get_dst_regno()], reg_names[regno]);
 	    }
+	}
+    }
+  return change_count;
+}
+
+/**
+ * Convert
+ *     lea <y>,ax
+ *     move (ax),...
+ * into
+ *     move (<y>),...
+ *
+ *  if ax is reag dead
+ */
+static unsigned
+opt_lea_mem()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 1; index< infos.size(); ++index)
+    {
+      insn_info &ii = infos[index - 1];
+
+      if (!ii.get_dst_reg())
+	continue;
+
+      rtx set0 = single_set(ii.get_insn());
+      if (!set0)
+	continue;
+
+      insn_info &jj = infos[index ];
+      rtx set = single_set(jj.get_insn());
+      if (!set)
+	continue;
+
+      rtx src = SET_SRC(set);
+      if (!MEM_P(src))
+	continue;
+
+      rtx reg = XEXP(src, 0);
+      if (!REG_P(reg))
+	continue;
+
+      if (REGNO(reg) != ii.get_dst_regno() || !is_reg_dead(REGNO(reg), index))
+	continue;
+
+      // try the conversion
+      if (validate_change(jj.get_insn(), &XEXP(src, 0), SET_SRC(set0), 0))
+	{
+	  SET_INSN_DELETED(ii.get_insn());
+	  log("(l) lea removed at %d\n", index - 1);
+	  ++change_count;
 	}
     }
   return change_count;
@@ -4605,6 +4662,7 @@ namespace
     bool do_elim_dead_assign = strchr (string_bbb_opts, 'e') || strchr (string_bbb_opts, '+');
     bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
+    bool do_lea_mem = strchr (string_bbb_opts, 'l') || strchr (string_bbb_opts, '+');
     bool do_merge_add = strchr (string_bbb_opts, 'm') || strchr (string_bbb_opts, '+');
     bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
     bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
@@ -4617,6 +4675,9 @@ namespace
     unsigned r = update_insns ();
     if (!r)
       {
+	if (do_lea_mem && opt_lea_mem())
+	  update_insns ();
+
 	for (;;)
 	  {
 	    int done = 1;
@@ -4701,7 +4762,7 @@ namespace
 
   const pass_data pass_data_bbb_baserel =
     { RTL_PASS, /* type */
-    "bebbo's-baserel fixer", /* name */
+    "bebbo's-baserel-pass", /* name */
     OPTGROUP_NONE, /* optinfo_flags */
     TV_NONE, /* tv_id */
     0, /* properties_required */
@@ -4746,10 +4807,233 @@ namespace
   };
 // class pass_bbb_optimizations
 
+  static rtx a4reg;
+  static int cur_tmp_use;
+  static rtx cur_symbol[8];
+  static rtx cur_tmp_reg[8];
+
+  int make_pic_ref(rtx_insn * insn, rtx * x, bool * use_tmp)
+  {
+    int r = 0;
+    enum rtx_code code = GET_CODE(*x);
+    if (code == SYMBOL_REF)
+      {
+	bool ispic = false;
+	section * sec = 0;
+
+	tree decl = SYMBOL_REF_DECL (*x);
+	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && !(DECL_SECTION_NAME(decl)))
+	  {
+	    sec = get_variable_section(decl, false);
+	    ispic = sec->common.flags & 0x200; // SECTION_WRITE;
+	  }
+
+//	  if (decl)
+//	    printf("%s: %8x %d\n", decl->decl_minimal.name->identifier.id.str, sec ? sec->common.flags : 0, ispic);
+
+	if (ispic)
+	  {
+	    rtx symbol = *x;
+
+	    // create the pic_ref expression
+	    rtx s = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, *x, GEN_INT (0)),
+						UNSPEC_RELOC16);
+	    s = gen_rtx_CONST (Pmode, s);
+	    s = gen_rtx_PLUS (Pmode, a4reg, s);
+	    s = gen_rtx_CONST (Pmode, s);
+
+	    // try to use it directly.
+	    if (!use_tmp)
+	      validate_unshare_change(insn, x, s, 0);
+	    else if (!*use_tmp)
+	      *use_tmp |= !validate_unshare_change(insn, x, s, 0);
+
+	    // if direct use failed, use a tmp register per symbol
+	    if (use_tmp && *use_tmp)
+	      {
+		rtx r = 0;
+		for (int i = 0; i < cur_tmp_use; ++i)
+		  {
+		    if (rtx_equal_p(cur_symbol[i], symbol))
+		      {
+		        r = cur_tmp_reg[i];
+			break;
+		      }
+		  }
+		if (!r)
+		  {
+		    r = gen_reg_rtx (Pmode);
+		    rtx set = gen_rtx_SET(r, s);
+		    emit_insn_before(set, insn);
+
+		    cur_symbol[cur_tmp_use] = symbol;
+		    cur_tmp_reg[cur_tmp_use] = r;
+		    ++cur_tmp_use;
+		  }
+
+		// if the change does not validate, poke it hard and pray that it's fixed later on.
+		if (!validate_unshare_change(insn, x, r, 0))
+		  {
+//		    fprintf(stderr, "can't convert to baserel: ");
+//		    debug_rtx(insn);
+		    *x = r;
+//		    debug_rtx(insn);
+		    return -1;
+		  }
+	      }
+	  }
+
+	return ispic;
+      }
+
+    switch (code)
+    {
+      /*
+       * Handle set: SRC and DEST may each have different symbols, so reset the use_tmp flag.
+       */
+      case SET:
+	r |= make_pic_ref(insn, &SET_DEST(*x), use_tmp);
+	if (use_tmp)
+	  *use_tmp = false;
+	r |= make_pic_ref(insn, &SET_SRC(*x), use_tmp);
+	if (use_tmp)
+	  *use_tmp = false;
+	return r;
+	/*
+	 * No inplace pic ref if a register is seen
+	 */
+      case REG:
+	if (use_tmp)
+	  *use_tmp = true;
+	break;
+	/*
+	 * There are shared CONST(PLUS(SYMBOL, CONST_INT)) rtx! (evil!)
+	 * Make a copy if one is seen, to avoid double replacement.
+	 */
+      case CONST:
+	if (GET_CODE(XEXP(*x, 0)) == PLUS && GET_CODE(XEXP(XEXP(*x, 0), 0)) == SYMBOL_REF)
+	  {
+	    /* copy_rtx can't unshare, so do it by hand. */
+	    rtx c = gen_rtx_CONST(GET_MODE(*x), gen_rtx_PLUS(GET_MODE(XEXP(*x, 0)), XEXP(XEXP(*x, 0), 0), XEXP(XEXP(*x, 0), 1)));
+	    *x = c;
+	  }
+	break;
+	/*
+	 * Default: try in place first.
+	 */
+      default:
+	break;
+    }
+
+    const char *fmt = GET_RTX_FORMAT(code);
+    for (int i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      {
+        if (fmt[i] == 'e')
+  	{
+  	  r |= make_pic_ref(insn, &XEXP(*x, i), use_tmp);
+  	}
+        else if (fmt[i] == 'E')
+  	for (int j = XVECLEN (*x, i) - 1; j >= 0; j--)
+  	  {
+  	    r |= make_pic_ref(insn, &XVECEXP(*x, i, j), use_tmp);
+  	  }
+      }
+    return r;
+  }
+
+  void
+  maybe_fix(rtx x, rtx_insn * insn)
+  {
+    /* check for necessary fixes
+     * 1. (mem/f:SI (plus:SI (reg:SI 8 a0)
+     *       (const:SI (plus:SI (reg:SI 0 d0 [96])
+     *         (const_int 8 [0x8]))))
+     *
+     *   (mem:SI (plus:SI (plus:SI (reg/v:SI 8 a0)
+     *                             (reg:SI 0 d0))
+     *         (const_int 8 [0x8])))
+     *
+     *
+     *
+     * 2. not converted properly
+     * (mem:SI (plus:SI (mult:SI (reg:SI 31 )
+     *                           (const_int 8 [0x8]))
+     *                  (const:SI (plus:SI (reg:SI 99 )
+     *                                     (const_int 4 [0x4]))))
+     *
+     *
+     * 3. (mem:SI (plus:SI (plus:SI (reg:SI 35 [ _23 ])
+     *                              (reg:SI 31 [ ivtmp.233 ]))
+     *                     (reg:SI 46)) )
+     *
+     * 3 registers are too many.
+     *
+     * 4. (mem/f:SI (plus:SI (plus:SI (mult:SI (reg:SI 1 d1)
+     *                                         (const_int 4 [0x4]))
+     *                                (reg:SI 14 a6))
+     *                       (const:SI (plus:SI (reg:SI 0 d0 [1060])
+     *                                          (const_int 8 [0x8]))))
+     *
+     * again 3 registers.
+     * Also move the const/plus/reg into a separate register.
+     *
+     */
+
+    if (MEM_P(x))
+      {
+	rtx pl1 = XEXP(x, 0);
+	if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 0)) || GET_CODE(XEXP(pl1, 0)) == MULT))
+	  {
+	    rtx reg1 = XEXP(pl1, 0);
+	    if (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)
+	      {
+		rtx plus = XEXP(XEXP(pl1, 1), 0);
+		rtx reg2 = XEXP(plus, 0);
+		rtx add = XEXP(plus, 1);
+
+		rtx p1 = gen_rtx_PLUS(GET_MODE(plus), reg1, reg2);
+		rtx p2 = gen_rtx_PLUS(GET_MODE(plus), p1, add);
+
+		validate_change(insn, &XEXP(x, 0), p2, 0);
+	      }
+	  }
+	else if (GET_CODE(pl1) == CONST && GET_CODE(XEXP(pl1, 0)) == PLUS)
+	  {
+	    validate_change (insn, &XEXP(x, 0), XEXP(pl1, 0), 0);
+	  }
+	else if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 1)) || (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)))
+	  {
+	    rtx pl2 = XEXP(pl1, 0);
+	    if (GET_CODE(pl2) == PLUS && (REG_P(XEXP(pl2, 0)) || GET_CODE(XEXP(pl2, 0)) == MULT) && REG_P(XEXP(pl2, 1)))
+	      {
+		// create an additional add insn for pl2
+		rtx r = gen_reg_rtx (Pmode);
+		rtx set = gen_rtx_SET(r, pl2);
+		emit_insn_before(set, insn);
+
+		// use that registers instead of pl2
+		validate_change(insn, &XEXP(pl1, 0), r, 0);
+
+		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))
+		  {
+		    rtx r2 = gen_reg_rtx (Pmode);
+		    rtx set2 = gen_rtx_SET(r, XEXP(pl1, 1));
+		    emit_insn_before(set, insn);
+
+		    validate_change(insn, &XEXP(pl1, 1), r2, 0);
+		  }
+
+	      }
+	  }
+      }
+  }
+
   /* Main entry point to the pass.  */
   unsigned
   pass_bbb_baserel::execute_bbb_baserel (void)
   {
+    a4reg = gen_rtx_REG (Pmode, PIC_REG);
+
     rtx_insn *insn, *next;
     for (insn = get_insns (); insn; insn = next)
       {
@@ -4757,39 +5041,33 @@ namespace
 
 	if (NONJUMP_INSN_P(insn))
 	  {
+
 	    rtx set = single_set (insn);
-	    if (!set)
-	      continue;
 
-	    rtx * src = &SET_SRC(set);
-	    if (MEM_P(*src))
-	      src = &XEXP(*src, 0);
-
-	    bool ispicref = false;
-	    // fix add PLUS/MINUS into the unspec offset
-	    if (GET_CODE(*src) == PLUS || GET_CODE(*src) == MINUS)
-	      ispicref = amiga_is_const_pic_ref (XEXP(*src, 0));
-	    else
-	      ispicref = amiga_is_const_pic_ref (*src);
-
-	    if (ispicref)
+	    bool b = false;
+	    cur_tmp_use = 0;
+	    if (make_pic_ref(insn, &PATTERN(insn), &b) && set)
 	      {
+		/* some insns need a further patch to be valid.
+		 * See maybe_fix.
+		 */
 		rtx dest = SET_DEST(set);
-		if (MEM_P(dest) && GET_CODE(XEXP(dest, 0)) != PRE_DEC)
+		rtx src = SET_SRC(set);
+
+		if (GET_CODE(src) == COMPARE)
 		  {
-		    // split the insn
-		    rtx reg = gen_reg_rtx (Pmode);
-
-		    rtx pat0 = gen_rtx_SET(reg, *src);
-		    //rtx_insn * n0 =
-		    emit_insn_before (pat0, insn);
-
-		    rtx pat1 = gen_rtx_SET(dest, reg);
-		    //rtx_insn * n1 =
-		    emit_insn_before (pat1, insn);
-
-		    SET_INSN_DELETED(insn);
+		    dest = XEXP(src, 0);
+		    src = XEXP(src, 1);
 		  }
+
+		maybe_fix(dest, insn);
+		maybe_fix(src, insn);
+	      }
+
+	    rtx note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
+	    if (note)
+	      {
+		make_pic_ref(insn, &XEXP (note, 0), 0);
 	      }
 	  }
       }

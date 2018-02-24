@@ -714,6 +714,15 @@ _amiga_is_const_pic_ref (const_rtx x)
     return false;
 
   const_rtx reg = XEXP(x, 0);
+
+  if (GET_CODE(reg) == CONST)
+    {
+      x = XEXP(reg, 0);
+      if (GET_CODE(x) != PLUS)
+        return false;
+      reg = XEXP(x, 0);
+    }
+
   if (!REG_P(reg) && REGNO(reg) != PIC_REG)
     return false;
 

@@ -1356,6 +1356,12 @@ memory_operand (rtx op, machine_mode mode)
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
 
+#ifdef TARGET_AMIGA
+  /* SBF: allow direct mem ref to a4. */
+  if (MEM_P(op) && amiga_is_const_pic_ref(XEXP(op, 0)))
+    return true;
+#endif
+
   inner = op;
   if (GET_CODE (inner) == SUBREG)
     inner = SUBREG_REG (inner);

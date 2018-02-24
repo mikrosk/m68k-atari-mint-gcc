@@ -374,6 +374,9 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040)
 #define FL_FOR_isa_cpu32 (FL_FOR_isa_10 | FL_ISA_68020)
 
+#define FL_FOR_isa_80    (FL_FOR_isa_20 | FL_ISA_68040 | FL_ISA_68080)
+
+
 /* Base flags for ColdFire ISAs.  */
 #define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A)
 #define FL_FOR_isa_aplus (FL_FOR_isa_a | FL_ISA_APLUS | FL_CF_USP)
@@ -389,6 +392,7 @@ enum m68k_isa
   isa_10,
   isa_20,
   isa_40,
+  isa_80,
   isa_cpu32,
   /* ColdFire instruction set variants.  */
   isa_a,
@@ -589,11 +593,13 @@ m68k_option_override (void)
   if (TARGET_PCREL && !TARGET_68020 && flag_pic == 2)
     error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
+#ifndef TARGET_AMIGA
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
      significance that it does on hosted ELF systems?  */
   if (TARGET_PCREL && flag_pic == 0)
     flag_pic = 1;
+#endif
 
   /* SBF: use normal jumps/calls with baserel(32) modes. */
   if (!flag_pic || flag_pic > 2)
@@ -1985,6 +1991,9 @@ m68k_legitimate_constant_address_p (rtx x, unsigned int reach, bool strict_p)
 {
   rtx base, offset;
 
+  if (GET_CODE(x) == PLUS && SYMBOL_REF_P(XEXP(x, 0)) && GET_CODE(XEXP(x, 1)) == CONST_INT)
+    return true;
+
   if (!CONSTANT_ADDRESS_P (x))
     return false;
 
@@ -2524,42 +2533,15 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
 		        rtx reg)
 {
   rtx pic_ref = orig;
+  if (flag_pic >= 3)
+    return orig;
 
   /* First handle a simple SYMBOL_REF or LABEL_REF */
   if (GET_CODE (orig) == SYMBOL_REF || GET_CODE (orig) == LABEL_REF)
     {
       gcc_assert (reg);
-      if (flag_pic < 3)
-	{
-	  pic_ref = m68k_wrap_symbol_into_got_ref (orig, RELOC_GOT, reg);
-	  pic_ref = m68k_move_to_reg (pic_ref, orig, reg);
-	}
-    #ifdef TARGET_AMIGA
-      else
-	{
-
-      /* SBF: Does the symbol use common or bss and qualifies for pic_reg?
-       * Do not ref to .text via pic_reg!
-       */
-	  tree decl;
-	  if (GET_CODE (orig) == SYMBOL_REF && !orig->frame_related && !SYMBOL_REF_FUNCTION_P(orig)
-	      && (decl = SYMBOL_REF_DECL (orig)) && !(DECL_SECTION_NAME(decl))
-	      && !decl->common.typed.base.readonly_flag
-	      && !decl->decl_with_vis.in_text_section)
-	    {
-
-	      /* SBF: unfortunately using the wrapped symbol without MEM does not work.
-	       * The pic_ref reference gets decomposed and leads to no working code.
-	       */
-	      pic_ref = m68k_wrap_symbol (pic_ref, RELOC_GOT, m68k_get_gp (), reg);
-
-	      /* SBF: adding const avoids decomposing. */
-	      pic_ref = gen_rtx_CONST (Pmode, pic_ref);
-	    }
-	  else
-	    pic_ref = gen_rtx_CONST (Pmode, pic_ref);
-	}
-#endif	
+      pic_ref = m68k_wrap_symbol_into_got_ref (orig, RELOC_GOT, reg);
+      pic_ref = m68k_move_to_reg (pic_ref, orig, reg);
     }
   else if (GET_CODE (orig) == CONST)
     {
@@ -2578,11 +2560,8 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
       orig = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
 				     base == reg ? 0 : reg);
 
-      /* SBF: use normal plus and rely on optimizer with baserel(32). */
-      if (flag_pic < 3 && GET_CODE (orig) == CONST_INT)
+      if (GET_CODE (orig) == CONST_INT)
 	pic_ref = plus_constant (Pmode, base, INTVAL (orig));
-      else
-	pic_ref = gen_rtx_PLUS (Pmode, base, orig);
     }
 
   return pic_ref;
@@ -4874,6 +4853,14 @@ print_operand_address (FILE *file, rtx addr)
   /*
    * SBF: remove the const wrapper.
    */
+  if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == PLUS && amiga_is_const_pic_ref(XEXP(XEXP(addr, 0), 0)))
+    addr = XEXP(addr, 0);
+  if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))
+    {
+      fprintf (file, "%d+", (int) INTVAL (XEXP(addr, 1)));
+      print_operand_address(file, XEXP(XEXP(addr, 0),0));
+      return;
+    }
   if (amiga_is_const_pic_ref(addr))
     {
       /* handle (plus (unspec ) (const_int) */
@@ -4902,13 +4889,6 @@ print_operand_address (FILE *file, rtx addr)
 
       return;
     }
-  if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))
-    {
-      fprintf (file, "%d+", (int) INTVAL (XEXP(addr, 1)));
-      print_operand_address(file, XEXP(XEXP(addr, 0),0));
-      return;
-    }
-
 
   if (symbolic_operand(addr, VOIDmode))
     {
@@ -4946,7 +4926,11 @@ print_operand_address (FILE *file, rtx addr)
 	  /* (d16,PC) or (bd,PC,Xn) (with suppressed index register).  */
 	  fputc ('(', file);
 	  output_addr_const (file, addr);
+#ifdef TARGET_AMIGA
+	  asm_fprintf (file, ",%Rpc)");
+#else
 	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc)");
+#endif
 	}
       else
 	{

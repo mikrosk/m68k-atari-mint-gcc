@@ -230,12 +230,14 @@ along with GCC; see the file COPYING3.  If not see
 #define FL_ISA_C     (1 << 16)
 #define FL_FIDOA     (1 << 17)
 #define FL_CAS	     (1 << 18)	/* Support cas insn.  */
+#define FL_ISA_68080 (1 << 19)
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 #define FL_UCLINUX   0   /* Used by multilib machinery.  */
 
 #define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
+#define TARGET_68080		((m68k_cpu_flags & FL_ISA_68080) != 0)
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)

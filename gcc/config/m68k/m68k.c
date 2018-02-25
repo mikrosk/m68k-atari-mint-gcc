@@ -902,7 +902,10 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
     {
       if (crtl->saves_all_registers)
 	return true;
-      /* SBF: do not save the PIC_REG with baserel(32) modes. */
+      /* always save in interrup_handler since __saveds is used there. */
+      if (interrupt_handler)
+	return true;
+      /* SBF: do not save the PIC_REG with baserel(32) modes.*/
       if (crtl->uses_pic_offset_table)
 	return flag_pic < 3;
       /* Reload may introduce constant pool references into a function

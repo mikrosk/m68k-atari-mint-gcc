@@ -45,21 +45,21 @@ Specify startup binary
 
 fbbb=
 Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
--fbbb=Enable Bebbo's optimizations.               
-+    enable all optimizations                     
-a    commute add move instructions                
-b    use register for base addresses              
-c    convert load const and compare into a sub    
-e    eliminate dead assignments + redundant loads 
-f    shrink stack frame                           
-i    use post increment on addresses              
-l    remove single used lea if possible           
-m    merge add and move statements                
-p    propagate move assignment pairs out of loops 
-r    register renaming to maybe save registers    
-s    a strcpy optimization                        
-z    final pass with simple substitutions         
-v    be verbose                                   
-V    be very verbose                              
-x    dump insns                                                                        
-Default: -fbbb=+ which yields -fbbb=abcefimprs
+-fbbb=Enable Bebbo's optimizations.\n
++    enable all optimizations\n
+a    commute add move instructions\n
+b    use register for base addresses\n
+c    convert load const and compare into a sub\n
+e    eliminate dead assignments + redundant loads\n
+f    shrink stack frame\n
+i    use post increment on addresses\n
+l    remove single used lea if possible\n
+m    merge add and move statements\n
+p    propagate move assignment pairs out of loops\n
+r    register renaming to maybe save registers\n
+s    a strcpy optimization\n
+z    final pass with simple substitutions\n
+v    be verbose\n
+V    be very verbose\n
+x    dump insns\n
+Default: -fbbb=+ which yields -fbbb=abcefilmprsz

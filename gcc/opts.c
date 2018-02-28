@@ -1006,6 +1006,11 @@ wrap_help (const char *help,
 	    {
 	      if (i >= room && len != remaining)
 		break;
+	      if (help[i] == '\n')
+		{
+		  len = i;
+		  break;
+		}
 	      if (help[i] == ' ')
 		len = i;
 	      else if ((help[i] == '-' || help[i] == '/')
@@ -1017,7 +1022,7 @@ wrap_help (const char *help,
 
       printf ("  %-*.*s %.*s\n", col_width, item_width, item, len, help);
       item_width = 0;
-      while (help[len] == ' ')
+      while (help[len] == ' ' || help[len] == '\n')
 	len++;
       help += len;
       remaining -= len;

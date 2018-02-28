@@ -44,22 +44,69 @@ Target RejectNegative Var(amigaos_crt) Joined
 Specify startup binary
 
 fbbb=
-Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
--fbbb=Enable Bebbo's optimizations.               
-+    enable all optimizations                     
-a    commute add move instructions                
-b    use register for base addresses              
-c    convert load const and compare into a sub    
-e    eliminate dead assignments + redundant loads 
-f    shrink stack frame                           
-i    use post increment on addresses              
-l    remove single used lea if possible           
-m    merge add and move statements                
-p    propagate move assignment pairs out of loops 
-r    register renaming to maybe save registers    
-s    a strcpy optimization                        
-z    final pass with simple substitutions         
-v    be verbose                                   
-V    be very verbose                              
-x    dump insns                                                                        
-Default: -fbbb=+ which yields -fbbb=abcefimprs
+Target RejectNegative Report Var(string_bbb_opts) Joined
+control Bebbo's optimizations, default is -fbbb=+, use -fbbb=- to disable all 
+
+fbbb=+
+Target RejectNegative Report Var(string_bbb_opts) Joined
+enable all Bebbo's optimizations, equivalent to -fbbb=abcefilmprsz
+
+fbbb=a
+Target RejectNegative Report Var(string_bbb_opts) Joined
+commute add move instructions                
+
+fbbb=b
+Target RejectNegative Report Var(string_bbb_opts) Joined
+use register for base addresses              
+
+fbbb=c
+Target RejectNegative Report Var(string_bbb_opts) Joined
+convert load const and compare into a sub    
+
+fbbb=e
+Target RejectNegative Report Var(string_bbb_opts) Joined
+eliminate dead assignments + redundant loads 
+
+fbbb=f
+Target RejectNegative Report Var(string_bbb_opts) Joined
+shrink stack frame                           
+
+fbbb=i
+Target RejectNegative Report Var(string_bbb_opts) Joined
+use post increment on addresses              
+
+fbbb=l
+Target RejectNegative Report Var(string_bbb_opts) Joined
+remove single used lea if possible           
+
+fbbb=m
+Target RejectNegative Report Var(string_bbb_opts) Joined
+merge add and move statements                
+
+fbbb=p
+Target RejectNegative Report Var(string_bbb_opts) Joined
+propagate move assignment pairs out of loops 
+
+fbbb=r
+Target RejectNegative Report Var(string_bbb_opts) Joined
+register renaming to maybe save registers    
+
+fbbb=s
+Target RejectNegative Report Var(string_bbb_opts) Joined
+a strcpy optimization                        
+
+fbbb=z
+Target RejectNegative Report Var(string_bbb_opts) Joined
+final pass with simple substitutions         
+
+fbbb=v
+Target RejectNegative Report Var(string_bbb_opts) Joined
+be verbose                                   
+
+fbbb=V
+Target RejectNegative Report Var(string_bbb_opts) Joined
+be very verbose
+                              
+fbbb=x
+Target RejectNegative Report Var(string_bbb_opts) Joined
+dump insns                                                                        

@@ -44,7 +44,7 @@ Target RejectNegative Var(amigaos_crt) Joined
 Specify startup binary
 
 fbbb=
-Target RejectNegative Report Var(string_bbb_opts) Joined help_columns(80)
+Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
 -fbbb=Enable Bebbo's optimizations.               
 +    enable all optimizations                     
 a    commute add move instructions                

@@ -45,8 +45,8 @@ Specify startup binary
 
 fbbb=
 Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
--fbbb=Enable Bebbo's optimizations.\n
-+    enable all optimizations\n
+Enable Bebbo's optimizations.\n
++    enable all optimizations (default)\n
 a    commute add move instructions\n
 b    use register for base addresses\n
 c    convert load const and compare into a sub\n

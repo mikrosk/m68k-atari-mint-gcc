@@ -456,11 +456,6 @@ while (0)
 
 #define GOT_SYMBOL_NAME ""
 
-#undef TARGET_RTX_COSTS
-#define TARGET_RTX_COSTS amigaos_rtx_costs
-bool
-amigaos_rtx_costs (rtx, machine_mode, int, int, int *, bool);
-
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX amigaos_struct_value_rtx
 rtx

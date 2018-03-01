@@ -166,10 +166,7 @@ static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static bool m68k_ok_for_sibcall_p (tree, tree);
 static bool m68k_tls_symbol_p (rtx);
 static rtx m68k_legitimize_address (rtx, rtx, machine_mode);
-#ifndef TARGET_AMIGA
-static
-#endif
-bool m68k_rtx_costs (rtx, machine_mode, int, int, int *, bool);
+static bool m68k_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 #if M68K_HONOR_TARGET_STRICT_ALIGNMENT
 static bool m68k_return_in_memory (const_tree, const_tree);
 #endif
@@ -2885,15 +2882,357 @@ const_int_cost (HOST_WIDE_INT i)
     }
 }
 
-#ifndef TARGET_AMIGA
-static
-#endif
-bool
-m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
-		int opno ATTRIBUTE_UNUSED,
-		int *total, bool speed ATTRIBUTE_UNUSED)
+static bool
+_m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno,
+		int *total, bool speed )
 {
   int code = GET_CODE (x);
+
+  /*
+   *  SBF: defining a cost model for the 68000.
+   *
+   *  Use the cycles from MC68000UM.pdf.
+   *
+   */
+  if (TUNE_68000)
+    {
+      int total2 = 0;
+      switch (code)
+	{
+	case CALL:
+	  {
+	    rtx a = XEXP(x, 0);
+	    if (MEM_P(a))
+	      {
+		rtx b = XEXP(a, 0);
+		if (REG_P(b))
+		  {
+		    *total = 16;
+		    return true;
+		  }
+		if (GET_CODE(b) == PLUS)
+		  {
+		    if (REG_P(XEXP(b, 0)))
+		      {
+			*total = 18;
+			return true;
+		      }
+		  }
+		else if (SYMBOL_REF_P(b))
+		  {
+		    tree decl = SYMBOL_REF_DECL (b);
+
+		    *total = 20;
+		    return true;
+		  }
+	      }
+	    *total = 22;
+	    return true;
+	  }
+	case EQ:
+	case NE:
+	case GE:
+	case GT:
+	case GTU:
+	case LE:
+	case LT:
+	case CC0:
+	case ZERO_EXTRACT:
+	  return false;
+	case POST_INC:
+	case TRUNCATE:
+	  *total = 0;
+	  return true;
+	case PRE_DEC:
+	  *total = 2;
+	  return true;
+	case REG:
+	  *total = opno ? 4 : 0;
+	  return true;
+	case SYMBOL_REF:
+	  *total = 4;
+	  return true;
+	case IF_THEN_ELSE:
+	  *total = 10;
+	  return true;
+	case SET:
+	  {
+	    rtx a = XEXP(x, 0);
+	    rtx b = XEXP(x, 1);
+	    if (m68k_rtx_costs (a, mode, code, 0, total, speed)
+		&& m68k_rtx_costs (b, mode, code, 1, &total2, speed))
+	      {
+		*total += total2;
+		if (MEM_P(a) && GET_CODE(b) == CONST_INT && INTVAL(b) == 0)
+		  {
+		    // penalty for clr
+		    *total += GET_MODE_SIZE(mode) > 2 ? 8 : 4;
+		    if (GET_CODE(XEXP(a, 0)) == PRE_DEC)
+		      *total += 2;
+		  }
+		return true;
+	      }
+	    break;
+	  }
+	case CONST:
+	  {
+	    rtx a = XEXP(x, 0);
+	    if (GET_CODE(a) == PLUS && SYMBOL_REF_P(XEXP(a,0)) && GET_CODE(XEXP(a, 1)) == CONST_INT)
+	      {
+		*total = 4;
+		return true;
+	      }
+	    break;
+	  }
+	case MULT:
+	  {
+	    /* umul, smul or call to __mulsi3? */
+	    rtx a = XEXP(x, 0);
+	    rtx b = XEXP(x, 1);
+
+	    /* if there is an extended HImode, mul.w might be a candidate. */
+	    if (GET_CODE (a) == ZERO_EXTEND
+		 || GET_CODE (a) == SIGN_EXTEND)
+	      {
+		*total = 0;
+		mode = HImode;
+	      }
+	    else
+	    if (!m68k_rtx_costs (a, mode, code, 0, total, speed))
+	      break;
+
+	    if (speed)
+	      {
+		int f = GET_MODE_SIZE(mode) > 2 ? 150 : 50;
+		if (GET_CODE(b) == CONST_INT && GET_MODE_SIZE(mode) == 2)
+		  {
+		    unsigned i = INTVAL(b);
+		    int bits = 0, l = 0;
+		    if (i > 0)
+		      {
+			if (GET_CODE (a) == ZERO_EXTEND)
+			  while (i)
+			    {
+			      ++bits;
+			      i>>=1;
+			    }
+			else // SIGN_EXTEND
+			  while (i || l)
+			    {
+			      if ((i&1) != l)
+				{
+				  l = !l;
+				  ++bits;
+				}
+			      i >>= 1;
+			    }
+
+			f = 38 + 2 * bits;
+		      }
+		  }
+		*total += f;
+	      }
+	    else
+	      *total = GET_MODE_SIZE(mode) > 2 ? 48 : 16;
+
+	    return true;
+	  }
+	case DIV:
+	case UDIV:
+	case MOD:
+	case UMOD:
+	  {
+	    rtx a = XEXP(x, 0);
+	    if (m68k_rtx_costs (a, mode, code, 0, total, speed))
+	      {
+		if (speed)
+		  *total += GET_MODE_SIZE(mode) > 2 ? 410 : 136;
+		else
+		  *total += GET_MODE_SIZE(mode) > 2 ? 108 : 36;
+		return true;
+	      }
+	    break;
+	  }
+	case ASHIFT:
+	case ASHIFTRT:
+	case LSHIFTRT:
+	  {
+	    rtx a = XEXP(x, 0);
+	    rtx b = XEXP(x, 1);
+	    if (REG_P(a))
+	      {
+		if (GET_CODE(b) == CONST_INT)
+		  {
+		    *total = (GET_MODE_SIZE(mode) > 2 ? 8 : 6);
+		    *total += 2 * INTVAL(b);
+		    return true;
+		  }
+		*total = (GET_MODE_SIZE(mode) > 2 ? 8 : 6) ;
+		if (speed)
+		  *total += 16;
+		return true;
+	      }
+	    if (m68k_rtx_costs (XEXP(x, 0), mode, code, 0, total, speed))
+	      {
+		*total += 8;
+		return true;
+	      }
+	    break;
+	  }
+	case SUBREG:
+	case STRICT_LOW_PART:
+	  return m68k_rtx_costs (XEXP(x, 0), GET_MODE(XEXP(x, 0)), code, 0, total, speed);
+	case ZERO_EXTEND:
+	case SIGN_EXTEND:
+	  if (m68k_rtx_costs (XEXP(x, 0), GET_MODE(XEXP(x, 0)), code, 0, total, speed))
+	    {
+	      *total += 8;
+	      return true;
+	    }
+	  return false;
+	case CONST_INT:
+	  {
+	    int kind = const_int_cost (INTVAL(x));
+	    if (kind == 0)
+	      *total = 4;
+	    else if (kind == 1)
+	      *total = GET_MODE_SIZE(mode) > 2 ? 10 : 8;
+	    else
+	      *total = GET_MODE_SIZE(mode) > 2 ? 12 : 8;
+	    return true;
+	  }
+	case NEG:
+	case NOT:
+	  {
+	    rtx a = XEXP(x, 0);
+	    if (REG_P(a))
+	      {
+		*total = GET_MODE_SIZE(mode) > 2 ? 6 : 4;
+		return true;
+	      }
+	    if (m68k_rtx_costs (a, mode, code, 0, total, speed))
+	      {
+		*total += GET_MODE_SIZE(mode) > 2 ? 12 : 8;
+		return true;
+	      }
+	    break;
+	  }
+	case MINUS:
+	case PLUS:
+	  {
+	    /* add const,reg, add ea,reg, add reg, mem */
+	    rtx a = XEXP(x, 0);
+	    rtx b = XEXP(x, 1);
+
+	    // handle lea n(ax,dy),az
+	    if (GET_CODE(a) == PLUS && GET_CODE(b) == CONST_INT && (unsigned)(INTVAL(b) + 128) < 255)
+	      {
+		if (REG_P(XEXP(a,0)) && REG_P(XEXP(a,1)))
+		  {
+		    *total = 12;
+		    return true;
+		  }
+	      }
+
+	    // handle add reg,reg
+	    if (REG_P(a) && REG_P(b))
+	      {
+		*total = GET_MODE_SIZE(mode) > 2 ? 8 : 4;
+		return true;
+	      }
+
+	    if (GET_CODE(b) == CONST_INT)
+	      {
+		int i = INTVAL(b);
+		if (REG_P(a) && (USE_MOVQ(i) || (REGNO(a) >= 8 && REGNO(a) < 16)))
+		  *total = GET_MODE_SIZE(mode) > 2 ? 8 : 4;
+		else
+		  *total = GET_MODE_SIZE(mode) > 2 ? 16 : 8;
+		return true;
+	      }
+
+	    if (!m68k_rtx_costs (a, mode, code, 0, total, speed))
+	      break;
+	    if (!m68k_rtx_costs (b, mode, code, 1, &total2, speed))
+	      break;
+
+	    *total += total2 + GET_MODE_SIZE(mode) > 2 ? 6 : 4;
+	    return true;
+	  }
+	case COMPARE:
+	case AND:
+	case XOR:
+	case IOR:
+	  {
+	    /* add const,reg, add ea,reg, add reg, mem */
+	    rtx a = XEXP(x, 0);
+	    rtx b = XEXP(x, 1);
+	    if (GET_CODE(b) == CONST_INT)
+	      {
+		if (REG_P(a))
+		  {
+		    *total = GET_MODE_SIZE(mode) > 2 ? (code == AND ? 14 : 16) : 8;
+		    return true;
+		  }
+		if (m68k_rtx_costs (a, mode, code, 0, total, speed))
+		  {
+		    *total += GET_MODE_SIZE(mode) > 2 ? 20 : 12;
+		    return true;
+		  }
+	      }
+	    else
+	    if (REG_P(a))
+	      {
+		if (m68k_rtx_costs (b, mode, code, 1, total, speed))
+		  {
+		    *total += GET_MODE_SIZE(mode) > 2 ? 4 : (code == XOR ? 8 : 6);
+		    return true;
+		  }
+	      }
+	    else
+	    if (REG_P(b))
+	      if (m68k_rtx_costs (a, mode, code, 1, total, speed))
+		{
+		  *total += GET_MODE_SIZE(mode) > 2 ? 12 : 8;
+		  return true;
+		}
+
+	    if (m68k_rtx_costs (a, mode, code, 0, total, speed)
+		&& m68k_rtx_costs (b, mode, code, 1, &total2, speed))
+	      {
+		*total += total2 + GET_MODE_SIZE(mode) > 2 ? 4 : (code == XOR ? 8 : 6);
+		return true;
+	      }
+	    break;
+	  }
+	case MEM:
+	  {
+	  /* simple but not exact */
+	    rtx y = XEXP(x, 0);
+	    int yc = GET_CODE(y);
+	    if (yc == REG || yc == PRE_INC || yc == POST_INC || yc == POST_DEC || yc == PRE_DEC)
+	      *total = 4;
+	    else if (yc == SYMBOL_REF || (yc == PLUS && GET_CODE(XEXP(y, 0)) == SYMBOL_REF))
+	      *total = 12;
+	    else if (yc == PLUS && GET_CODE(XEXP(y, 0)) == PLUS)
+	      *total = 10;
+	    else
+	      *total = 8;
+
+	    if (mode != QImode && mode != HImode)
+	      *total += 4;
+
+	    if (opno && yc == PRE_DEC)
+	      *total += 2;
+
+	    return true;
+	  }
+	default:
+	  break;
+	}
+      return false;
+    }
 
   switch (code)
     {
@@ -2931,6 +3270,8 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 #define MULL_COST				\
   (TUNE_68060 ? 2				\
    : TUNE_68040 ? 5				\
+   : TUNE_68010 ? 15				\
+   : TUNE_68000 ? 39                            \
    : (TUNE_CFV2 && TUNE_EMAC) ? 3		\
    : (TUNE_CFV2 && TUNE_MAC) ? 4		\
    : TUNE_CFV2 ? 8				\
@@ -2939,7 +3280,8 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 #define MULW_COST				\
   (TUNE_68060 ? 2				\
    : TUNE_68040 ? 3				\
-   : TUNE_68000_10 ? 5				\
+   : TUNE_68010 ? 5				\
+   : TUNE_68000 ? 13                            \
    : (TUNE_CFV2 && TUNE_EMAC) ? 3		\
    : (TUNE_CFV2 && TUNE_MAC) ? 2		\
    : TUNE_CFV2 ? 8				\
@@ -3055,6 +3397,17 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
     default:
       return false;
     }
+}
+
+static bool
+m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno,
+		int *total, bool speed )
+{
+  bool r = _m68k_rtx_costs(x, mode, outer_code, opno, total, speed);
+//  if (r)
+//    printf("cost: code=%d, mode=%d ->total=%d (speed%d)\n", GET_CODE(x), mode, *total, speed);
+  return r;
 }
 
 /* Return an instruction to move CONST_INT OPERANDS[1] into data register

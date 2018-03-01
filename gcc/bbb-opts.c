@@ -1893,6 +1893,16 @@ append_reg_usage (FILE * f, rtx_insn * insn)
 
   if (f != stderr)
     {
+      if (NONJUMP_INSN_P (insn))
+	{
+	  rtx set = single_set(insn);
+	  if (set)
+	    {
+	      int cost = rtx_cost(set, GET_MODE(SET_DEST(set)), SET, 0, true);
+	      fprintf (f, "|%d", cost);
+	    }
+	}
+
       if (be_very_verbose > 1)
 	fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
       else
@@ -4516,6 +4526,32 @@ opt_final()
 
 	      log ("(z) cmp.w #0,%s -> move.l %s,%s\n", reg_names[ii.get_dst_regno()], reg_names[ii.get_dst_regno()], reg_names[regno]);
 	    }
+	  continue;
+	}
+
+      // search moveq #0,dx
+      if (ii.is_dst_reg() && ii.get_dst_regno() < 8 && index + 1 < infos.size())
+	{
+	  rtx set = single_set(ii.get_insn());
+	  if (set)
+	    {
+	      rtx src = SET_SRC(set);
+	      if (GET_CODE(src) == CONST_INT && INTVAL(src) == 0)
+		{
+		  // used in next insn as src and dead?
+		  insn_info & jj = infos[index + 1];
+		  rtx set1 = single_set(jj.get_insn());
+		  if (set1 && !jj.is_compare() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
+		      && is_reg_dead(ii.get_dst_regno(), index + 1))
+		    {
+		      if (validate_change(jj.get_insn(), &SET_SRC(set1), src, 0))
+			{
+			  SET_INSN_DELETED(ii.get_insn());
+			  log("(z) %d: use clear instead of reg with #0\n", index);
+			}
+		    }
+		}
+	    }
 	}
     }
   return change_count;
@@ -4567,6 +4603,51 @@ opt_lea_mem()
 	  SET_INSN_DELETED(ii.get_insn());
 	  log("(l) lea removed at %d\n", index - 1);
 	  ++change_count;
+	}
+    }
+  return change_count;
+}
+
+/**
+ * Expand "clr mem" into "moveq #0,dx; move dx,mem", if possible.
+ * Perform the cleanup in opt_final().
+ */
+static unsigned
+opt_clear()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 0; index< infos.size(); ++index)
+    {
+      insn_info &ii = infos[index];
+      rtx set0 = single_set(ii.get_insn());
+      if (!set0)
+	continue;
+
+      rtx src = SET_SRC(set0);
+      if (GET_CODE(src) != CONST_INT || INTVAL(src))
+	continue;
+
+      if (!MEM_P(SET_DEST(set0)))
+	continue;
+
+      unsigned regs = ~ii.get_use() & usable_regs & 0xff;
+      if (!regs)
+	continue;
+
+      unsigned regno = 0;
+      while (!(regs & 1))
+	{
+	  ++regno;
+	  regs >>= 1;
+	}
+
+      if (validate_change(ii.get_insn(), &SET_SRC(set0), gen_rtx_REG(GET_MODE(SET_DEST(set0)), regno), 0))
+	{
+	  rtx set = gen_rtx_SET(gen_rtx_REG(SImode, regno), gen_rtx_CONST_INT(SImode, 0));
+	  emit_insn_before (set, ii.get_insn());
+	  ++change_count;
+
+	  log("(z) %d: use reg %s with #0 instead of clear\n", index, reg_names[regno]);
 	}
     }
   return change_count;
@@ -4676,6 +4757,9 @@ namespace
     if (!r)
       {
 	if (do_lea_mem && opt_lea_mem())
+	  update_insns ();
+
+	if (do_opt_final && opt_clear())
 	  update_insns ();
 
 	for (;;)
@@ -5017,8 +5101,8 @@ namespace
 		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))
 		  {
 		    rtx r2 = gen_reg_rtx (Pmode);
-		    rtx set2 = gen_rtx_SET(r, XEXP(pl1, 1));
-		    emit_insn_before(set, insn);
+		    rtx set2 = gen_rtx_SET(r2, XEXP(pl1, 1));
+		    emit_insn_before(set2, insn);
 
 		    validate_change(insn, &XEXP(pl1, 1), r2, 0);
 		  }

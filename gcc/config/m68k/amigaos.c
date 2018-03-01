@@ -646,20 +646,6 @@ amiga_insert_attribute (tree decl, tree * attr)
     }
 }
 
-extern bool
-m68k_rtx_costs (rtx, machine_mode, int, int, int *, bool);
-
-bool
-amigaos_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno, int *total, bool speed)
-{
-//  DPRINTF(("outer: %d, opno: %d", outer_code, opno));
-  bool r = m68k_rtx_costs (x, mode, outer_code, opno, total, speed);
-//  *total *= 4;
-//  fprintf(stderr, "costs: %d, mode=%d, outer=%d, opno=%d, speed=%d, ok=%d\n", *total * 4, mode, outer_code, opno, speed, r);
-//  debug_rtx(x);
-  return r;
-}
-
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 #ifndef TARGET_AMIGAOS_VASM
 extern void

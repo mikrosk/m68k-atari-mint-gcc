@@ -899,9 +899,14 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
     {
       if (crtl->saves_all_registers)
 	return true;
-      /* always save in interrup_handler since __saveds is used there. */
-      if (interrupt_handler)
-	return true;
+      /* always save if __saveds is used or an options forces setting of a4. */
+      if (flag_pic > 2)
+	{
+	  tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+	  tree attr = lookup_attribute ("saveds", attrs);
+	  if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
+	    return true;
+	}
       /* SBF: do not save the PIC_REG with baserel(32) modes.*/
       if (crtl->uses_pic_offset_table)
 	return flag_pic < 3;

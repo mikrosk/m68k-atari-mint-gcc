@@ -3577,6 +3577,15 @@ opt_shrink_stack_frame (void)
 
   unsigned freemask = 0x7fff & ~usable_regs;
 
+  /* do not remove a4 push/pop in baserel modes, if __saveds or commandline demands it. */
+  if (flag_pic > 2)
+    {
+      tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+      tree attr = lookup_attribute ("saveds", attrs);
+      if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
+	freemask &= ~(1 << PIC_REG);
+    }
+
   rtx a7 = gen_raw_REG (SImode, STACK_POINTER_REGNUM);
   rtx a5 = gen_raw_REG (SImode, FRAME_POINTER_REGNUM);
 

@@ -80,16 +80,6 @@ Boston, MA 02111-1307, USA.  */
   && !lookup_attribute ("stackext",					\
 			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
 
-/* Compile with a4 restoring in public functions.  */
-
-#define MASK_RESTORE_A4 0x10000000 /* 1 << 28 */
-#define TARGET_RESTORE_A4						\
-  ((target_flags & MASK_RESTORE_A4) && TREE_PUBLIC (current_function_decl))
-
-/* Compile with a4 restoring in all functions.  */
-
-#define MASK_ALWAYS_RESTORE_A4 0x8000000 /* 1 << 27 */
-#define TARGET_ALWAYS_RESTORE_A4 (target_flags & MASK_ALWAYS_RESTORE_A4)
 
 /* Provide a dummy entry for the '-msmall-code' switch.  This is used by
    the assembler and '*_SPEC'.  */

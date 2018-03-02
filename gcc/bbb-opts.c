@@ -1893,16 +1893,6 @@ append_reg_usage (FILE * f, rtx_insn * insn)
 
   if (f != stderr)
     {
-      if (NONJUMP_INSN_P (insn))
-	{
-	  rtx set = single_set(insn);
-	  if (set)
-	    {
-	      int cost = rtx_cost(set, GET_MODE(SET_DEST(set)), SET, 0, true);
-	      fprintf (f, "|%d", cost);
-	    }
-	}
-
       if (be_very_verbose > 1)
 	fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
       else
@@ -5101,7 +5091,7 @@ namespace
 		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))
 		  {
 		    rtx r2 = gen_reg_rtx (Pmode);
-		    rtx set2 = gen_rtx_SET(r2, XEXP(pl1, 1));
+		    rtx set2 = gen_rtx_SET(r2, XEXP(XEXP(pl1, 1), 0));
 		    emit_insn_before(set2, insn);
 
 		    validate_change(insn, &XEXP(pl1, 1), r2, 0);

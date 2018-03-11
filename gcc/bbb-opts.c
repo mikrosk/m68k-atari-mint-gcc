@@ -4908,7 +4908,7 @@ namespace
 	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && !(DECL_SECTION_NAME(decl)))
 	  {
 	    sec = get_variable_section(decl, false);
-	    ispic = sec->common.flags & 0x200; // SECTION_WRITE;
+	    ispic = (sec->common.flags & 0x200) && !decl->base.readonly_flag; // SECTION_WRITE;
 	  }
 
 //	  if (decl)

@@ -368,7 +368,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 #undef ASM_SPEC
 #ifndef TARGET_AMIGAOS_VASM
 #define ASM_SPEC							\
-   "%(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc} %{!msmall-code:-S}"
+   "%(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc} "
 #else
 #define ASM_SPEC							\
    "-gas -esc -ldots -Fhunk -quiet %(asm_cpu) %(asm_cpu_default) %{msmall-code:-sc}"

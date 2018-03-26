@@ -2801,17 +2801,17 @@ opt_propagate_moves ()
 			      rtx_insn * newii = make_insn_raw (PATTERN (ii));
 			      SET_INSN_DELETED(ii);
 
-			      /* Plus check if the reg was just loaded. */
-			      if (bset)
-				{
-				  rtx bdst = SET_DEST(bset);
-				  if (REG_P(bdst) && REGNO(bdst) == REGNO(srci))
-				    {
-				      SET_SRC(PATTERN(newii)) = SET_SRC(bset);
-//					  SET_INSN_DELETED(ii);
-				    }
-				}
-			      else
+//			      /* Plus check if the reg was just loaded. */
+//			      if (bset)
+//				{
+//				  rtx bdst = SET_DEST(bset);
+//				  if (REG_P(bdst) && REGNO(bdst) == REGNO(srci))
+//				    {
+//				      SET_SRC(PATTERN(newii)) = SET_SRC(bset);
+////					  SET_INSN_DELETED(ii);
+//				    }
+//				}
+//			      else
 				add_reg_note (newii, REG_DEAD, srci);
 
 			      add_insn_after (newii, before, 0);

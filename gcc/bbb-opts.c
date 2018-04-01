@@ -379,6 +379,8 @@ public:
     clear (SImode, 1, index);
     clear (SImode, 8, index);
     clear (SImode, 9, index);
+    clear (SImode, 16, index);
+    clear (SImode, 17, index);
   }
 
   void
@@ -1261,6 +1263,8 @@ insn_info::scan ()
       mark_def (1);
       mark_def (8);
       mark_def (9);
+      mark_def (16);
+      mark_def (17);
       /* also mark all registers as not renamable */
       hard = use;
     }

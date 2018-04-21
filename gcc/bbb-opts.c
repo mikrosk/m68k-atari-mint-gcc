@@ -3020,7 +3020,7 @@ opt_commute_add_move (void)
 
 	  SET_INSN_DELETED(insn);
 
-	  insn = emit_insn_before (newinsn, next);
+	  insn = emit_insn_before (PATTERN(newinsn), next);
 
 	  add_reg_note (next, REG_INC, ii.get_dst_reg ());
 

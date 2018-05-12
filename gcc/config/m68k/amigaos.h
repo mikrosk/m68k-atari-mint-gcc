@@ -439,6 +439,7 @@ while (0)
   { "fast", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "far",  0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
+  { "entrypoint", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
     true }, \
   { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute,\

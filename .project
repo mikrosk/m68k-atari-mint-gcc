@@ -28,7 +28,7 @@
 		<link>
 			<name>build-gcc</name>
 			<type>2</type>
-			<location>D:/develop/workspaces/c1/amigaos-cross-toolchain/.build-m68k/build/gcc-6</location>
+			<locationURI>PARENT-2-PROJECT_LOC/build/gcc</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

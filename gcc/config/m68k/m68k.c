@@ -895,6 +895,10 @@ m68k_initial_elimination_offset (int from, int to)
 static bool
 m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
+  tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+  if (lookup_attribute ("entrypoint", attrs))
+    return false;
+
   if (flag_pic && regno == PIC_REG)
     {
       if (crtl->saves_all_registers)
@@ -902,7 +906,6 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
       /* always save if __saveds is used or an options forces setting of a4. */
       if (flag_pic > 2)
 	{
-	  tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
 	  tree attr = lookup_attribute ("saveds", attrs);
 	  if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
 	    return true;

@@ -14,7 +14,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" id="cdt.managedbuild.config.gnu.cross.exe.debug.452878522" name="Debug" parent="cdt.managedbuild.config.gnu.cross.exe.debug">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" id="cdt.managedbuild.config.gnu.cross.exe.debug.452878522" name="Debug" optionalBuildProperties="" parent="cdt.managedbuild.config.gnu.cross.exe.debug">
 					<folderInfo id="cdt.managedbuild.config.gnu.cross.exe.debug.452878522." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.cygwin.base.2053847551" name="Cygwin GCC" superClass="cdt.managedbuild.toolchain.gnu.cygwin.base">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.Cygwin_PE" id="cdt.managedbuild.target.gnu.platform.cygwin.base.2091243283" name="Debug Platform" osList="win32" superClass="cdt.managedbuild.target.gnu.platform.cygwin.base"/>
@@ -25,17 +25,19 @@
 							</builder>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.cygwin.base.607722454" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.cygwin.base">
 								<option id="gnu.both.asm.option.include.paths.2094451885" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/amigaos-cross-toolchain/.build-m68k/build/gcc-6/gcc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1425989952" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.archiver.cygwin.base.2119049474" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.cygwin.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.cygwin.base.1103847968" name="Cygwin C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.cygwin.base">
 								<option id="gnu.cpp.compiler.option.include.paths.466783605" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/libcpp/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;D:\develop\workspaces\c1\amigaos-cross-toolchain\.build-m68k\build\gcc-6\gcc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.optimization.level.193715843" name="Optimization Level" superClass="gnu.cpp.compiler.option.optimization.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.debugging.level.2136883244" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.max" valueType="enumerated"/>
@@ -49,9 +51,10 @@
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.cygwin.base.1920331604" name="Cygwin C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.cygwin.base">
 								<option id="gnu.c.compiler.option.include.paths.692774379" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/libcpp/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;D:\develop\workspaces\c1\amigaos-cross-toolchain\.build-m68k\build\gcc-6\gcc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
 								</option>
 								<option defaultValue="gnu.c.optimization.level.none" id="gnu.c.compiler.option.optimization.level.227992926" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.748883400" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
@@ -103,6 +106,8 @@
 								<option id="gnu.c.compiler.option.debugging.level.60172226" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.none" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.696908692" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.652362073" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="IN_GCC=1"/>
@@ -117,6 +122,8 @@
 								<option id="gnu.cpp.compiler.option.debugging.level.1993778911" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.none" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.include.paths.1936413739" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.625117841" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="IN_GCC=1"/>
@@ -137,6 +144,8 @@
 							<tool id="cdt.managedbuild.tool.gnu.cross.assembler.1395544547" name="Cross GCC Assembler" superClass="cdt.managedbuild.tool.gnu.cross.assembler">
 								<option id="gnu.both.asm.option.include.paths.1443815690" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;C:\cygwin\usr\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/gcc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gcc-6/build-gcc/gcc}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1421786104" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>

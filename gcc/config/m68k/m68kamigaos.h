@@ -257,6 +257,7 @@ amiga_declare_object = 0
 #define TARGET_OS_CPP_BUILTINS()					\
   do									\
     {									\
+      builtin_define ("__entrypoint=__attribute__((__entrypoint__))");	\
       builtin_define ("__chip=__attribute__((__chip__))");		\
       builtin_define ("__fast=__attribute__((__fast__))");		\
       builtin_define ("__far=__attribute__((__far__))");		\
@@ -271,6 +272,14 @@ amiga_declare_object = 0
       builtin_define_std ("AMIGA");					\
       builtin_define_std ("MCH_AMIGA");					\
       builtin_assert ("system=amigaos");				\
+      if (flag_pic > 2)							\
+	{								\
+	  builtin_define ("__baserel__");					\
+	  if (flag_pic > 3)						\
+	    builtin_define ("__baserel32__");					\
+	}								\
+      if (flag_resident)						\
+	builtin_define ("__resident__");				\
     }									\
   while (0)
 
@@ -288,40 +297,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 // see 930623-1.c
 //  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
-/* Inform the program which CPU we compile for.  */
-
-//#undef TARGET_CPU_CPP_BUILTINS
-/*
- use --with-cpu=mc68040 etc.. instead on config. code was after #define TARGET_CPU_CPP_BUILTINS()
-      if (TARGET_68040_ONLY)						\
-	{								\
-	  if (TARGET_68060)						\
-	    builtin_define_std ("mc68060");				\
-	  else								\
-	    builtin_define_std ("mc68040");				\
-	}								\
-      else if (TARGET_68030 && !TARGET_68040)				\
-	builtin_define_std ("mc68030");					\
-      else if (TARGET_68020)						\
-	builtin_define_std ("mc68020");					\
-      builtin_define_std ("mc68000");					\
-*/
-/*
-#define TARGET_CPU_CPP_BUILTINS()					\
-  do									\
-    {	                                \
-     builtin_define_std ("mc68040");	   								\
-      if (flag_pic > 2)							\
-	{								\
-	  builtin_define ("__pic__");					\
-	  if (flag_pic > 3)						\
-	    builtin_define ("__PIC__");					\
-	}								\
-      builtin_assert ("cpu=m68k");					\
-      builtin_assert ("machine=m68k");					\
-    }									\
-  while (0)
-*/
 
 /* When creating shared libraries, use different 'errno'. */
 #define CPP_IXEMUL_SPEC                             \
@@ -330,7 +305,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mrestore-a4:-Derrno=(*ixemul_errno)}"
 #define CPP_LIBNIX_SPEC                             \
   "-isystem %:sdk_root(libnix/include) "             \
-  "%{!ansi:-Dlibnix} -D__libnix__ -D__libnix"
+  "%{!ansi:-Dlibnix} -D__libnix__ -D__libnix "		\
+  "%{mcrt=nix13:-D__KICK13__}"
 #define CPP_CLIB2_SPEC                              \
   "-isystem %:sdk_root(clib2/include) "              \
   "%{!ansi:-DCLIB2} -D__CLIB2__ -D__CLIB2"
@@ -358,6 +334,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{m68030:-D__mc68030__ -D__mc68030} "            \
   "%{m68040:-D__mc68040__ -D__mc68040} "            \
   "%{m68060:-D__mc68060__ -D__mc68060} "            \
+  "%{mcrt=nix13:-isystem %:sdk_root(ndk13-include)} " \
+  "%{!mcrt=nix13:-isystem %:sdk_root(ndk-include)} " \
   "%{noixemul:%(cpp_libnix)} "                      \
   "%{mcrt=nix*:%(cpp_libnix)} "                     \
   "%{mcrt=ixemul:%(cpp_ixemul)} "                   \
@@ -402,8 +380,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{resident32:scrt0.o%s}"                                       \
   "%{!resident:%{!fbaserel:%{!resident32:%{!fbaserel32:"          \
     "%{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}}}"
+
 #define STARTFILE_LIBNIX_SPEC                                     \
-  "%:sdk_root(libnix/lib/libnix/ "                                 \
+  "%:sdk_root(libnix/lib/ "                                 \
   "%{ramiga-*:"                                                   \
     "%{ramiga-lib:libinit.o%s}"                                   \
     "%{ramiga-libr:libinitr.o%s}"                                 \
@@ -429,6 +408,18 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
         "%{!fbaserel:ncrt0.o%s}}}}" \
   ")"
 
+#define STARTFILE_NEWLIB_SPEC                               	\
+	"%{!mcpu=68000:%{!mcpu=68010:%{mcpu=680*:"								\
+  	  "%{fbaserel32:libm020/libb32/crt0.o%s}"					\
+	  "%{!fbaserel32:"											\
+      	  "%{fbaserel:libm020/libb/crt0.o%s}"					\
+		  "%{!fbaserel:libm020/crt0.o%s}}"						\
+  	  "}}}"														\
+    "%{!mcpu=68020:%{!mcpu=68030:%{!mcpu=68040:%{!mcpu=68060:%{!mcpu=68080:"		\
+        "%{fbaserel:libb/crt0.o%s}"								\
+        "%{!fbaserel:crt0.o%s}"									\
+	"}}}}}"
+
 #undef	STARTFILE_SPEC
 #ifdef TARGET_AMIGAOS_VASM
 #define STARTFILE_SPEC                                            \
@@ -438,7 +429,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(startfile_libnix)} "                              \
   "%{mcrt=nix*:%(startfile_libnix)} "                             \
   "%{mcrt=ixemul:%(startfile_ixemul)} "                           \
-  "%{mcrt=clib2:%(startfile_clib2)}"
+  "%{mcrt=clib2:%(startfile_clib2)} "							  \
+  "%{!mcrt=*:%{!noixemul:%(startfile_newlib)}} "
 #endif
 
 #define ENDFILE_IXEMUL_SPEC ""
@@ -481,6 +473,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mstackcheck:-lstack} "                                       \
   "%{mstackextend:-lstack}"
 
+#define LIB_NEWLIB_SPEC                                           \
+  "-lc -lamiga"
+
 #ifdef TARGET_AMIGAOS_VASM
 #define LIB_SPEC                                                  \
   "-lvc -lamiga "
@@ -489,11 +484,12 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(lib_libnix)} "                                    \
   "%{mcrt=nix*:%(lib_libnix)} "                                   \
   "%{mcrt=ixemul:%(lib_ixemul)} "                                 \
-  "%{mcrt=clib2:%(lib_clib2)}"
+  "%{mcrt=clib2:%(lib_clib2)} "									  \
+  "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} "
 #endif
 
 #define LIBGCC_IXEMUL_SPEC ""
-#define LIBGCC_LIBNIX_SPEC "-lnix -fl libnix "                    \
+#define LIBGCC_LIBNIX_SPEC "-lnix "                    \
   "%{mcrt=*:-l%*} "                                               \
   "%{!mcrt=*:-lnix20} -lstubs"
 #define LIBGCC_CLIB2_SPEC "-lc"
@@ -501,7 +497,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{noixemul:%(libgcc_libnix)} "                                 \
   "%{mcrt=nix*:%(libgcc_libnix)} "                                \
   "%{mcrt=ixemul:%(libgcc_ixemul)} "                              \
-  "%{mcrt=clib2:%(libgcc_clib2)}"
+  "%{mcrt=clib2:%(libgcc_clib2)}"								  \
+  "%{!mcrt=*:%{!noixemul:-lstubs }}"
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD
    compatible debug hunk.
@@ -509,7 +506,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
    commandline options.  */
 
 #define LINK_IXEMUL_SPEC ""
-#define LINK_LIBNIX_SPEC "-L%:sdk_root(libnix/lib) -fl libnix"
+#define LINK_LIBNIX_SPEC "-L%:sdk_root(libnix/lib)"
 #define LINK_CLIB2_SPEC "-L%:sdk_root(clib2/lib)"
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD
@@ -519,15 +516,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LINK_SPEC                                                 \
-  "%{noixemul:%(link_libnix)} "                                   \
-  "%{mcrt=nix*:%(link_libnix)} "                                  \
-  "%{mcrt=ixemul:%(link_ixemul)} "                                \
-  "%{mcrt=clib2:%(link_clib2)} "                                  \
-  "%{fbaserel:%{!resident:-m amiga_bss -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "               \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "      \
-  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "         \
-  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "  \
-  "%{mcpu=68020:-fl libm020} "					  \
+  "%{mcpu=68020:-fl libm020} "					  				  \
   "%{m68020:-fl libm020} "                                        \
   "%{mc68020:-fl libm020} "                                       \
   "%{m68030:-fl libm020} "                                        \
@@ -535,29 +524,32 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{m68060:-fl libm020} "                                        \
   "%{m68020-40:-fl libm020} "                                     \
   "%{m68020-60:-fl libm020} "                                     \
+  "%{noixemul:%(link_libnix)} "                                   \
+  "%{mcrt=nix*:%(link_libnix)} "                                  \
+  "%{mcrt=ixemul:%(link_ixemul)} "                                \
+  "%{mcrt=clib2:%(link_clib2)} "                                  \
+  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} "               \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} "      \
+  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} "         \
+  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} "  \
   "%{m68881:-fl libm881}"
 #else
 #define LINK_SPEC                                                 \
+  "-L%:sdk_root(../lib) "					  					  \
+  "%{mcpu=68020:-fl libm020} "					  				  \
+  "%{mcpu=68030:-fl libm020} "					  				  \
+  "%{mcpu=68040:-fl libm020} "					  				  \
+  "%{mcpu=68060:-fl libm020} "					  				  \
+  "%{mcpu=68080:-fl libm020} "					  				  \
   "%{noixemul:%(link_libnix)} "                                   \
   "%{mcrt=nix*:%(link_libnix)} "                                  \
   "%{mcrt=ixemul:%(link_ixemul)} "                                \
   "%{mcrt=clib2:%(link_clib2)} "                                  \
-  "%{fbaserel:%{!resident:-m amiga_bss -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "               \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "      \
-  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}}} "         \
-  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32 %{noixemul:-fl libnix} %{mcrt=nix*:-fl libnix}} "  \
+  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} "               \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc} "      		  \
+  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} "         \
+  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} "  \
   "%{g:-amiga-debug-hunk} "                                       \
-  "%{mcpu=68020:-fl libm020} "					  \
-  "%{mcpu=68030:-fl libm020} "					  \
-  "%{mcpu=68040:-fl libm020} "					  \
-  "%{mcpu=68060:-fl libm020} "					  \
-  "%{m68020:-fl libm020} "                                        \
-  "%{mc68020:-fl libm020} "                                       \
-  "%{m68030:-fl libm020} "                                        \
-  "%{m68040:-fl libm020} "                                        \
-  "%{m68060:-fl libm020} "                                        \
-  "%{m68020-40:-fl libm020} "                                     \
-  "%{m68020-60:-fl libm020} "                                     \
   "%{m68881:-fl libm881}"
 #endif
 
@@ -635,6 +627,7 @@ extern const char * amiga_m68k_prefix_func(int, const char **);
   {"cpp_libnix", CPP_LIBNIX_SPEC},                                  \
   {"cpp_clib2", CPP_CLIB2_SPEC},                                    \
   {"lib_ixemul", LIB_IXEMUL_SPEC},                                  \
+  {"lib_newlib", LIB_NEWLIB_SPEC},                                  \
   {"lib_libnix", LIB_LIBNIX_SPEC},                                  \
   {"lib_clib2", LIB_CLIB2_SPEC},                                    \
   {"link_ixemul", LINK_IXEMUL_SPEC},                                \
@@ -643,6 +636,7 @@ extern const char * amiga_m68k_prefix_func(int, const char **);
   {"startfile_ixemul", STARTFILE_IXEMUL_SPEC},                      \
   {"startfile_libnix", STARTFILE_LIBNIX_SPEC},                      \
   {"startfile_clib2", STARTFILE_CLIB2_SPEC},                        \
+  {"startfile_newlib", STARTFILE_NEWLIB_SPEC},                        \
   {"endfile_ixemul", ENDFILE_IXEMUL_SPEC},                          \
   {"endfile_libnix", ENDFILE_LIBNIX_SPEC},                          \
   {"endfile_clib2", ENDFILE_CLIB2_SPEC},                            \

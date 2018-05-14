@@ -1669,7 +1669,7 @@ uw_install_context_1 (struct _Unwind_Context *current,
       else if (t && c && t != c)
 	memcpy (c, t, dwarf_reg_size_table[i]);
     }
-#ifdef __AMIGA__
+#ifdef TARGET_AMIGA
   /* SBF: evil hack to patch the values for d0/d1 into the stack location.
    * search the movem insn and count the saved regs.
    * Now patch the values into location.

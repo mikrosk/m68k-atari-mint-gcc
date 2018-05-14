@@ -100,12 +100,12 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 
       if (code == _URC_END_OF_STACK)
 	/* Hit end of stack with no handler found.  */
-	return _URC_END_OF_STACK;
+	{ code = _URC_END_OF_STACK; goto KOT; }
 
       if (code != _URC_NO_REASON)
 	/* Some error encountered.  Usually the unwinder doesn't
 	   diagnose these and merely crashes.  */
-	return _URC_FATAL_PHASE1_ERROR;
+  	{ code = _URC_FATAL_PHASE1_ERROR; goto KOT; }
 
       /* Unwind successful.  Run the personality routine, if any.  */
       if (fs.personality)
@@ -115,7 +115,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 	  if (code == _URC_HANDLER_FOUND)
 	    break;
 	  else if (code != _URC_CONTINUE_UNWIND)
-	    return _URC_FATAL_PHASE1_ERROR;
+	  	{ code = _URC_FATAL_PHASE1_ERROR; goto KOT; }
 	}
 
       /* Update cur_context to describe the same frame as fs.  */
@@ -129,8 +129,13 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 
   cur_context = this_context;
   code = _Unwind_RaiseException_Phase2 (exc, &cur_context);
-  if (code != _URC_INSTALL_CONTEXT)
+KOT:
+  if (code != _URC_INSTALL_CONTEXT) {
+#ifdef TARGET_AMIGA
+	  asm ("move.l %0, (sp)" :: "r"(code));
+#endif
     return code;
+  }
 
   uw_install_context (&this_context, &cur_context, 0);
 }

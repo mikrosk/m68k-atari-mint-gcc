@@ -334,8 +334,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{m68030:-D__mc68030__ -D__mc68030} "            \
   "%{m68040:-D__mc68040__ -D__mc68040} "            \
   "%{m68060:-D__mc68060__ -D__mc68060} "            \
+  "-isystem %:sdk_root(../include) "                \
   "%{mcrt=nix13:-isystem %:sdk_root(ndk13-include)} " \
-  "%{!mcrt=nix13:-isystem %:sdk_root(ndk-include)} " \
   "%{noixemul:%(cpp_libnix)} "                      \
   "%{mcrt=nix*:%(cpp_libnix)} "                     \
   "%{mcrt=ixemul:%(cpp_ixemul)} "                   \
@@ -690,7 +690,7 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
 #undef FIXED_INCLUDE_DIR
-#define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../../include"
+#define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../ndk-include"
 
 // this disables tree_loop_distribute_patterns
 #define C_COMMON_OVERRIDE_OPTIONS  flag_no_builtin = 1

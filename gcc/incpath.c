@@ -422,6 +422,17 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 {
   cpp_dir *p;
 
+  char * q;
+  while ((q = strstr(path, "/../")))
+    {
+      char * r = q - 1;
+      while (r >= path && *r != '/')
+	--r;
+      if (r < path)
+	break;
+      strcpy(r, q + 3);
+    }
+
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
   /* Remove unnecessary trailing slashes.  On some versions of MS
      Windows, trailing  _forward_ slashes cause no problems for stat().

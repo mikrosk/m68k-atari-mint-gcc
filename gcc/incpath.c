@@ -430,7 +430,7 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 	--r;
       if (r < path)
 	break;
-      strcpy(r, q + 3);
+      memmove(r, q + 3, strlen(q + 3) + 1);
     }
 
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)

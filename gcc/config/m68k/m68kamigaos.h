@@ -463,6 +463,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{!p:%{!pg:-lc -lamiga -lc}} "                                 \
   "%{p:-lc_p} %{pg:-lc_p}"
 #define LIB_LIBNIX_SPEC                                           \
+  "%{mcrt=*:-l%*} "                                               \
   "-lnixmain -lnix "                                              \
   "%{mcrt=*:-l%*} "                                               \
   "%{!mcrt=*:-lnix20} "                                           \

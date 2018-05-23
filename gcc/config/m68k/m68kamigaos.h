@@ -431,7 +431,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=ixemul:%(startfile_ixemul)} "                           \
   "%{mcrt=clib2:%(startfile_clib2)} "							  \
   "%{!mcrt=*:%{!noixemul:%(startfile_newlib)}} " \
-  "%{fobjc-exceptions:cxxglue.o%s} "
+  "%{fexceptions:cxxglue.o%s} "
 #endif
 
 #define ENDFILE_IXEMUL_SPEC ""

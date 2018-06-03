@@ -474,9 +474,9 @@ class insn_info
   rtx src_reg;
   rtx src_mem_reg;
   rtx src_symbol;
-  unsigned dst_mem_addr;
-  int src_intval;
-  unsigned src_mem_addr;
+  long int dst_mem_addr;
+  long int src_intval;
+  long int src_mem_addr;
 
   bool visited;
 

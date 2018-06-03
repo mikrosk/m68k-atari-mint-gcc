@@ -6126,6 +6126,10 @@ switch_matches (const char *atom, const char *end_atom, int starred)
   int len = end_atom - atom;
   int plen = starred ? len : -1;
 
+  // allow -l switch
+  if (*atom == 'l')
+	  return true;
+
   for (i = 0; i < n_switches; i++)
     if (!strncmp (switches[i].part1, atom, len)
 	&& (starred || switches[i].part1[len] == '\0')

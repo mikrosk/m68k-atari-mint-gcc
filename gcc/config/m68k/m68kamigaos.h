@@ -782,3 +782,6 @@ amigaos_function_arg_reg(unsigned regno);
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
+
+#undef STDINT_LONG32
+#define STDINT_LONG32 0

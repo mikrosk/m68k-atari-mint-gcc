@@ -18,5 +18,5 @@ void __init_eh() {
     }
 }
 
-ADD2INIT(__init_eh,127);
+ADD2INIT(__init_eh,-5);
 

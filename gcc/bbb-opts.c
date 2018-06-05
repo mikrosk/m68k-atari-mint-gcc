@@ -1099,7 +1099,9 @@ insn_info::make_post_inc (int regno)
 
   if (src_op && get_src_mem_regno () == regno)
     {
-      if (src_op == NEG || src_op == NOT || src_op == SIGN_EXTEND)
+      if (src_op == NEG || src_op == NOT || (src_op >= SIGN_EXTEND && src_op <= PARITY)
+    		  || src_op == SS_NEG || src_op == US_NEG || src_op == SS_ABS
+			  || src_op == SS_TRUNCATE || src_op == US_TRUNCATE)
 	mem = XEXP(mem, 0);
       else
 	mem = XEXP(mem, 1);

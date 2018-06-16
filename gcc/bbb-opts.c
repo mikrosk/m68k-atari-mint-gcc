@@ -4546,13 +4546,13 @@ opt_final()
 		  // used in next insn as src and dead?
 		  insn_info & jj = infos[index + 1];
 		  rtx set1 = single_set(jj.get_insn());
-		  if (set1 && !jj.is_compare() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
+		  if (set1 && !jj.is_compare() && !jj.get_multi_reg() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
 		      && is_reg_dead(ii.get_dst_regno(), index + 1))
 		    {
 		      if (validate_change(jj.get_insn(), &SET_SRC(set1), src, 0))
 			{
 			  SET_INSN_DELETED(ii.get_insn());
-			  log("(z) %d: use clear instead of reg with #0\n", index);
+			  log("(z) %d: use clear instead of reg %s with #0\n", index, reg_names[jj.get_src_regno()]);
 			}
 		    }
 		}

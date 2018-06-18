@@ -5217,6 +5217,8 @@ print_operand_address (FILE *file, rtx addr)
   /*
    * SBF: remove the const wrapper.
    */
+  if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == CONST)
+    addr = XEXP(addr, 0);
   if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == PLUS && amiga_is_const_pic_ref(XEXP(XEXP(addr, 0), 0)))
     addr = XEXP(addr, 0);
   if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))

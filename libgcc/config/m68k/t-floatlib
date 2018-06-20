@@ -6,7 +6,7 @@
 #   _eqsf2 _nesf2 _gtsf2 _gesf2 _ltsf2 _lesf2
 #
 
-LIB2ADD =  xfpgnulib.c xfpgnulib__unordsf2.c xfpgnulib__unorddf2.c \
+LIB2ADD +=  xfpgnulib.c xfpgnulib__unordsf2.c xfpgnulib__unorddf2.c \
 	xfpgnulib__floatunsidf.c xfpgnulib__floatsidf.c xfpgnulib__floatunsisf.c \
 	xfpgnulib__floatsisf.c xfpgnulib__extendsfdf2.c xfpgnulib__truncdfsf2.c \
 	xfpgnulib__fixdfsi.c xfpgnulib__fixsfsi.c xfpgnulib__cmpxf2.c

@@ -262,7 +262,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 #endif
 
   /* Add one for shared_libgcc or extra static library.  */
-  num_args = argc + added + need_math + (library > 0) * 5 + 1;
+  num_args = argc + added + need_math + (library > 0) * 4 + 1;
   new_decoded_options = XNEWVEC (struct cl_decoded_option, num_args);
 
   i = 0;
@@ -347,30 +347,6 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 		       CL_DRIVER, &new_decoded_options[j]);
       added_libraries++;
       j++;
-
-#ifdef TARGET_AMIGA
-	{
-	  bool addglue = true;
-	  /* do not add glue if exceptions are disabled. */
-	  for (int ii = 0; ii < argc; ++ii)
-	    {
-	      if (decoded_options[ii].opt_index == OPT_fexceptions)
-		addglue = decoded_options[ii].value;
-	    }
-	  if (addglue)
-	    {
-	      extern const char *
-	      amiga_m68k_prefix_func (int argc, const char ** argv);
-	      char const * cxxglue = "../lib/gcc/m68k-amigaos/"
-	      DEFAULT_TARGET_VERSION
-	      "/cxxglue.o";
-	      char const * p = amiga_m68k_prefix_func (1, &cxxglue);
-	      generate_option_input_file (p, &new_decoded_options[j]);
-	      ++j;
-	    }
-	}
-#endif
-
       /* Add target-dependent static library, if necessary.  */
       if ((static_link || library > 1) && LIBSTDCXX_STATIC != NULL)
 	{

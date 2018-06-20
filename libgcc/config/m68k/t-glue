@@ -1,5 +1,1 @@
-cxxglue.o: $(srcdir)/config/m68k/cxxglue.c
-	$(CC) $(CFLAGS) -c $< 
-
-EXTRA_PARTS=cxxglue.o
-
+LIB2ADD += $(srcdir)/config/m68k/cxxglue.c $(srcdir)/config/m68k/cxx_eh_frame_objects.c 

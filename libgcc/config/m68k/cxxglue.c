@@ -1,12 +1,13 @@
 #include "stabs.h"
 
 extern void __register_frame_info(void *, void *);
-extern void * _EH_FRAME_BEGINS__;
-extern void * _EH_FRAME_OBJECTS__;
+extern void * _EH_FRAME_OBJECTS__[];
+
+void * _EH_FRAME_BEGINS__[2] =  {0, 0};
 
 void __init_eh() {
-    void ** frame = &_EH_FRAME_BEGINS__;
-    void ** object = &_EH_FRAME_OBJECTS__;
+    void ** frame = _EH_FRAME_BEGINS__;
+    void ** object = _EH_FRAME_OBJECTS__;
     
     int n = *(int *)frame++;
     int m = *(int *)object++;

@@ -1191,7 +1191,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	}
       rtx plus = XEXP(mem, 0);
 
-      if (src_mem_addr == (unsigned) size)
+      if (src_mem_addr == size)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  src_mem_addr = 0;
@@ -1205,7 +1205,7 @@ insn_info::auto_inc_fixup (int regno, int size)
     {
       rtx mem = SET_DEST(set);
       rtx plus = XEXP(mem, 0);
-      if (dst_mem_addr == (unsigned) size)
+      if (dst_mem_addr == size)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  dst_mem_addr = 0;
@@ -2140,6 +2140,14 @@ update_insn_infos (void)
   /* always allow a0/a1, d0/d1. */
   usable_regs = zz.get_def () | 0x303;
   usable_regs &= 0x7fff;
+
+  /* do not use global registers. */
+  for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
+    {
+      if (global_regs[i])
+	usable_regs &= ~j;
+      j <<= 1;
+    }
 }
 
 enum AbortCodes
@@ -2364,11 +2372,13 @@ opt_reg_rename (void)
 	continue;
 
       /* get the mask for free registers. */
-      unsigned mask = ii.get_free_mask () & usable_regs;
+      unsigned mask = ii.get_free_mask ();
 
       /* the mask contains the current src register. Add this register to the mask if it's dead here. */
       if (ii.get_src_reg () && is_reg_dead (ii.get_src_regno (), index))
-	mask |= ii.get_use ();
+        mask |= ii.get_use ();
+
+      mask &= usable_regs;
 
       /* do not use a4 if compiling baserel */
       if (flag_pic >= 3)
@@ -2797,7 +2807,7 @@ opt_propagate_moves ()
 			    {
 			      rtx_insn * before = infos[current_label_index - 1].get_insn ();
 			      rtx_insn * after = infos[index + 1].get_insn ();
-			      rtx bset = single_set (before);
+//			      rtx bset = single_set (before);
 
 			      log ("(p) propagate_moves condition met, moving regs %s, %s\n",
 			      reg_names[REGNO(srci)],
@@ -4526,7 +4536,8 @@ opt_final()
 
 	      rtx cmp = gen_rtx_SET(cc0_rtx,
 	      				gen_rtx_COMPARE (SImode, dx, gen_rtx_CONST_INT (SImode, 0)));
-	      rtx_insn * neu = emit_insn_before (cmp, ii.get_insn());
+	      //rtx_insn * neu =
+	      emit_insn_before (cmp, ii.get_insn());
 	      SET_INSN_DELETED(ii.get_insn());
 
 	      log ("(z) cmp.w #0,%s -> move.l %s,%s\n", reg_names[ii.get_dst_regno()], reg_names[ii.get_dst_regno()], reg_names[regno]);
@@ -4599,7 +4610,7 @@ opt_lea_mem()
       if (!REG_P(reg))
 	continue;
 
-      if (REGNO(reg) != ii.get_dst_regno() || !is_reg_dead(REGNO(reg), index))
+      if (REGNO(reg) != (unsigned)ii.get_dst_regno() || !is_reg_dead(REGNO(reg), index))
 	continue;
 
       // try the conversion

@@ -2,8 +2,7 @@
 
 extern void __register_frame_info(void *, void *);
 extern void * _EH_FRAME_OBJECTS__[];
-
-void * _EH_FRAME_BEGINS__[2] =  {0, 0};
+extern void * _EH_FRAME_BEGINS__[];
 
 void __init_eh() {
     void ** frame = _EH_FRAME_BEGINS__;

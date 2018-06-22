@@ -3143,6 +3143,20 @@ _m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		  }
 	      }
 
+	    // handle lea n(ax),ay
+	    if (REG_P(a) && REGNO(a) >= 8 && REGNO(a) < 16) {
+	    	if (GET_CODE(b) == CONST && GET_CODE(XEXP(b, 0)) == UNSPEC)
+	    	{
+	    		*total = 8; // 12 - 4
+	    		return true;
+	    	}
+	    	if (GET_CODE(b) == CONST_INT && (unsigned)(INTVAL(b) + 32768) < 65535)
+	    	{
+	    		*total = 8;
+	    		return true;
+	    	}
+	    }
+
 	    // handle add reg,reg
 	    if (REG_P(a) && REG_P(b))
 	      {

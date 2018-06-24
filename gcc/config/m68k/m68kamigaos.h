@@ -784,3 +784,6 @@ amigaos_function_arg_reg(unsigned regno);
 
 #undef STDINT_LONG32
 #define STDINT_LONG32 0
+
+#undef HAVE_GAS_CFI_DIRECTIVE
+#define HAVE_GAS_CFI_DIRECTIVE 0

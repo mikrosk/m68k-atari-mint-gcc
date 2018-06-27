@@ -713,8 +713,11 @@ extern int amiga_is_const_pic_ref(const_rtx x);
 
 #undef LEGITIMATE_PIC_OPERAND_P
 #define LEGITIMATE_PIC_OPERAND_P(X) (					\
-    ! symbolic_operand (X, VOIDmode) &&					\
-    ! amiga_is_const_pic_ref(X))
+    (! symbolic_operand (X, VOIDmode) &&					\
+    ! amiga_is_const_pic_ref(X)))					\
+    || amiga_is_far_symbol(X)
+
+extern int amiga_is_far_symbol(const_rtx x);
 
 // (GET_CODE(X) == CONST && (GET_CODE(XEXP(X, 0)) == SYMBOL_REF || GET_CODE(XEXP(X, 0)) == LABEL_REF) && !CONSTANT_POOL_ADDRESS_P (XEXP(X, 0))) ||
 

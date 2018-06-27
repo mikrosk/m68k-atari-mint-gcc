@@ -78,6 +78,10 @@
 int be_very_verbose;
 bool be_verbose;
 
+bool optimize_this_for_speed_p;
+extern bool
+optimize_function_for_speed_p (struct function *fun);
+
 extern struct lang_hooks lang_hooks;
 
 static void
@@ -1899,10 +1903,11 @@ append_reg_usage (FILE * f, rtx_insn * insn)
 
   if (f != stderr)
     {
+	  int cost = insn_rtx_cost(PATTERN(ii.get_insn()), optimize_this_for_speed_p);
       if (be_very_verbose > 1)
-	fprintf (f, "\n\t\t\t\t\t|%d\t", ii.get_index ());
+	fprintf (f, "\n\t\t\t\t|%d\t%d\t", ii.get_index (), cost);
       else
-	fprintf (f, "\n\t\t\t\t\t|\t");
+	fprintf (f, "\n\t\t\t\t|\t%d\t", cost);
     }
 
   fprintf (f, "%c ", ii.in_proepi () == IN_PROLOGUE ? 'p' : ii.in_proepi () >= IN_EPILOGUE ? 'e' : ' ');
@@ -4712,8 +4717,10 @@ namespace
 
     /* opt_pass methods: */
     virtual bool
-    gate (function *)
+    gate (function * fun)
     {
+  	  ::optimize_this_for_speed_p = optimize_function_for_speed_p (fun);
+
       if (!string_bbb_opts)
 	string_bbb_opts = "+";
 

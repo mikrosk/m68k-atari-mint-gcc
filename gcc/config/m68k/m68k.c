@@ -2959,7 +2959,7 @@ _m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = opno ? 4 : 0;
 	  return true;
 	case SYMBOL_REF:
-	  *total = 4;
+	  *total = 12;
 	  return true;
 	case IF_THEN_ELSE:
 	  *total = 10;
@@ -2988,9 +2988,10 @@ _m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	    rtx a = XEXP(x, 0);
 	    if (GET_CODE(a) == PLUS && SYMBOL_REF_P(XEXP(a,0)) && GET_CODE(XEXP(a, 1)) == CONST_INT)
 	      {
-		*total = 4;
+		*total = 12;
 		return true;
 	      }
+	    *total = 0;
 	    break;
 	  }
 	case MULT:
@@ -3167,12 +3168,19 @@ _m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	    if (GET_CODE(b) == CONST_INT)
 	      {
 		int i = INTVAL(b);
-		if (REG_P(a) && (USE_MOVQ(i) || (REGNO(a) >= 8 && REGNO(a) < 16)))
+		if (REG_P(a) && (USE_MOVQ(i) || (REGNO(a) >= 8 && REGNO(a) < 16 && (unsigned)(INTVAL(b) + 32768) < 65535)))
 		  *total = GET_MODE_SIZE(mode) > 2 ? 8 : 4;
 		else
 		  *total = GET_MODE_SIZE(mode) > 2 ? 16 : 8;
 		return true;
 	      }
+
+	    if (GET_CODE(b) == SYMBOL_REF ||
+	    		(GET_CODE(b) == CONST && GET_CODE(XEXP(b,0)) == PLUS && GET_CODE(XEXP(XEXP(b,0),0)) == SYMBOL_REF))
+	    {
+	    	*total = 16;
+	    	return true;
+	    }
 
 	    if (!m68k_rtx_costs (a, mode, code, 0, total, speed))
 	      break;

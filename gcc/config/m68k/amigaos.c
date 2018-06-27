@@ -938,3 +938,18 @@ extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * op
   return true;
 }
 #endif
+
+int amiga_is_far_symbol(const_rtx x)
+{
+	if (GET_CODE(x) != SYMBOL_REF)
+		return 0;
+
+	tree decl = SYMBOL_REF_DECL(x);
+	if (!decl)
+		return 0;
+
+	if (decl && (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && DECL_SECTION_NAME(decl))
+		return 1;
+
+	return 0;
+}

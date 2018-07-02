@@ -230,14 +230,14 @@ amiga_declare_object = 0
 #undef BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP	"\t.bss"
 #else
-#define BSS_SECTION_ASM_OP	"\tsection\tbss"
+#define BSS_SECTION_ASM_OP	(!flag_pic?"\tsection\t.bss,bss":"\tsection\t.bss_near,bss")
 #endif
 
 #ifndef TARGET_AMIGAOS_VASM
 #undef DATA_SECTION_ASM_OP
 #define DATA_SECTION_ASM_OP	"\t.data"
 #else
-#define DATA_SECTION_ASM_OP	"\tsection\tdata"
+#define DATA_SECTION_ASM_OP	(!flag_pic?"\tsection\t.data,data":"\tsection\t.data_near,data")
 #endif
 
 #ifndef ASM_OUTPUT_ALIGNED_BSS

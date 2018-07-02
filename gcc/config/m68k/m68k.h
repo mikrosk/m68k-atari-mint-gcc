@@ -789,8 +789,8 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #else
 #define ASM_APP_ON ""
 #define ASM_APP_OFF ""
-#define TEXT_SECTION_ASM_OP "\tsection .text"
-#define DATA_SECTION_ASM_OP "\tsection .data"
+#define TEXT_SECTION_ASM_OP "\tsection .text,code"
+#define DATA_SECTION_ASM_OP "\tsection .data,data"
 #define GLOBAL_ASM_OP "\txdef\t"
 #define REGISTER_PREFIX ""
 #define LOCAL_LABEL_PREFIX "_."

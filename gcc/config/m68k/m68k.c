@@ -5076,6 +5076,7 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
       /* SBF: add the proper extension for baserel relocs with baserel(32). */
       if (TARGET_AMIGA)
 	{
+#ifndef TARGET_AMIGAOS_VASM
 	  if (flag_pic == 1)
 	    return ".w";
 	  else if (flag_pic == 3)
@@ -5084,6 +5085,18 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
 	    return ":L";
 	  else
 	    return "";
+#else
+	  if (flag_pic == 1)
+            return ".w";
+          else if (flag_pic == 3)
+            return ".w";
+          else if (flag_pic == 4)
+            return ".l";
+          else
+            return "";
+
+#endif
+
 	}
 	if (MOTOROLA)
 	{

@@ -10144,6 +10144,18 @@ const char * amiga_m68k_prefix_func(int argc, const char ** argv) {
       free(p);
       p = q;
   }
+
+  char * q;
+  while ((q = strstr(p, "/../")))
+    {
+      char * r = q - 1;
+      while (r >= p && *r != '/')
+	--r;
+      if (r < p)
+	break;
+      memmove(r, q + 3, strlen(q + 3) + 1);
+    }
+
 //  printf("amiga_m68k_prefix_func='%s'\n", p);
   return p;
 }

@@ -363,7 +363,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
    */
 #ifdef TARGET_AMIGA
 #define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
-			  | FL_BITFIELD | FL_CAS)
+			  | FL_BITFIELD)
 #else
 #define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
 			  | FL_BITFIELD | FL_68881 | FL_CAS)

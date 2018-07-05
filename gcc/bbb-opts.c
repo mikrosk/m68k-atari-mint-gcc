@@ -168,7 +168,7 @@ class track_var
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (dstMode != GET_MODE(v) || (GET_CODE(v) != CONST_INT || v_usedRegs == (1 << FIRST_PSEUDO_REGISTER)))
+	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || v_usedRegs == (1 << FIRST_PSEUDO_REGISTER)))
 		return false;
 
 	      *z = v;
@@ -301,7 +301,7 @@ public:
   }
 
   void
-  set (machine_mode mode, unsigned regno, rtx x, unsigned my_use, unsigned index)
+  set (machine_mode mode, unsigned regno, rtx src, unsigned my_use, unsigned index)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
@@ -318,7 +318,7 @@ public:
 	  }
       }
 
-    if (extend (&value[regno], mode, x))
+    if (extend (&value[regno], mode, src))
       {
 	usedRegs[regno] = my_use;
 	// convert reg value int regs value.
@@ -348,6 +348,17 @@ public:
       return false;
 
     if (x == 0 || value[regno] == 0)
+      return false;
+
+    machine_mode mode = GET_MODE(value[regno]);
+    if (mode == SFmode && regno < 16)
+      mode = SImode;
+
+    machine_mode xmode = GET_MODE(x);
+    if (REG_P(x) && REGNO(x) < 16 && xmode == SFmode)
+      xmode = SImode;
+
+    if (mode != xmode)
       return false;
 
     rtx z = 0;

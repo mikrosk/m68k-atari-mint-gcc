@@ -146,6 +146,7 @@ class track_var
    */
   unsigned usedRegs[FIRST_PSEUDO_REGISTER];
 
+
   bool
   extend (rtx * z, machine_mode dstMode, rtx x)
   {
@@ -167,7 +168,7 @@ class track_var
 	  /* try to expand the register. */
 	  if (v)
 	    {
-	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || v_usedRegs == (1 << FIRST_PSEUDO_REGISTER)))
+	      if (dstMode != GET_MODE(v) || (GET_CODE(v) != CONST_INT || v_usedRegs == (1 << FIRST_PSEUDO_REGISTER)))
 		return false;
 
 	      *z = v;
@@ -4114,6 +4115,14 @@ opt_elim_dead_assign (int blocked_regno)
 	  if (track->equals (ii.get_dst_regno (), src))
 	    {
 	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+	      SET_INSN_DELETED(insn);
+	      ++change_count;
+	      continue;
+	    }
+
+	  if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(16, index))
+	    {
+	      log ("(e) %d: eliminate self load of %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
 	      ++change_count;
 	      continue;

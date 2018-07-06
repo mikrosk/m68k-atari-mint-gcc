@@ -606,10 +606,10 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 void
 amiga_insert_attribute (tree decl, tree * attr)
 {
-  if (!*attr)
-    return;
-
-  tree name = TREE_PURPOSE(*attr);
+  tree t1;
+  for (t1 = *attr;t1; t1 = TREE_CHAIN (t1))
+    {
+  tree name = TREE_PURPOSE(t1);
 
   if (is_attribute_p("chip", name) || is_attribute_p("far", name) || is_attribute_p("fast", name))
     {
@@ -647,6 +647,7 @@ amiga_insert_attribute (tree decl, tree * attr)
   else
     {
 //      warning (OPT_Wattributes, "`%s' attribute unknown", IDENTIFIER_POINTER(name));
+    }
     }
 }
 

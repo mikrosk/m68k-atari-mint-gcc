@@ -381,8 +381,8 @@ maybe_default_option (struct gcc_options *opts,
       enabled = (level >= 3);
       break;
 
-    case OPT_LEVELS_3_PLUS_AND_SIZE:
-      enabled = (level >= 3 || size);
+    case OPT_LEVELS_3_PLUS_AND_SPEED_ONLY:
+      enabled = (level >= 3 && !size && !debug);
       break;
 
     case OPT_LEVELS_SIZE:
@@ -526,7 +526,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
     /* Inlining of functions is ALWAYS a good idea with -O3
        regardless of them being declared inline.  */
-    { OPT_LEVELS_3_PLUS, OPT_finline_functions, NULL, 1 },
+    { OPT_LEVELS_3_PLUS_AND_SPEED_ONLY, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },

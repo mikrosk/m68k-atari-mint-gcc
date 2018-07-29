@@ -524,9 +524,9 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fpredictive_commoning, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
-    /* Inlining of functions reducing size is a good idea with -Os
+    /* Inlining of functions is ALWAYS a good idea with -O3
        regardless of them being declared inline.  */
-    { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },

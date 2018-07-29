@@ -2547,7 +2547,7 @@ opt_reg_rename (void)
 	    }
 	}
 
-      if (mask && found.size() > 1)
+      while (mask && found.size() > 1)
 	{
 	  int oldregno = bit2regno (rename_regbit);
 	  int newregno = bit2regno (mask);
@@ -2555,9 +2555,19 @@ opt_reg_rename (void)
 	  /* check the renamed insns. */
 	  std::vector<unsigned> positions;
 	  std::set<machine_mode> modes;
+//	  bool ok = true;
 	  for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 	    {
 	      insn_info & rr = infos[*i];
+
+//	      // prevent lea from or to data register.
+//	      if (rr.get_src_op() == PLUS && rr.get_src_regno() != rr.get_dst_regno()) {
+//		  if ((oldregno < 8 && newregno >= 8) || (oldregno >= 8 && newregno < 8)) {
+//		      ok = false;
+//		      break;
+//		  }
+//	      }
+
 	      rtx_insn * insn = rr.get_insn ();
 
 	      /* get rename modes. */
@@ -2576,21 +2586,26 @@ opt_reg_rename (void)
 		}
 	    }
 
-	  if (!apply_change_group ())
-	    continue;
-
-	  log ("(r) opt_reg_rename %s -> %s (%d locs, start at %d)\n", reg_names[oldregno], reg_names[newregno],
-	       positions.size (), index);
-
-	  if (be_verbose)
+	  if (apply_change_group ())
 	    {
-	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
-		printf ("%d ", *i);
-	      printf ("\n");
-	      fflush (stdout);
-	    }
+	      log ("(r) opt_reg_rename %s -> %s (%d locs, start at %d)\n", reg_names[oldregno], reg_names[newregno],
+		   positions.size (), index);
 
-	  return 1;
+	      if (be_verbose)
+		{
+		  for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
+		    printf ("%d ", *i);
+		  printf ("\n");
+		  fflush (stdout);
+		}
+
+	      return 1;
+	    }
+//	  if (!ok)
+//	    cancel_changes (0);
+
+	  // try next register in mask.
+	  mask &= ~(1 << newregno);
 	}
     }
   return 0;
@@ -2866,9 +2881,20 @@ opt_propagate_moves ()
 
 				  for (unsigned k = 0; k < jump_out.size (); ++k)
 				    {
-				      rtx neu = gen_rtx_SET(
-					  dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));
-				      emit_insn_after (neu, jump_out[k]);
+				      if ((REGNO(dsti) < 8 || REGNO(dstj) < 8) && REGNO(dsti) != REGNO(dstj))
+					{
+					  rtx neu = gen_rtx_SET(
+					      dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
+					  emit_insn_after (neu, jump_out[k]);
+					  rtx move = gen_rtx_SET(dstj, dsti);
+					  emit_insn_after (move, jump_out[k]);
+					}
+				      else
+					{
+					  rtx neu = gen_rtx_SET(
+					      dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));
+					  emit_insn_after (neu, jump_out[k]);
+					}
 				    }
 				}
 			      ++change_count;

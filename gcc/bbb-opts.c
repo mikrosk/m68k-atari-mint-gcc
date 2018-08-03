@@ -2604,8 +2604,11 @@ opt_reg_rename (void)
 //	  if (!ok)
 //	    cancel_changes (0);
 
-	  // try next register in mask.
-	  mask &= ~(1 << newregno);
+	  // try next register in mask - but skip those of same kind
+	  if (newregno < 8)
+	    mask &= 0xffff00;
+	  else
+	    mask &= 0xff0000;
 	}
     }
   return 0;
@@ -4428,6 +4431,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  if (!jj.is_use (regno))
 	    break;
 
+	  // abort if a parallel insn is touched.
+	  if (GET_CODE(PATTERN(jj.get_insn())) == PARALLEL && (jj.is_def(regno) || jj.is_myuse(regno)))
+	    return 0;
+
 	  if (jj.in_proepi ())
 	    return 0;
 
@@ -4533,13 +4540,8 @@ opt_autoinc ()
       if (!INSN_P(ii.get_insn ()))
 	continue;
 
-//      // more than one reg used
-//      if (ii.get_myuse () & (ii.get_myuse () - 1))
-//	continue;
-
-//      // don't if fp regs are touched
-//      if ((ii.get_myuse () & 0xff0000))
-//	continue;
+      if (GET_CODE(PATTERN(ii.get_insn())) == PARALLEL)
+	continue;
 
       if (ii.is_src_mem () && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())

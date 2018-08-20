@@ -718,6 +718,8 @@ extern void *C_alloca (size_t) ATTRIBUTE_MALLOC;
    char *const libiberty_nptr = (char *const) alloca (libiberty_len); \
    (char *) memcpy (libiberty_nptr, libiberty_optr, libiberty_len); }))
 #else
+void * C_alloca(unsigned int size);
+
 # define alloca(x) C_alloca(x)
 # undef USE_C_ALLOCA
 # define USE_C_ALLOCA 1

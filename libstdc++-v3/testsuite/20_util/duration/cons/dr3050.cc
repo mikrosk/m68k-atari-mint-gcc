@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2016 Free Software Foundation, Inc.
+// Copyright (C) 2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,26 +15,10 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 27.6.1.1.2 class basic_istream::sentry
+// { dg-do compile { target c++11 } }
 
-#include <sstream>
-#include <testsuite_hooks.h>
+#include <chrono>
 
-int main()
-{
-  using namespace std;
-  wistringstream stream;
-  stream.exceptions(ios_base::eofbit);
-
-  try
-    {
-      wistream::sentry sentry(stream, false);
-      VERIFY( false );
-    }
-  catch (ios_base::failure&)
-    {
-      VERIFY( stream.rdstate() == (ios_base::eofbit | ios_base::failbit) );
-    }
-  
-  return 0;
-}
+struct X { operator int64_t() /* not const */; };
+static_assert(!std::is_constructible<std::chrono::seconds, X>::value,
+	      "LWG 3050");

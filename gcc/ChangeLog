@@ -1,3 +1,63 @@
+2018-08-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from mainline
+	2018-08-11  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (UNSPEC_MEMORY_BARRIER): New unspec enum.
+	Update comment for atomic instructions.
+	(atomic_storeqi, atomic_storehi, atomic_storesi, atomic_storesf,
+	atomic_loaddf, atomic_loaddf_1, atomic_storedf, atomic_storedf_1):
+	Remove.
+	(atomic_loaddi): Revise fence expansion to only emit fence prior to
+	load for __ATOMIC_SEQ_CST model.
+	(atomic_loaddi_1): Remove float register target.
+	(atomic_storedi): Handle CONST_INT values.
+	(atomic_storedi_1): Remove float register source.  Add special case
+	for zero value.
+	(memory_barrier): New expander and insn.
+
+2018-08-14  Matthias Klose  <doko@ubuntu.com>
+
+	Backport from mainline
+	2018-08-01  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/86724
+	* graphite.h: Include isl/id.h and isl/space.h to allow build
+	with ISL 0.20.
+
+2018-08-10  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2018-06-19  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/86197
+	* config/rs6000/rs6000.md (rs6000_discover_homogeneous_aggregate): An
+	ieee128 argument takes up only one (vector) register, not two (floating
+	point) registers.
+
+2018-07-29  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_addr_vec): Align address table.
+	* config/pa/pa.h (JUMP_TABLES_IN_TEXT_SECTION): Revise comment.
+	* config/pa/pa32-linux.h (JUMP_TABLES_IN_TEXT_SECTION): Define.
+
+2018-07-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	PR target/84168
+	2017-09-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/aarch64/aarch64.c (aarch64_elf_asm_constructor)
+	(aarch64_elf_asm_destructor): Pass SECTION_NOTYPE to get_section
+	when creating .init_array and .fini_array sections with priority
+	specified.
+
+2018-07-12  Richard Biener  <rguenther@suse.de>
+
+	PR target/84829
+	* config/gnu-user.h (GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC):
+	Remove -mieee-fp handling.
+
 2018-07-01  David Edelsohn  <dje.gcc@gmail.com>
 
 	Backported from mainline.

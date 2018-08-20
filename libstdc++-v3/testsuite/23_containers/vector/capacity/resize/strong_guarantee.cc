@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2016 Free Software Foundation, Inc.
+// Copyright (C) 2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,46 +15,46 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <istream>
-#include <ostream>
-#include <streambuf>
-#include <sstream>
+#include <vector>
 #include <testsuite_hooks.h>
 
-void test1()
+struct X
 {
-  using namespace std;
-  bool test __attribute__((unused)) = true;
+  X() : data(1)
+  {
+    if (fail)
+      throw 1;
+  }
 
-  wostringstream stream;
-  stream << static_cast<wstreambuf*>(0);
-  VERIFY( stream.rdstate() & ios_base::badbit );
+  static bool fail;
+
+  std::vector<int> data;
+};
+
+bool X::fail = false;
+
+void
+test01()
+{
+  std::vector<X> v(2);
+  X* const addr = &v[0];
+  bool caught = false;
+  try {
+    X::fail = true;
+    v.resize(v.capacity() + 1); // force reallocation
+  } catch (int) {
+    caught = true;
+  }
+  VERIFY( caught );
+  VERIFY( v.size() == 2 );
+  VERIFY( &v[0] == addr );
+  // PR libstdc++/83982
+  VERIFY( ! v[0].data.empty() );
+  VERIFY( ! v[1].data.empty() );
 }
 
-void test3()
+int
+main()
 {
-  using namespace std;
-  bool test __attribute__((unused)) = true;
-
-  wostringstream stream;
-  stream.exceptions(ios_base::badbit);
-
-  try
-    {
-      stream << static_cast<wstreambuf*>(0);
-      VERIFY( false );
-    }
-  catch (ios_base::failure&)
-    {
-    }
-
-  VERIFY( stream.rdstate() & ios_base::badbit );
-}
-
-// libstdc++/9371
-int main()
-{
-  test1();
-  test3();
-  return 0;
+  test01();
 }

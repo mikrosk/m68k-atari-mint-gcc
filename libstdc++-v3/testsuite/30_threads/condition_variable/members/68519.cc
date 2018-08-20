@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2016 Free Software Foundation, Inc.
+// Copyright (C) 2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,46 +15,37 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <istream>
-#include <ostream>
-#include <streambuf>
-#include <sstream>
+// { dg-do run }
+// { dg-options "-pthread"  }
+// { dg-require-effective-target c++11 }
+// { dg-require-effective-target pthread }
+// { dg-require-cstdint "" }
+// { dg-require-gthreads "" }
+
+#include <condition_variable>
 #include <testsuite_hooks.h>
 
-void test1()
-{
-  using namespace std;
-  bool test __attribute__((unused)) = true;
+// PR libstdc++/68519
 
-  wostringstream stream;
-  stream << static_cast<wstreambuf*>(0);
-  VERIFY( stream.rdstate() & ios_base::badbit );
+bool val = false;
+std::mutex mx;
+std::condition_variable cv;
+
+void
+test01()
+{
+  for (int i = 0; i < 3; ++i)
+  {
+    std::unique_lock<std::mutex> l(mx);
+    auto start = std::chrono::system_clock::now();
+    cv.wait_for(l, std::chrono::duration<float>(1), [] { return val; });
+    auto t = std::chrono::system_clock::now();
+    VERIFY( (t - start) >= std::chrono::seconds(1) );
+  }
 }
 
-void test3()
+int
+main()
 {
-  using namespace std;
-  bool test __attribute__((unused)) = true;
-
-  wostringstream stream;
-  stream.exceptions(ios_base::badbit);
-
-  try
-    {
-      stream << static_cast<wstreambuf*>(0);
-      VERIFY( false );
-    }
-  catch (ios_base::failure&)
-    {
-    }
-
-  VERIFY( stream.rdstate() & ios_base::badbit );
-}
-
-// libstdc++/9371
-int main()
-{
-  test1();
-  test3();
-  return 0;
+  test01();
 }

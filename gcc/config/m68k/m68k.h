@@ -531,7 +531,7 @@ extern enum reg_class regno_reg_class[];
  ((CUM) = 0)
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
-  asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))
+  asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr _mcount\n", (LABELNO))
 
 #define EXIT_IGNORE_STACK 1
 

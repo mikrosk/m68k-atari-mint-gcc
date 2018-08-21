@@ -40,8 +40,12 @@
 
 #include "gmon.h"
 
-extern char * _stext;
+#include "stabs.h"
 
+extern char _stext;
+extern char _etext;
+
+#if 0
 asm ("
 	.globl	mcount
 mcount:	movel	a1,-(sp)	| Save A1 as it might be used to store the
@@ -49,6 +53,7 @@ mcount:	movel	a1,-(sp)	| Save A1 as it might be used to store the
 	movel	(sp)+,a1
 	rts
 ");
+#endif
 
 void moncontrol(int mode);
 
@@ -82,21 +87,24 @@ alloc(int s)
   return res;
 }
 
-void monstartup(char *lowpc, char *highpc)
+void _monstartup(void)
 {
     int			monsize;
     char		*buffer;
     register int	o;
+
+    char *lowpc;
+    char *highpc;
 
 	/*
 	 *	round lowpc and highpc to multiples of the density we're using
 	 *	so the rest of the scaling (here and in gprof) stays in ints.
 	 */
     lowpc = (char *)
-	    ROUNDDOWN((unsigned)lowpc, HISTFRACTION*sizeof(HISTCOUNTER));
+	    ROUNDDOWN((unsigned)&_stext, HISTFRACTION*sizeof(HISTCOUNTER));
     s_lowpc = lowpc;
     highpc = (char *)
-	    ROUNDUP((unsigned)highpc, HISTFRACTION*sizeof(HISTCOUNTER));
+	    ROUNDUP((unsigned)&_etext, HISTFRACTION*sizeof(HISTCOUNTER));
     s_highpc = highpc;
     s_textsize = highpc - lowpc;
     monsize = (s_textsize / HISTFRACTION) + sizeof(struct phdr);
@@ -127,8 +135,8 @@ void monstartup(char *lowpc, char *highpc)
     tos[0].link = 0;
     sbuf = buffer;
     ssiz = monsize;
-    ( (struct phdr *) buffer ) -> lpc = (void *)(lowpc - (_stext - 4));
-    ( (struct phdr *) buffer ) -> hpc = (void *)(highpc - (_stext - 4));
+    ( (struct phdr *) buffer ) -> lpc = (void *)(lowpc - (&_stext - 4));
+    ( (struct phdr *) buffer ) -> hpc = (void *)(highpc - (&_stext - 4));
     ( (struct phdr *) buffer ) -> ncnt = ssiz;
     monsize -= sizeof(struct phdr);
     if ( monsize <= 0 )
@@ -152,7 +160,7 @@ void monstartup(char *lowpc, char *highpc)
     moncontrol(1);
 }
 
-void _mcleanup(void)
+void _moncleanup(void)
 {
     FILE *		f;
     int			fromindex;
@@ -176,7 +184,7 @@ void _mcleanup(void)
 	if ( froms[fromindex] == 0 ) {
 	    continue;
 	}
-	frompc = (void *)(s_lowpc + (fromindex * HASHFRACTION * sizeof(*froms)) - (_stext - 4));
+	frompc = (void *)(s_lowpc + (fromindex * HASHFRACTION * sizeof(*froms)) - (&_stext - 4));
 	for (toindex=froms[fromindex]; toindex!=0; toindex=tos[toindex].link) {
 #ifdef DEBUG_VERSION
 		fprintf( stderr ,
@@ -192,7 +200,7 @@ void _mcleanup(void)
     fclose( f );
 }
 
-void _mcount(void)
+void mcount(void)
 {
 	register char			*selfpc;
 	register unsigned short		*frompcindex;
@@ -220,7 +228,7 @@ void _mcount(void)
 	}
 	profiling++;
 	*store_last_pc = (unsigned)selfpc;
-	selfpc = selfpc - (int)(_stext - 4);
+	selfpc = selfpc - (int)(&_stext - 4);
 	/*
 	 *	check that frompcindex is a reasonable pc value.
 	 *	for example:	signal catchers get called from the stack,
@@ -340,3 +348,5 @@ void moncontrol(int mode)
     }
 }
 
+ADD2INIT(_monstartup,-4);
+ADD2EXIT(_moncleanup,-4);

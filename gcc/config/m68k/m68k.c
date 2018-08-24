@@ -899,6 +899,9 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
   if (lookup_attribute ("entrypoint", attrs))
     return false;
 
+  if (regno != 15 && lookup_attribute ("saveallregs", attrs))
+    return true;
+
   if (flag_pic && regno == PIC_REG)
     {
       if (crtl->saves_all_registers)

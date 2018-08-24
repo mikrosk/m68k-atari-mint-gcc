@@ -573,7 +573,19 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	    }
 	  else if (is_attribute_p ("entrypoint", name))
 	    {
-	      // OK
+	      if (lookup_attribute ("saveallregs", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`entrypoint' and `saveallregs' are mutually exclusive");
+		  break;
+		}
+	    }
+	  else if (is_attribute_p ("saveallregs", name))
+	    {
+	      if (lookup_attribute ("entrypoint", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`entrypoint' and `saveallregs' are mutually exclusive");
+		  break;
+		}
 	    }
 	  else
 	    {

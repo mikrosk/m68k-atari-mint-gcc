@@ -42,6 +42,28 @@
 
 #include "stabs.h"
 
+#include <exec/memory.h>
+#include <exec/interrupts.h>
+#include <dos/dos.h>
+#include <hardware/custom.h>
+#include <hardware/intbits.h>
+#include <proto/exec.h>
+#include <stdio.h>
+
+void _monstartup(void);
+void _moncleanup(void);
+__saveallregs void mcount(void);
+int profil(char *buf, size_t bufsiz,
+                  size_t offset, unsigned int scale);
+
+struct profile_data {
+  unsigned short *data;
+  size_t count;
+  size_t offset;
+};
+int VertBServer(struct profile_data * p __asm("a1"));
+
+
 extern char _stext;
 extern char _etext;
 
@@ -135,8 +157,8 @@ void _monstartup(void)
     tos[0].link = 0;
     sbuf = buffer;
     ssiz = monsize;
-    ( (struct phdr *) buffer ) -> lpc = (void *)(lowpc - (&_stext - 4));
-    ( (struct phdr *) buffer ) -> hpc = (void *)(highpc - (&_stext - 4));
+    ( (struct phdr *) buffer ) -> lpc = (void *)(lowpc - (&_stext - 0)); // was - 4 - why?
+    ( (struct phdr *) buffer ) -> hpc = (void *)(highpc - (&_stext - 0));// was - 4 - why?
     ( (struct phdr *) buffer ) -> ncnt = ssiz;
     monsize -= sizeof(struct phdr);
     if ( monsize <= 0 )
@@ -200,7 +222,7 @@ void _moncleanup(void)
     fclose( f );
 }
 
-void mcount(void)
+__saveallregs void mcount(void)
 {
 	register char			*selfpc;
 	register unsigned short		*frompcindex;
@@ -235,7 +257,7 @@ void mcount(void)
 	 *			not from text space.  too bad.
 	 */
 #ifdef DEBUG_VERSION
-		fprintf (stderr, "from $%lx, self $%lx (low = $%lx)\n",
+		fprintf (stderr, "from $%x, self $%x (low = $%x)\n",
 			 frompcindex, selfpc, s_lowpc);
 #endif
 	frompcindex = (unsigned short *)((long)frompcindex - (long)s_lowpc);
@@ -246,6 +268,10 @@ void mcount(void)
 	frompcindex =
 	    &froms[((long)frompcindex) / (HASHFRACTION * sizeof(*froms))];
 	toindex = *frompcindex;
+#ifdef DEBUG_VERSION
+		fprintf (stderr, "frompcindex $%x, froms $%x, toindex = $%x\n",
+			 frompcindex, froms, toindex);
+#endif
 	if (toindex == 0) {
 		/*
 		 *	first time traversing this arc
@@ -327,6 +353,8 @@ overflow:
 	goto out;
 }
 
+
+
 /*
  * Control profiling
  *	profiling is what mcount checks to see if
@@ -336,17 +364,65 @@ void moncontrol(int mode)
 {
     if (mode) {
 	/* start */
-//	store_last_pc = (unsigned *)profil(sbuf + sizeof(struct phdr),
-//			       ssiz - sizeof(struct phdr), (int)s_lowpc, s_scale);
+	store_last_pc = (unsigned *)profil(sbuf + sizeof(struct phdr),
+			       ssiz - sizeof(struct phdr), (int)s_lowpc, s_scale);
         if (store_last_pc == NULL)
             store_last_pc = &dummy;
 	profiling = 0;
     } else {
 	/* stop */
-//	profil((char *)0, 0, 0, 0);
+	profil((char *)0, 0, 0, 0);
 	profiling = 3;
     }
 }
 
 ADD2INIT(_monstartup,-4);
 ADD2EXIT(_moncleanup,-4);
+
+struct profile_data vbdata;
+
+struct Interrupt vbint;
+
+int VertBServer(struct profile_data * p __asm("a1")) {
+  asm("move.l a0,-(sp)");
+  register char * usp __asm("a0");
+  asm("move.l sp,a0");
+
+//  memcpy((char*)0x100000, usp + 0x2e, 0x200);
+//  size_t index = (*(size_t *)(usp + 0x3e) - p->offset) >> 1;
+  size_t index = (*(size_t *)(usp + 0x32) - p->offset) >> 1;
+  if (index < p->count)
+    ++p->data[index];
+  asm("move.l (sp)+,a0");
+  return 0;
+}
+
+int profil(char *buf, size_t bufsiz,
+                  size_t offset, unsigned int scale) {
+  if (buf) {
+      // install interrupt if not running
+      if (vbdata.data)
+	return -1;
+
+      vbdata.data = (unsigned short *)buf;
+      vbdata.count = bufsiz >> 1;
+      vbdata.offset = offset;
+
+      vbint.is_Node.ln_Type = NT_INTERRUPT;         /* Initialize the node. */
+      vbint.is_Node.ln_Pri = 20;
+      vbint.is_Node.ln_Name = "gcc profiler";
+      vbint.is_Data = (APTR)&vbdata;
+      vbint.is_Code = VertBServer;
+
+      AddIntServer(INTB_VERTB, &vbint); /* Kick this interrupt server to life. */
+
+      return 0;
+  }
+
+  if (!vbdata.data)
+    return -1;
+
+  RemIntServer(INTB_VERTB, &vbint);
+  vbdata.data = 0;
+  return 0;
+}

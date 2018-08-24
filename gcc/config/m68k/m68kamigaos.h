@@ -258,6 +258,7 @@ amiga_declare_object = 0
   do									\
     {									\
       builtin_define ("__entrypoint=__attribute__((__entrypoint__))");	\
+      builtin_define ("__saveallregs=__attribute__((__saveallregs__))");\
       builtin_define ("__chip=__attribute__((__chip__))");		\
       builtin_define ("__fast=__attribute__((__fast__))");		\
       builtin_define ("__far=__attribute__((__far__))");		\
@@ -790,3 +791,7 @@ amigaos_function_arg_reg(unsigned regno);
 
 #undef HAVE_GAS_CFI_DIRECTIVE
 #define HAVE_GAS_CFI_DIRECTIVE 0
+
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO)  \
+  asm_fprintf (FILE, "\tjsr _mcount\n")

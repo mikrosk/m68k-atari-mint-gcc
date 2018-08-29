@@ -460,7 +460,6 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
     p->sysp = 0;
   p->construct = 0;
   p->user_supplied_p = user_supplied_p;
-
   add_cpp_dir_path (p, chain);
 }
 

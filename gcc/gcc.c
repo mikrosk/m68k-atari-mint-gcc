@@ -2232,8 +2232,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       /* The colon shouldn't be missing.  */
       if (*p1 != ':')
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p1 - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p1 - buffer), p1);
 
       /* Skip back over trailing whitespace.  */
       p2 = p1;
@@ -2246,8 +2246,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       p = skip_whitespace (p1 + 1);
       if (p[1] == 0)
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p - buffer), p);
 
       p1 = p;
       /* Find next blank line or end of string.  */

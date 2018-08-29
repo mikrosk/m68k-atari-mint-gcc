@@ -61,7 +61,8 @@ relative prefix can be found, return @code{NULL}.
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
-
+#include <sys/types.h>
+#include <dirent.h>
 #include <string.h>
 
 #include "ansidecl.h"
@@ -234,6 +235,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   int needed_len;
   char *ret = NULL, *ptr, *full_progname;
   char buf[1024], *p, *q;
+  DIR * d;
 
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
     return NULL;
@@ -263,8 +265,18 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
     {}
 
   p = concat(buf, "/", q, 0);
+
+  d = opendir(p);
+  if (d) closedir(d);
+  else
+    {
+      free(p);
+      strcpy(buf, prefix);
+      buf[q - prefix] = 0;
+      p = concat(buf, q, 0);
+    }
   
-  printf("%s %s %s %s ->%s\n", progname, buf, bin_prefix, prefix, p);
+  //printf("%s %s %s %s ->%s\n", progname, buf, bin_prefix, prefix, p);
 
   return p;
 }

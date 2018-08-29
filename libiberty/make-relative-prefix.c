@@ -233,23 +233,23 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   int i, n, common;
   int needed_len;
   char *ret = NULL, *ptr, *full_progname;
-  char buf[PATH_MAX], *p, *q;
+  char buf[1024], *p, *q;
 
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
     return NULL;
 
 #ifdef __CYGWIN__
-  GetModuleFileNameA(0, buf, PATH_MAX + 1);
+  GetModuleFileNameA(0, buf, 1023);
 #else
-  readlink( "/proc/self/exe", buf, PATH_MAX);
+  readlink( "/proc/self/exe", buf, 1023);
 #endif  
-  buf[PATH_MAX] = 0;
+  buf[1023] = 0;
   for (p = buf; *p; ++p)
     if (*p == '\\')
       *p = '/';
 
   // remove program and bin folder
-  int i = 2;
+  i = 2;
   while (p > buf) {
       if (*--p == '/') {
 	  *p = 0;
@@ -264,7 +264,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
 
   p = concat(buf, "/", q, 0);
   
-//  printf("%s %s %s %s ->%s\n", progname, buf, bin_prefix, prefix, p);
+  printf("%s %s %s %s ->%s\n", progname, buf, bin_prefix, prefix, p);
 
   return p;
 }

@@ -264,6 +264,10 @@ $(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
 	  cd ..; \
 	else true; fi
 
+libiberty.dll: $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
+	rm -rf $@
+	$(CC) -o $@ -shared $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
+
 $(TESTLIB): $(REQUIRED_OFILES) $(CONFIGURED_OFILES)
 	-rm -f $(TESTLIB)
 	$(AR) $(AR_FLAGS) $(TESTLIB) \

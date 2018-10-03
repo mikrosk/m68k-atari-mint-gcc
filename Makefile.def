@@ -50,7 +50,6 @@ host_modules= { module= gcc; bootstrap=true;
 host_modules= { module= gmp; lib_path=.libs; bootstrap=true;
 		// Work around in-tree gmp configure bug with missing flex.
 		extra_configure_flags='--disable-shared LEX="touch lex.yy.c"';
-		extra_make_flags='AM_CFLAGS="-DNO_ASM"';
 		no_install= true;
 		// none-*-* disables asm optimizations, bootstrap-testing
 		// the compiler more thoroughly.
@@ -60,7 +59,6 @@ host_modules= { module= gmp; lib_path=.libs; bootstrap=true;
 	        target="none-${host_vendor}-${host_os}"; };
 host_modules= { module= mpfr; lib_path=src/.libs; bootstrap=true;
 		extra_configure_flags='--disable-shared @extra_mpfr_configure_flags@';
-		extra_make_flags='AM_CFLAGS="-DNO_ASM"';
 		no_install= true; };
 host_modules= { module= mpc; lib_path=src/.libs; bootstrap=true;
 		extra_configure_flags='--disable-shared @extra_mpc_gmp_configure_flags@ @extra_mpc_mpfr_configure_flags@ --disable-maintainer-mode';

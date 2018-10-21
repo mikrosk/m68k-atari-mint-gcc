@@ -4568,6 +4568,7 @@ opt_final()
   for (unsigned index = 0; index < infos.size(); ++index)
     {
       insn_info &ii = infos[index];
+
       // cmp #0,ax
       if (ii.is_compare() && ii.get_dst_reg() && ii.get_dst_regno() >= 8 && ii.get_dst_regno() <= 15 && !ii.get_src_mem_reg() && ii.is_src_const() && ii.get_src_intval() == 0)
 	{
@@ -4594,6 +4595,8 @@ opt_final()
 	      SET_INSN_DELETED(ii.get_insn());
 
 	      log ("(z) cmp.w #0,%s -> move.l %s,%s\n", reg_names[ii.get_dst_regno()], reg_names[ii.get_dst_regno()], reg_names[regno]);
+
+	      ++ change_count;
 	    }
 	  continue;
 	}
@@ -4610,13 +4613,14 @@ opt_final()
 		  // used in next insn as src and dead?
 		  insn_info & jj = infos[index + 1];
 		  rtx set1 = single_set(jj.get_insn());
-		  if (set1 && !jj.is_compare() && !jj.get_multi_reg() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
+		  if (set1 && jj.get_src_op() == 0 && !jj.is_compare() && !jj.get_multi_reg() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
 		      && is_reg_dead(ii.get_dst_regno(), index + 1))
 		    {
 		      if (validate_change(jj.get_insn(), &SET_SRC(set1), src, 0))
 			{
 			  SET_INSN_DELETED(ii.get_insn());
 			  log("(z) %d: use clear instead of reg %s with #0\n", index, reg_names[jj.get_src_regno()]);
+			  ++ change_count;
 			}
 		    }
 		}
@@ -4884,7 +4888,8 @@ namespace
 	  opt_elim_dead_assign (FIRST_PSEUDO_REGISTER);
 
 	if (do_opt_final)
-	  opt_final();
+	  if (opt_final())
+	    update_insns();
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);

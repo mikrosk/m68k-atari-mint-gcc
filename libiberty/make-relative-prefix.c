@@ -240,7 +240,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
     return NULL;
 
-#ifdef __CYGWIN__
+#ifdef __MSYS__
   GetModuleFileNameA(0, buf, 1023);
 #else
   readlink( "/proc/self/exe", buf, 1023);

@@ -306,6 +306,15 @@ public:
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
 
+    if (mode == DImode && GET_CODE(src) == CONST_INT)
+      {
+	rtx hi = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) >> 32);
+	rtx lo = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) & 0xffffffff);
+	set(SImode, regno, hi, my_use, index);
+	set(SImode, regno + 1, lo, my_use, index);
+	return;
+      }
+
     if (mode == SFmode && regno < 16)
       mode = SImode;
 
@@ -328,7 +337,7 @@ public:
 	    rtx val = value[refregno];
 	    if (!val)
 	      {
-		val = gen_rtx_raw_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (refregno) << 32) | (0xffffffff & -index));
+		val = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (refregno) << 32) | (0xffffffff & -index));
 		value[refregno] = val;
 	      }
 	    value[regno] = val;
@@ -342,7 +351,7 @@ public:
   }
 
   bool
-  equals (unsigned regno, rtx x)
+  equals (machine_mode dmode, unsigned regno, rtx x)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return false;
@@ -351,12 +360,19 @@ public:
       return false;
 
     machine_mode mode = GET_MODE(value[regno]);
-    if (mode == SFmode && regno < 16)
-      mode = SImode;
+    if (dmode == DImode && mode == VOIDmode && GET_CODE(x) == CONST_INT)
+      {
+	rtx hi = gen_rtx_CONST_INT(VOIDmode, INTVAL(x) >> 32);
+	rtx lo = gen_rtx_CONST_INT(VOIDmode, INTVAL(x) & 0xffffffff);
+	return equals(VOIDmode, regno, hi) && equals(VOIDmode, regno + 1, lo);
+      }
 
     machine_mode xmode = GET_MODE(x);
     if (REG_P(x) && REGNO(x) < 16 && xmode == SFmode)
       xmode = SImode;
+
+    if (mode == SFmode && regno < 16)
+      mode = SImode;
 
     if (mode != xmode)
       return false;
@@ -376,7 +392,7 @@ public:
 
     if (mode == SFmode && regno < 16)
       mode = SImode;
-    value[regno] = gen_rtx_raw_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
+    value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
   }
 
@@ -2675,7 +2691,7 @@ opt_propagate_moves ()
 {
   unsigned change_count = 0;
   rtx_insn * current_label = 0;
-  unsigned current_label_index;
+  unsigned current_label_index = 0;
   std::vector<unsigned> reg_reg;
   std::vector<rtx_insn *> jump_out;
 
@@ -2934,8 +2950,8 @@ opt_strcpy ()
   unsigned change_count = 0;
 #if HAVE_cc0
   rtx_insn * x2reg = 0;
-  rtx_insn * reg2x;
-  unsigned int regno;
+  rtx_insn * reg2x = 0;
+  unsigned int regno = FIRST_PSEUDO_REGISTER;
 
   for (unsigned index = 0; index < infos.size (); ++index)
     {
@@ -4152,7 +4168,7 @@ opt_elim_dead_assign (int blocked_regno)
 	  track_var * track = ii.get_track_var ();
 
 	  rtx src = SET_SRC(set);
-	  if (track->equals (ii.get_dst_regno (), src))
+	  if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
 	    {
 	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
@@ -4168,7 +4184,7 @@ opt_elim_dead_assign (int blocked_regno)
 	      continue;
 	    }
 
-	  if (ii.get_src_reg () && track->equals (ii.get_src_regno (), SET_DEST(set)))
+	  if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
 	    {
 	      log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
@@ -4868,8 +4884,8 @@ namespace
 	      {
 		while (opt_reg_rename ())
 		  {
-		    update_insns ();
-		    done = 0;
+			update_insns ();
+			done = 0;
 		  }
 	      }
 
@@ -4877,18 +4893,15 @@ namespace
 	      break;
 	  }
 
-	if (do_shrink_stack_frame)
-	  {
-	    if (opt_shrink_stack_frame ())
-	      update_insns ();
-	  }
+	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
+	  update_insns ();
 
 	/* elim stack pointer stuff last. */
-	if (do_elim_dead_assign)
-	  opt_elim_dead_assign (FIRST_PSEUDO_REGISTER);
+	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
+	  update_insns ();
 
-	if (do_opt_final)
-	  if (opt_final())
+
+	if (do_opt_final && opt_final())
 	    update_insns();
       }
     if (r && be_verbose)

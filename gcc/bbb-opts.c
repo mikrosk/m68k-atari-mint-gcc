@@ -4708,6 +4708,10 @@ opt_clear()
   for (unsigned index = 0; index< infos.size(); ++index)
     {
       insn_info &ii = infos[index];
+
+      if (GET_MODE_SIZE(ii.get_mode()) > 4)
+	continue;
+
       rtx set0 = single_set(ii.get_insn());
       if (!set0)
 	continue;

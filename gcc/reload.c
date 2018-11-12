@@ -6250,7 +6250,7 @@ subst_reloads (rtx_insn *insn)
       rtx reloadreg = rld[r->what].reg_rtx;
 
 #ifdef TARGET_AMIGA
-      if (!reloadreg && !rld[r->what].optional && rld[r->what].rclass == ADDR_REGS)
+      if (!reloadreg && rld[r->what].rclass == ADDR_REGS)
       {
     	  rtx a = *r->where;
     	  const char *fmt = GET_RTX_FORMAT(GET_CODE(a));
@@ -6262,9 +6262,11 @@ subst_reloads (rtx_insn *insn)
 
     	  if (REG_P(a)) {
     		  extern rtx_insn *old_prev;
+    		  unsigned regno = REGNO(a);
+    		  unsigned swapregno = CALL_P(insn) ? 13 : 15;
     		  machine_mode m = GET_MODE(a);
-    		  rtx from = gen_rtx_REG(m, REGNO(a));
-    		  rtx to   = gen_rtx_REG(m, 15);
+    		  rtx from = gen_rtx_REG(m, regno);
+    		  rtx to   = gen_rtx_REG(m, swapregno);
 
     		  rld[r->what].optional = 1;
 

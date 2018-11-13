@@ -6250,7 +6250,7 @@ subst_reloads (rtx_insn *insn)
       rtx reloadreg = rld[r->what].reg_rtx;
 
 #ifdef TARGET_AMIGA
-      if (!reloadreg && rld[r->what].rclass == ADDR_REGS)
+      if (!reloadreg && !rld[r->what].optional && rld[r->what].rclass == ADDR_REGS)
       {
     	  rtx a = *r->where;
     	  const char *fmt = GET_RTX_FORMAT(GET_CODE(a));

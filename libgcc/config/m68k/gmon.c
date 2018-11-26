@@ -206,7 +206,7 @@ void _moncleanup(void)
 	if ( froms[fromindex] == 0 ) {
 	    continue;
 	}
-	frompc = (void *)(s_lowpc + (fromindex * HASHFRACTION * sizeof(*froms)) - (&_stext - 4));
+	frompc = (void *)(s_lowpc + (fromindex * HASHFRACTION * sizeof(*froms)) - (&_stext - 0));
 	for (toindex=froms[fromindex]; toindex!=0; toindex=tos[toindex].link) {
 #ifdef DEBUG_VERSION
 		fprintf( stderr ,
@@ -250,7 +250,7 @@ __saveallregs void mcount(void)
 	}
 	profiling++;
 	*store_last_pc = (unsigned)selfpc;
-	selfpc = selfpc - (int)(&_stext - 4);
+	selfpc = selfpc - (int)(&_stext - 0);
 	/*
 	 *	check that frompcindex is a reasonable pc value.
 	 *	for example:	signal catchers get called from the stack,

@@ -129,7 +129,7 @@ void _monstartup(void)
 	    ROUNDUP((unsigned)&_etext, HISTFRACTION*sizeof(HISTCOUNTER));
     s_highpc = highpc;
     s_textsize = highpc - lowpc;
-    monsize = (s_textsize / HISTFRACTION) + sizeof(struct phdr);
+    monsize = (s_textsize / HISTFRACTION)*sizeof(short) + sizeof(struct phdr);
     buffer = alloc( monsize );
     if ( buffer == 0 ) {
 	write( 2 , MSG , sizeof(MSG) );
@@ -388,9 +388,7 @@ int VertBServer(struct profile_data * p __asm("a1")) {
   register char * usp __asm("a0");
   asm("move.l sp,a0");
 
-//  memcpy((char*)0x100000, usp + 0x2e, 0x200);
-//  size_t index = (*(size_t *)(usp + 0x3e) - p->offset) >> 1;
-  size_t index = (*(size_t *)(usp + 0x32) - p->offset) >> 1;
+  size_t index = (*((size_t *)(usp + 0x32)) - p->offset) >> 1;
   if (index < p->count)
     ++p->data[index];
   asm("move.l (sp)+,a0");
@@ -405,7 +403,7 @@ int profil(char *buf, size_t bufsiz,
 	return -1;
 
       vbdata.data = (unsigned short *)buf;
-      vbdata.count = bufsiz >> 1;
+      vbdata.count = bufsiz>>1;
       vbdata.offset = offset;
 
       vbint.is_Node.ln_Type = NT_INTERRUPT;         /* Initialize the node. */
@@ -422,6 +420,7 @@ int profil(char *buf, size_t bufsiz,
   if (!vbdata.data)
     return -1;
 
+  vbdata.count = 0;
   RemIntServer(INTB_VERTB, &vbint);
   vbdata.data = 0;
   return 0;

@@ -501,7 +501,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=nix*:%(libgcc_libnix)} "                                \
   "%{mcrt=ixemul:%(libgcc_ixemul)} "                              \
   "%{mcrt=clib2:%(libgcc_clib2)} "								  \
-  "%{!mcrt=*:%{!noixemul:-lstubs}} "							  \
+  "%{!mcrt=*:%{!noixemul:-lc -lstubs}} "							  \
   "%{lm:-lm} "
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD

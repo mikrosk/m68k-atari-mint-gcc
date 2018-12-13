@@ -546,7 +546,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=ixemul:%(link_ixemul)} "                                \
   "%{mcrt=clib2:%(link_clib2)} "                                  \
   "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} "               \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc} "      		  \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} "      		  \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} "         \
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} "  \
   "%{g:-amiga-debug-hunk} "                                       \

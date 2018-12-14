@@ -64,8 +64,8 @@ struct profile_data {
 int VertBServer(struct profile_data * p __asm("a1"));
 
 
-extern char _stext;
-extern char _etext;
+extern const char const _stext;
+extern const char const _etext;
 
 #if 0
 asm ("

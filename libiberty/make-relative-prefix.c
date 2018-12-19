@@ -241,10 +241,16 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
     return NULL;
 
 #ifdef __MSYS__
-  GetModuleFileNameA(0, buf, 1023);
+  n = GetModuleFileNameA(0, buf, 1023);
 #else
-  readlink( "/proc/self/exe", buf, 1023);
-#endif  
+  n = readlink( "/proc/self/exe", buf, 1023);
+#endif
+  if (n > 1022)
+    return NULL;
+
+  buf[n] = 0;
+//  puts(buf);
+
   buf[1023] = 0;
   for (p = buf; *p; ++p)
     if (*p == '\\')

@@ -1804,7 +1804,18 @@ assemble_start_function (tree decl, const char *fnname)
 
       maybe_assemble_visibility (decl);
     }
-
+#ifdef TARGET_AMIGA
+  else if (profile_flag)
+    {
+	  char *p;
+	  char * sfnname = concat("__static__", fnname, "__", DECL_SOURCE_FILE (decl), NULL);
+	  for (p = sfnname; *p; ++p)
+		if (*p == '/' || *p == '\\' || *p == ':')
+			*p = '.';
+	  default_globalize_label(asm_out_file, sfnname);
+	  ASM_OUTPUT_FUNCTION_LABEL (asm_out_file, sfnname, current_function_decl);
+    }
+#endif
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (fnname);
 

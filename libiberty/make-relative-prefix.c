@@ -240,16 +240,21 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
     return NULL;
 
+  buf[0] = 0;
 #ifdef __MSYS__
   n = GetModuleFileNameA(0, buf, 1023);
+#elif defined(__MACH__)
+  n = 1022;
+  n |= _NSGetExecutablePath(buf, &n);
 #else
   n = readlink( "/proc/self/exe", buf, 1023);
 #endif
-  if (n > 1022)
+  if (n < 0 || n > 1022)
     return NULL;
+  else if (n)
+    buf[n] = 0;
 
-  buf[n] = 0;
-//  puts(buf);
+  //puts(buf);
 
   buf[1023] = 0;
   for (p = buf; *p; ++p)

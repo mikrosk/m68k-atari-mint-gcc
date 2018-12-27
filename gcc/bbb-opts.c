@@ -2955,7 +2955,8 @@ opt_strcpy ()
 
   for (unsigned index = 0; index < infos.size (); ++index)
     {
-      rtx_insn * insn = infos[index].get_insn ();
+      insn_info & ii = infos[index];
+      rtx_insn * insn = ii.get_insn ();
 
       if (!NONJUMP_INSN_P(insn))
 	{
@@ -3024,7 +3025,7 @@ opt_strcpy ()
       /* check for a match for x2reg. */
       if (x2reg == 0)
 	{
-	  if (REG_P(SET_DEST(set)))
+	  if (REG_P(SET_DEST(set)) && ii.get_src_op() != ASM_OPERANDS)
 	    {
 	      x2reg = insn;
 	      reg2x = 0;

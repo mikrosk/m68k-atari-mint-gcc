@@ -4141,6 +4141,8 @@ opt_elim_dead_assign (int blocked_regno)
 {
   track_regs ();
 
+  unsigned mask = 0;
+
   unsigned change_count = 0;
   for (int index = infos.size () - 1; index >= 0; --index)
     {
@@ -4156,6 +4158,11 @@ opt_elim_dead_assign (int blocked_regno)
       if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno
 	  && is_reg_dead (ii.get_dst_regno (), index))
 	{
+	  if (mask & (1<<ii.get_dst_regno ()))
+	    continue;
+
+	  mask |= (1<<ii.get_dst_regno ());
+
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	  SET_INSN_DELETED(insn);
 	  ++change_count;
@@ -4171,6 +4178,12 @@ opt_elim_dead_assign (int blocked_regno)
 	  rtx src = SET_SRC(set);
 	  if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
 	    {
+
+	      if (mask & (1<<ii.get_dst_regno ()))
+		continue;
+
+	      mask |= (1<<ii.get_dst_regno ());
+
 	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
 	      ++change_count;
@@ -4187,6 +4200,12 @@ opt_elim_dead_assign (int blocked_regno)
 
 	  if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
 	    {
+
+	      if (mask & (1<<ii.get_dst_regno ()))
+		continue;
+
+	      mask |= (1<<ii.get_dst_regno ());
+
 	      log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
 	      ++change_count;
@@ -4199,6 +4218,12 @@ opt_elim_dead_assign (int blocked_regno)
 	      int aliasRegno = track->find_alias (src);
 	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
 		{
+
+		  if ((mask & (1<<ii.get_dst_regno ())) || (mask & (1<<aliasRegno)))
+		    continue;
+
+		  mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
+
 		  log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
 		  validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0);
 		  ++change_count;
@@ -4858,9 +4883,12 @@ namespace
 	if (do_opt_final && opt_clear())
 	  update_insns ();
 
+	int pass = 0;
 	for (;;)
 	  {
 	    int done = 1;
+	    if (be_very_verbose)
+	      log ("pass %d\n", ++pass);
 	    if (do_opt_strcpy && opt_strcpy ())
 	      done = 0, update_insns ();
 

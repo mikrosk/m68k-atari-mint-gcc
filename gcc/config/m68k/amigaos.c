@@ -674,8 +674,10 @@ amiga_named_section (const char *name, unsigned int flags, tree decl )
 
   if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
     fprintf (asm_out_file, "\t.bss%s\n", name + 5);
-  else
+  else if (0 == strncmp(".section ", name, 8) || 0 == strncmp(".text", name, 5) || 0 == strncmp(".data", name, 5) || 0 == strncmp(".bss", name, 4))
     fprintf (asm_out_file, "\t%s\n", name);
+  else
+    fprintf (asm_out_file, "\t.section %s\n", name);
 }
 #else
 extern void
@@ -690,26 +692,29 @@ amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_U
       }
     else
       {
-	if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl)))) {
-	  fprintf (asm_out_file, "\tsection .bss%s%s,bss\n", name[5]==0 ? "" : "_", name + 5);
-	} else {
-	  if (0 == strncmp(".datafar", name, 8))
-	    {
-	       fprintf (asm_out_file, "\tsection .data_far,data\n");
-	    }
-	  else if (0 == strncmp(".datachip", name, 9))
-	    {
-	       fprintf (asm_out_file, "\tsection .data_chip,data,chip\n");
-	    }
-	  else if (0 == strncmp(".bsschip", name, 8))
-	    {
-	       fprintf (asm_out_file, "\tsection .bss_chip,bss,chip\n");
-	    }
-    else
-      {
-	fprintf (asm_out_file, "\tsection %s\n", name);
-      }
-  }
+	if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
+	  {
+	    fprintf (asm_out_file, "\tsection .bss%s%s,bss\n", name[5]==0 ? "" : "_", name + 5);
+	  }
+	else
+	  {
+	    if (0 == strncmp(".datafar", name, 8))
+	      {
+		fprintf (asm_out_file, "\tsection .data_far,data\n");
+	      }
+	    else if (0 == strncmp(".datachip", name, 9))
+	      {
+		fprintf (asm_out_file, "\tsection .data_chip,data,chip\n");
+	      }
+	    else if (0 == strncmp(".bsschip", name, 8))
+	      {
+		fprintf (asm_out_file, "\tsection .bss_chip,bss,chip\n");
+	      }
+	    else
+	      {
+		fprintf (asm_out_file, "\tsection %s\n", name);
+	      }
+	  }
       }
   }
 #endif

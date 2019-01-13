@@ -585,6 +585,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 	      "%{!nostdlib:%{!nodefaultlibs:%L}} "                  \
 	      "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} "             \
 	      "%{!nostdlib:%{!nodefaultlibs:%G}} "                  \
+	      "%{flto} "                                            \
 	      "%{T*} }}}}}} "                                       
 #else
 #define LINK_COMMAND_SPEC                                           \
@@ -601,6 +602,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 	      "%{!nostdlib:%{!nodefaultlibs:%L}} "                  \
 	      "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} "             \
 	      "%{!nostdlib:%{!nodefaultlibs:%G}} "                  \
+              "%{flto} "                                            \
 	      "%{T*} }}}}}} "                                       
 #endif
 
@@ -684,6 +686,8 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 
 #define COLLECT2_POSTLINK_HOOK(OUTPUT_FILE) amigaos_postlink_hook(OUTPUT_FILE)
 /* end-GG-local */
+
+#define USE_COLLECT2
 
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)

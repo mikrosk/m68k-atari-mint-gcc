@@ -65,19 +65,22 @@ struct simple_object_amigahunk_read
 {
   struct hunk * root;
   char const * name;
+  int deleted;
 };
 
 /**
  * A copy of simple_object_amigahunk_read atm.
- */
+ * /
 struct simple_object_amigahunk_attributes
 {
   struct hunk * root;
   char const * name;
 };
+*/
+#define simple_object_amigahunk_attributes simple_object_amigahunk_read
 
 /**
- * Read 4 bytes as bigendian int and move the file offset.
+ * Read 4 bytes as big endian int and move the file offset.
  */
 static unsigned
 read4 (int descriptor, off_t * offset)
@@ -140,6 +143,8 @@ simple_object_amigahunk_match (
   struct simple_object_amigahunk_read * oar = XNEW(
       struct simple_object_amigahunk_read);
   oar->root = NULL;
+  oar->name = NULL;
+  oar->deleted = 0;
 
   for (;;)
     {
@@ -321,8 +326,8 @@ simple_object_amigahunk_fetch_attributes (simple_object_read *sobj,
 
   ret = XNEW(struct simple_object_amigahunk_attributes);
 
-  ret->root = eor->root;
-  ret->name = eor->name;
+  *ret = *eor;
+  eor->deleted = 1;
 
   return ret;
 }
@@ -332,6 +337,20 @@ simple_object_amigahunk_fetch_attributes (simple_object_read *sobj,
 static void
 simple_object_amigahunk_release_read (void *data)
 {
+  struct simple_object_amigahunk_read *eor =
+      (struct simple_object_amigahunk_read *) data;
+
+  if (!eor->deleted)
+    {
+      struct hunk * h = eor->root;
+      while (h)
+	{
+	  struct hunk * n = h;
+	  h = h->next;
+	  XDELETE(n);
+	}
+      XDELETE(eor->name);
+    }
   XDELETE(data);
 }
 
@@ -358,7 +377,7 @@ simple_object_amigahunk_attributes_merge (void *todata, void *fromdata,
 static void
 simple_object_amigahunk_release_attributes (void *data)
 {
-  XDELETE(data);
+  simple_object_amigahunk_release_read(data);
 }
 
 /* Prepare to write out a file.  */
@@ -379,6 +398,9 @@ simple_object_amigahunk_start_write (void *attributes_data,
 //  fprintf (stderr, "simple_object_amigahunk_start_write\n");
 
   *ret = *attrs;
+
+  attrs->deleted = 1;
+
   return ret;
 }
 
@@ -532,7 +554,7 @@ simple_object_amigahunk_write_to_file (simple_object_write *sobj,
 static void
 simple_object_amigahunk_release_write (void *data)
 {
-  XDELETE(data);
+  simple_object_amigahunk_release_read(data);
 }
 
 /* The Amiga functions.  */

@@ -215,7 +215,7 @@ simple_object_amigahunk_match (
 	  while (sz)
 	    {
 	      unsigned hn = read4 (descriptor, &offset);
-	      offset += hn * 4;
+	      offset += sz * 4;
 	      sz = read4 (descriptor, &offset);
 	    }
 	  break;
@@ -224,7 +224,7 @@ simple_object_amigahunk_match (
 	  while (sz)
 	    {
 	      unsigned hn = read4 (descriptor, &offset);
-	      offset += hn * 2;
+	      offset += sz * 2;
 	      sz = read4 (descriptor, &offset);
 	    }
 	  break;

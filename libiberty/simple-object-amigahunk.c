@@ -115,8 +115,12 @@ readName (unsigned l, int descriptor, off_t * offset)
       nameLen = l;
     }
   if (!l)
-    return 1;
-
+    {
+      if (!name)
+	name = XNEWVEC(unsigned char, 1);
+      *name = 0;
+      return 1;
+    }
   int r = simple_object_internal_read (descriptor, *offset, name, l, &errmsg,
 				       &err);
   name[l] = 0;

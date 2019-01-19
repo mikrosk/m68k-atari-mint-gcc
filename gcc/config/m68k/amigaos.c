@@ -44,7 +44,7 @@
 
 //#define MYDEBUG 1
 #ifdef MYDEBUG
-#define DPRINTF(x) printf x; fflush(stdout);
+#define DPRINTF(x) fprintf x;
 #else
 #define DPRINTF(x)
 #endif
@@ -183,8 +183,7 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   struct amigaos_args * cum = decl == current_function_decl ? &mycum : &othercum;
   *cump = decl == current_function_decl;
   cum->num_of_regs = amigaos_regparm > 0 ? amigaos_regparm : 0;
-  DPRINTF(
-      ("0amigaos_init_cumulative_args %s %d -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, cum->num_of_regs));
+  DPRINTF((stderr, "0amigaos_init_cumulative_args %s %d -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, cum->num_of_regs));
 
   /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -195,19 +194,18 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 
   if (!fntype && decl)
     fntype = TREE_TYPE(decl);
-  if (decl && DECL_ARTIFICIAL(decl))
-    fntype = 0;
+// SBF: oh my ... - this caused crafted functions to lose asm parameters....
+//  if (decl && DECL_ARTIFICIAL(decl))
+//    fntype = 0;
   if (fntype)
     {
       tree attrs = TYPE_ATTRIBUTES(fntype);
-      DPRINTF(
-          ("1amigaos_init_cumulative_args %s %d attrs: %p\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, attrs));
+      DPRINTF((stderr, "1amigaos_init_cumulative_args %s %d attrs: %p\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, attrs));
       if (attrs)
 	{
 	  tree stkp = lookup_attribute ("stkparm", attrs);
 	  tree fnspec = lookup_attribute ("fn spec", attrs);
-	  DPRINTF(
-	      ("2amigaos_init_cumulative_args %s %d stkp: %p %s\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, stkp ? stkp : fnspec, IDENTIFIER_POINTER(TREE_PURPOSE(attrs))));
+	  DPRINTF((stderr, "2amigaos_init_cumulative_args %s %d stkp: %p %s\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, stkp ? stkp : fnspec, IDENTIFIER_POINTER(TREE_PURPOSE(attrs))));
 	  if (stkp || fnspec)
 	    cum->num_of_regs = 0;
 	  else
@@ -260,7 +258,7 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   else
     /* Call to compiler-support function. */
     cum->current_param_type = cum->fntype = 0;
-  DPRINTF(("9amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
+  DPRINTF((stderr, "9amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
 }
 
 int
@@ -277,7 +275,7 @@ amigaos_function_arg_advance (cumulative_args_t cum_v, machine_mode, const_tree,
   struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
   /* Update the data in CUM to advance over an argument.  */
 
-  DPRINTF(("amigaos_function_arg_advance1 %p\r\n", cum));
+  DPRINTF((stderr, "amigaos_function_arg_advance1 %p\r\n", cum));
 
   if (cum->last_arg_reg != -1)
     {
@@ -305,7 +303,7 @@ amigaos_function_arg_advance (cumulative_args_t cum_v, machine_mode, const_tree,
 static struct rtx_def *
 _m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree type)
 {
-  DPRINTF(("m68k_function_arg numOfRegs=%d\r\n", cum ? cum->num_of_regs : 0));
+  DPRINTF((stderr, "m68k_function_arg numOfRegs=%d\r\n", cum ? cum->num_of_regs : 0));
 
   if (cum->num_of_regs)
     {
@@ -352,7 +350,7 @@ _m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree typ
 
 	  if (reg == cum->num_of_regs && altregbegin != -1)
 	    {
-	      DPRINTF(("look for alt reg\n"));
+	      DPRINTF((stderr, "look for alt reg\n"));
 	      regbegin = altregbegin;
 	      altregbegin = -1;
 	      goto look_for_reg;
@@ -361,7 +359,7 @@ _m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree typ
 
       if (cum->last_arg_reg != -1)
 	{
-	  DPRINTF(("-> gen_rtx_REG %d\r\n", cum->last_arg_reg));
+	  DPRINTF((stderr, "-> gen_rtx_REG %d\r\n", cum->last_arg_reg));
 	  return gen_rtx_REG (mode, cum->last_arg_reg);
 	}
     }
@@ -374,7 +372,7 @@ _m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree typ
 struct rtx_def *
 amigaos_function_arg (cumulative_args_t cum_v, machine_mode mode, const_tree type, bool)
 {
-  DPRINTF(("amigaos_function_arg %p\r\n", cum_v.p));
+  DPRINTF((stderr, "amigaos_function_arg %p\r\n", cum_v.p));
 
   struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
 
@@ -418,7 +416,7 @@ amiga_emit_regparm_clobbers (void)
 int
 amigaos_comp_type_attributes (const_tree type1, const_tree type2)
 {
-  DPRINTF(("amigaos_comp_type_attributes\n"));
+  DPRINTF((stderr, "amigaos_comp_type_attributes\n"));
   /* Functions or methods are incompatible if they specify mutually exclusive
    ways of passing arguments. */
   if (TREE_CODE(type1) == FUNCTION_TYPE || TREE_CODE(type1) == METHOD_TYPE)
@@ -508,14 +506,14 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
   tree nnn = *node;
   do
     { // while (0);
-      DPRINTF(("%p with treecode %d\n", node, TREE_CODE(nnn)));
+      DPRINTF((stderr, "%p with treecode %d\n", node, TREE_CODE(nnn)));
       if (TREE_CODE (nnn) == FUNCTION_DECL || TREE_CODE (nnn) == FUNCTION_TYPE || TREE_CODE (nnn) == METHOD_TYPE)
 	{
 	  /* 'regparm' accepts one optional argument - number of registers in
 	   single class that should be used to pass arguments.  */
 	  if (is_attribute_p ("regparm", name))
 	    {
-	      DPRINTF(("regparm found\n"));
+	      DPRINTF((stderr, "regparm found\n"));
 
 	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
 		{
@@ -525,7 +523,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	      if (args && TREE_CODE (args) == TREE_LIST)
 		{
 		  tree val = TREE_VALUE(args);
-		  DPRINTF(("regparm with val: %d\n", TREE_CODE(val)));
+		  DPRINTF((stderr, "regparm with val: %d\n", TREE_CODE(val)));
 		  if (TREE_CODE (val) == INTEGER_CST)
 		    {
 		      int no = TREE_INT_CST_LOW(val);

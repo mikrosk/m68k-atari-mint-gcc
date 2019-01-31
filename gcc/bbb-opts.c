@@ -2441,6 +2441,14 @@ opt_reg_rename (void)
 		break;
 
 	      insn_info & jj = infos[pos];
+	      if (jj.is_call()) {
+		  // do not rename registers used or defined in calls
+		  if (jj.is_myuse(rename_regno) || jj.is_def(rename_regno)) {
+		    mask = 0;
+		    break;
+		  }
+	      }
+
 	      rtx_insn * insn = jj.get_insn ();
 	      if (LABEL_P(insn))
 		{
@@ -2596,6 +2604,7 @@ opt_reg_rename (void)
 		      machine_mode mode = *m;
 		      rtx to = gen_raw_REG (mode, newregno);
 		      rtx from = gen_raw_REG (mode, oldregno);
+
 		      validate_replace_rtx_group (from, to, insn);
 		    }
 		  positions.push_back (*i);
@@ -4731,6 +4740,7 @@ static unsigned
 opt_clear()
 {
   unsigned change_count = 0;
+  if (TUNE_68000)
   for (unsigned index = 0; index< infos.size(); ++index)
     {
       insn_info &ii = infos[index];

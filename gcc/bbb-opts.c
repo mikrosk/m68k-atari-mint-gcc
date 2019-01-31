@@ -2980,8 +2980,6 @@ opt_strcpy ()
 	      src = XEXP(src, 1);
 
 //	      if (CONST_INT_P(src) && INTVAL(src) == 0 && find_reg_note (insn, REG_DEAD, dst))
-	      printf("%d %d %d %d\n", REG_P(dst), CONST_INT_P(src), INTVAL(src) == 0, is_reg_dead (REGNO(dst), index));
-	      fflush(stdout);
 	      if (REG_P(dst) && CONST_INT_P(src) && INTVAL(src) == 0 && is_reg_dead (REGNO(dst), index))
 		{
 		  /* now check via NOTICE_UPDATE_CC*/

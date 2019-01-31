@@ -1270,7 +1270,7 @@ insn_info::scan ()
       tree type = TYPE_SIZE(TREE_TYPE (DECL_RESULT (current_function_decl)));
       int sz = type ? TREE_INT_CST_LOW(type) : 0;
       // log ("return size %d\n", sz);
-      if (sz <= 64)
+      if (sz && sz <= 64)
 	{
 	  mark_hard (0);
 	  mark_myuse (0);
@@ -2980,6 +2980,8 @@ opt_strcpy ()
 	      src = XEXP(src, 1);
 
 //	      if (CONST_INT_P(src) && INTVAL(src) == 0 && find_reg_note (insn, REG_DEAD, dst))
+	      printf("%d %d %d %d\n", REG_P(dst), CONST_INT_P(src), INTVAL(src) == 0, is_reg_dead (REGNO(dst), index));
+	      fflush(stdout);
 	      if (REG_P(dst) && CONST_INT_P(src) && INTVAL(src) == 0 && is_reg_dead (REGNO(dst), index))
 		{
 		  /* now check via NOTICE_UPDATE_CC*/

@@ -570,7 +570,12 @@ simple_mem_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	  && bitsize == GET_MODE_BITSIZE (mode)
 	  && (!SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (op0))
 	      || (bitnum % GET_MODE_ALIGNMENT (mode) == 0
-		  && MEM_ALIGN (op0) >= GET_MODE_ALIGNMENT (mode))));
+		  && (
+				  MEM_ALIGN (op0) >= GET_MODE_ALIGNMENT (mode)
+#ifdef TARGET_AMIGA
+  ||(!TUNE_68000 && !TUNE_68010)
+#endif
+				  ))));
 }
 
 /* Try to use instruction INSV to store VALUE into a field of OP0.

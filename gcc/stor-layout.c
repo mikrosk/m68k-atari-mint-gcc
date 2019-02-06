@@ -525,10 +525,6 @@ mode_for_vector (machine_mode innermode, unsigned nunits)
 unsigned int
 get_mode_alignment (machine_mode mode)
 {
-#ifdef TARGET_AMIGA
-  if (!TUNE_68000 && !TUNE_68010)
-    return 8;
-#endif
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
 }
 

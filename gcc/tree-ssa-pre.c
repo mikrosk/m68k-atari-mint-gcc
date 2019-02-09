@@ -4028,6 +4028,9 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       tree sprime = NULL_TREE;
       gimple *stmt = gsi_stmt (gsi);
       tree lhs = gimple_get_lhs (stmt);
+
+      tree rhs = gimple_assign_rhs1 (stmt);
+
       if (lhs && TREE_CODE (lhs) == SSA_NAME
 	  && !gimple_has_volatile_ops (stmt)
 	  /* See PR43491.  Do not replace a global register variable when
@@ -4038,9 +4041,12 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	     be ensured by not value-numbering them the same but treating
 	     them like volatiles?  */
 	  && !(gimple_assign_single_p (stmt)
-	       && (TREE_CODE (gimple_assign_rhs1 (stmt)) == VAR_DECL
-		   && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt))
-		   && is_global_var (gimple_assign_rhs1 (stmt)))))
+	       && (TREE_CODE (rhs) == VAR_DECL
+		   && DECL_HARD_REGISTER (rhs)
+		   && is_global_var (rhs)))
+	  // SBF: BIT_FIELD_REFs are sometimes mistreaded
+	  && !(TREE_CODE (rhs) == BIT_FIELD_REF)
+	  )
 	{
 	  sprime = eliminate_avail (lhs);
 	  if (!sprime)

@@ -4045,7 +4045,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		   && DECL_HARD_REGISTER (rhs)
 		   && is_global_var (rhs)))
 	  // SBF: BIT_FIELD_REFs are sometimes mistreaded
-	  && !(TREE_CODE (rhs) == BIT_FIELD_REF)
+	  && !(rhs && TREE_CODE (rhs) == BIT_FIELD_REF)
 	  )
 	{
 	  sprime = eliminate_avail (lhs);

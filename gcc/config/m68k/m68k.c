@@ -5815,8 +5815,12 @@ m68k_regno_mode_ok (int regno, machine_mode mode)
     }
   else if (ADDRESS_REGNO_P (regno))
     {
+      if (TARGET_68881 && (GET_MODE_CLASS (mode) == MODE_FLOAT
+	     || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT))
+	    return false;
+
       if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
-	return !frame_pointer_needed || regno != FRAME_POINTER_REGNUM;
+        return !frame_pointer_needed || regno != FRAME_POINTER_REGNUM;
     }
   else if (FP_REGNO_P (regno))
     {

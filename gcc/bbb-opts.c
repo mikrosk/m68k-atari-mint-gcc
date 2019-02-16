@@ -146,6 +146,10 @@ class track_var
    */
   unsigned usedRegs[FIRST_PSEUDO_REGISTER];
 
+  /**
+   * contains the bits containing a value.
+   */
+  unsigned andMask[FIRST_PSEUDO_REGISTER];
 
   bool
   extend (rtx * z, machine_mode dstMode, rtx x)
@@ -256,6 +260,7 @@ public:
 	{
 	  value[i] = 0;
 	  usedRegs[i] = 0;
+	  andMask[i] = 0xffffffff;
 	}
   }
 
@@ -286,18 +291,27 @@ public:
 	      {
 		value[i] = 0;
 		usedRegs[i] = 0;
+		andMask[i] = 0xffffffff;
 	      }
 	  }
       }
   }
 
   rtx
-  get (unsigned regno)
+  get (unsigned regno) const
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return 0;
 
     return value[regno];
+  }
+
+  unsigned getMask(unsigned regno) const
+  {
+    if (regno >= FIRST_PSEUDO_REGISTER)
+      return 0xffffffff;
+
+    return andMask[regno];
   }
 
   void
@@ -324,11 +338,26 @@ public:
 	  {
 	    value[i] = 0;
 	    usedRegs[i] = 0;
+	    andMask[i] = 0xffffffff;
 	  }
       }
 
     if (extend (&value[regno], mode, src))
       {
+	if (GET_CODE(src) == CONST_INT)
+	  {
+	    unsigned iv = UINTVAL(src);
+	    iv |= iv >> 16;
+	    iv |= iv >> 8;
+	    iv |= iv >> 4;
+	    iv |= iv >> 2;
+	    iv |= iv >> 1;
+
+	    setMask(regno, iv, mode);
+	  }
+	else
+	  andMask[regno] = 0xffffffff;
+
 	usedRegs[regno] = my_use;
 	// convert reg value int regs value.
 	if (REG_P(value[regno]))
@@ -348,6 +377,18 @@ public:
       {
 	clear (mode, regno, index);
       }
+  }
+
+  /** store the and mask or combine it with a previous mask. */
+  void
+  setMask(unsigned regno, unsigned mask, machine_mode mode)
+  {
+    if (GET_MODE_SIZE(mode) < 2)
+      mask |= 0xffffff00;
+    else
+    if (GET_MODE_SIZE(mode) < 4)
+      mask |= 0xffff0000;
+    andMask[regno] &= mask;
   }
 
   bool
@@ -394,6 +435,7 @@ public:
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
+    andMask[regno] = 0xffffffff;
   }
 
   void
@@ -405,6 +447,7 @@ public:
 	  {
 	    value[i] = 0;
 	    usedRegs[i] = 0;
+	    andMask[i] = 0xffffffff;
 	  }
       }
     clear (SImode, 0, index);
@@ -435,6 +478,7 @@ public:
       {
 	value[i] = o->value[i];
 	usedRegs[i] = o->usedRegs[i];
+	andMask[i] = o->andMask[i];
       }
   }
 
@@ -449,6 +493,7 @@ public:
 	    value[i] = o->value[i] = 0;
 	    usedRegs[i] = 0;
 	  }
+	o->andMask[i] = andMask[i] |= o->andMask[i]; // or the masks
       }
   }
 
@@ -458,7 +503,7 @@ public:
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (!rtx_equal_p (value[i], o->value[i]))
+	if (!rtx_equal_p (value[i], o->value[i]) || andMask[i] != (andMask[i] | o->andMask[i]))
 	  return false;
       }
     return true;
@@ -1905,7 +1950,8 @@ append_reg_cache (FILE * f, rtx_insn * insn)
   for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
     {
       rtx v = track->get (regno);
-      if (v == 0)
+      unsigned mask = track->getMask(regno);
+      if (!v && mask == 0xffffffff)
 	continue;
 
 //      if (GET_CODE(v) == CONST_INT && GET_MODE(v) == VOIDmode)
@@ -1913,8 +1959,12 @@ append_reg_cache (FILE * f, rtx_insn * insn)
 
       fprintf (f, "%s=", reg_names[regno]);
 
-      print_inline_rtx (f, v, 12);
-      fprintf (f, "\n");
+      if (v)
+	print_inline_rtx (f, v, 12);
+      else
+	fprintf(f, "---");
+
+      fprintf (f, "%08x\n", mask);
     }
 }
 
@@ -1931,7 +1981,7 @@ append_reg_usage (FILE * f, rtx_insn * insn)
 
   if (f != stderr)
     {
-	  int cost = insn_rtx_cost(PATTERN(ii.get_insn()), optimize_this_for_speed_p);
+	  int cost = insn_rtx_cost(PATTERN(ii.get_insn()), true);
       if (be_very_verbose > 1)
 	fprintf (f, "\n\t\t\t\t|%d\t%d\t", ii.get_index (), cost);
       else
@@ -4085,13 +4135,17 @@ track_regs ()
 	      if (((def - 1) & def) || !ii.get_dst_reg ())
 		track->clear_for_mask (def, index);
 	    }
+
+	  // compare must not clear
+	  if (ii.is_compare ())
+	    continue;
+
 	  // do not clear if self assigned unless there is an operator
 	  int dregno = ii.get_dst_regno ();
+	  unsigned dmask = track->getMask(dregno);
 	  if (dregno != ii.get_src_regno () || ii.get_src_op ())
 	    track->clear (ii.get_mode (), dregno, index);
 
-	  if (ii.is_compare ())
-	    continue;
 
 	  if (ii.is_call ())
 	    {
@@ -4127,8 +4181,25 @@ track_regs ()
 	    }
 
 	  // operation, autoinf or more than one register used: can't cache
-	  if (ii.get_src_op () || ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
+	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
 	    continue;
+
+	  if (ii.get_src_op ())
+	    {
+	      if (ii.get_src_op() == AND)
+		{
+		  rtx op = XEXP(SET_SRC(set), 1);
+		  if (GET_CODE(op) == CONST_INT)
+		    track->setMask(dregno, INTVAL(op) & dmask, ii.get_mode());
+		  else if (REG_P(op))
+		    track->setMask(dregno, track->getMask(REGNO(op)) & dmask, ii.get_mode());
+		}
+	      else if (ii.get_src_op() == ZERO_EXTRACT) {
+		  unsigned mask = (1 << INTVAL(XEXP(SET_SRC(set), 1))) - 1;
+		  track->setMask(dregno, mask & dmask, ii.get_mode());
+	      }
+	      continue;
+	    }
 
 	  rtx src = SET_SRC(set);
 	  if (ii.is_src_mem () && src->volatil)
@@ -4164,12 +4235,64 @@ opt_elim_dead_assign (int blocked_regno)
       if (!set)
 	continue;
 
-      if (ii.get_dst_reg () && REG_NREGS(ii.get_dst_reg ()) == 1 && ii.get_dst_regno () != blocked_regno
+      if (!ii.is_dst_reg() || ii.get_dst_regno () == blocked_regno)
+	continue;
+
+      if (GET_CODE(SET_SRC(set)) == AND)
+	{
+	  track_var * tv = ii.get_track_var();
+	  unsigned lmask = tv->getMask(ii.get_dst_regno());
+	  unsigned nmask = 0;
+	  rtx andval = XEXP(SET_SRC(set), 1);
+
+	  if (REG_P(andval))
+	    {
+	      rtx val = tv->get(REGNO(andval));
+	      if (val && GET_CODE(val) == CONST_INT)
+		{
+		  long long int lli = INTVAL(val);
+		  if (lli < 0x100000000LL)
+		    {
+		      andval = val;
+		    }
+		  else if (lli & 0x100000000000000LL)
+		    {
+		      unsigned refreg = (lli >> 32) & 0xff;
+		      andval = tv->get(refreg);
+		    }
+		}
+	    }
+	  if (andval && GET_CODE(andval) == CONST_INT)
+	    {
+	      long long int lli = UINTVAL(andval);
+	      if (lli < 0x100000000LL)
+		{
+		  unsigned val = lli;
+		  if (GET_MODE_SIZE(ii.get_mode()) == 1)
+		    val |= 0xffffff00;
+		  else if (GET_MODE_SIZE(ii.get_mode()) < 4)
+		    val |= 0xffff0000;
+
+		  nmask = lmask & val;
+		}
+	    }
+
+	  if (lmask == nmask)
+	    {
+	      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
+		   index, reg_names[ii.get_dst_regno ()], lmask, nmask);
+	      SET_INSN_DELETED(insn);
+	      ++change_count;
+	    }
+	  continue;
+	}
+
+      if (mask & (1<<ii.get_dst_regno ()))
+	continue;
+
+      if (REG_NREGS(ii.get_dst_reg ()) == 1
 	  && is_reg_dead (ii.get_dst_regno (), index))
 	{
-	  if (mask & (1<<ii.get_dst_regno ()))
-	    continue;
-
 	  mask |= (1<<ii.get_dst_regno ());
 
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
@@ -4179,7 +4302,7 @@ opt_elim_dead_assign (int blocked_regno)
 	}
 
       // check for redundant load
-      if (ii.get_src_op () == 0 && ii.get_dst_reg () && ii.get_dst_regno () != blocked_regno
+      if (ii.get_src_op () == 0 && ii.get_dst_reg ()
 	  && (!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ()))
 	{
 	  track_var * track = ii.get_track_var ();
@@ -4187,10 +4310,6 @@ opt_elim_dead_assign (int blocked_regno)
 	  rtx src = SET_SRC(set);
 	  if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
 	    {
-
-	      if (mask & (1<<ii.get_dst_regno ()))
-		continue;
-
 	      mask |= (1<<ii.get_dst_regno ());
 
 	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
@@ -4209,10 +4328,6 @@ opt_elim_dead_assign (int blocked_regno)
 
 	  if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
 	    {
-
-	      if (mask & (1<<ii.get_dst_regno ()))
-		continue;
-
 	      mask |= (1<<ii.get_dst_regno ());
 
 	      log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
@@ -4228,7 +4343,7 @@ opt_elim_dead_assign (int blocked_regno)
 	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
 		{
 
-		  if ((mask & (1<<ii.get_dst_regno ())) || (mask & (1<<aliasRegno)))
+		  if ( (mask & (1<<aliasRegno)))
 		    continue;
 
 		  mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
@@ -4936,16 +5051,16 @@ namespace
 	      break;
 	  }
 
+	/* convert back to clear befor fixing the stack frame */
+	if (do_opt_final && opt_final())
+	    update_insns();
+
 	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
 	  update_insns ();
 
-	/* elim stack pointer stuff last. */
+	/* elim assignments to the stack pointer last. */
 	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
 	  update_insns ();
-
-
-	if (do_opt_final && opt_final())
-	    update_insns();
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);

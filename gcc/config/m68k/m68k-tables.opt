@@ -383,6 +383,9 @@ EnumValue
 Enum(uarch_type) String(68020-60) Value(u68020_60)
 
 EnumValue
+Enum(uarch_type) String(68020-80) Value(u68020_80)
+
+EnumValue
 Enum(uarch_type) String(68030) Value(u68030)
 
 EnumValue

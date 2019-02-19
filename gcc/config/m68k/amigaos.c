@@ -216,8 +216,8 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 	      if (ratree)
 		{
 		  int no = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(ratree)));
-		  if (no > 0 && no < AMIGAOS_MAX_REGPARM)
-		    cum->num_of_regs = no;
+		  if (no > 0)
+		    cum->num_of_regs = no < AMIGAOS_MAX_REGPARM ? no : AMIGAOS_MAX_REGPARM;
 		}
 	    }
 	}

@@ -3991,9 +3991,9 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 				    lbitsize, obitpos, 1, lreversep);
 
       if (TREE_CODE(lhs) == NOP_EXPR)
-        TREE_TYPE(TREE_OPERAND(lhs, 0)) = lang_hooks.types.type_for_mode (SImode, 1);
+        TREE_TYPE(TREE_OPERAND(lhs, 0)) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
       else
-        TREE_TYPE(lhs) = lang_hooks.types.type_for_mode (SImode, 1);
+        TREE_TYPE(lhs) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
 
       return fold_build2_loc (loc, code, compare_type, lhs, rhs);
 
@@ -4055,9 +4055,9 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 				lbitsize, obitpos, 1, lreversep);
 
   if (TREE_CODE(lhs) == NOP_EXPR)
-    TREE_TYPE(TREE_OPERAND(lhs, 0)) = lang_hooks.types.type_for_mode (SImode, 1);
+    TREE_TYPE(TREE_OPERAND(lhs, 0)) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
   else
-    TREE_TYPE(lhs) = lang_hooks.types.type_for_mode (SImode, 1);
+    TREE_TYPE(lhs) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
 
   return build2_loc (loc, code, compare_type, lhs, rhs);
 #else

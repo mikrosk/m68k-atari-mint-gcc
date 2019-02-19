@@ -7162,6 +7162,16 @@ expand_compound_operation (rtx x)
   if (GET_CODE (tem) == CLOBBER)
     return x;
 
+#ifdef TARGET_AMIGA
+  /* SBF: prevent conversion of bitfield insns. */
+  if (!TUNE_68000_10
+      && (   (GET_CODE(x) == ZERO_EXTRACT && GET_CODE(tem) == LSHIFTRT)
+	  || (GET_CODE(x) == SIGN_EXTRACT && GET_CODE(tem) == ASHIFTRT))
+      //&& set_src_cost(x, GET_MODE (x), optimize_this_for_speed_p) <= set_src_cost(tem, GET_MODE (tem), optimize_this_for_speed_p)
+      )
+    return x;
+#endif
+
   return tem;
 }
 

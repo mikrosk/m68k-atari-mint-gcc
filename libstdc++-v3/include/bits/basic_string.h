@@ -645,20 +645,29 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	// Replace allocator if POCMA is true.
 	std::__alloc_on_move(_M_get_allocator(), __str._M_get_allocator());
 
-	if (!__str._M_is_local()
-	    && (_Alloc_traits::_S_propagate_on_move_assign()
-	      || _Alloc_traits::_S_always_equal()))
+	if (__str._M_is_local())
 	  {
+	    // We've always got room for a short string, just copy it.
+	    if (__str.size())
+	      this->_S_copy(_M_data(), __str._M_data(), __str.size());
+	    _M_set_length(__str.size());
+	  }
+	else if (_Alloc_traits::_S_propagate_on_move_assign()
+	    || _Alloc_traits::_S_always_equal()
+	    || _M_get_allocator() == __str._M_get_allocator())
+	  {
+	    // Just move the allocated pointer, our allocator can free it.
 	    pointer __data = nullptr;
 	    size_type __capacity;
 	    if (!_M_is_local())
 	      {
 		if (_Alloc_traits::_S_always_equal())
 		  {
+		    // __str can reuse our existing storage.
 		    __data = _M_data();
 		    __capacity = _M_allocated_capacity;
 		  }
-		else
+		else // __str can't use it, so free it.
 		  _M_destroy(_M_allocated_capacity);
 	      }
 
@@ -673,8 +682,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    else
 	      __str._M_data(__str._M_local_buf);
 	  }
-	else
-	    assign(__str);
+	else // Need to do a deep copy
+	  assign(__str);
 	__str.clear();
 	return *this;
       }
@@ -5460,9 +5469,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   stod(const string& __str, size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::strtod, "stod", __str.c_str(), __idx); }
 
+#ifdef _HAVE_LONG_DOUBLE
   inline long double
   stold(const string& __str, size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::strtold, "stold", __str.c_str(), __idx); }
+#endif
 #endif // _GLIBCXX_USE_C99_STDLIB
 
 #if _GLIBCXX_USE_C99_STDIO
@@ -5566,9 +5577,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   stod(const wstring& __str, size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::wcstod, "stod", __str.c_str(), __idx); }
 
+#ifdef _HAVE_LONG_DOUBLE
   inline long double
   stold(const wstring& __str, size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::wcstold, "stold", __str.c_str(), __idx); }
+#endif
 
 #ifndef _GLIBCXX_HAVE_BROKEN_VSWPRINTF
   // DR 1261.

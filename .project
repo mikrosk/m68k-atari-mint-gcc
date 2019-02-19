@@ -28,7 +28,7 @@
 		<link>
 			<name>build-gcc</name>
 			<type>2</type>
-			<locationURI>PARENT-2-PROJECT_LOC/build/gcc</locationURI>
+			<locationURI>PARENT-2-PROJECT_LOC/build-CYGWIN_NT-10.0-WOW/gcc</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

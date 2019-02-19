@@ -901,7 +901,7 @@ shorten_branches (rtx_insn *first)
   char *varying_length;
   rtx body;
   int uid;
-  rtx align_tab[MAX_CODE_ALIGN];
+  rtx align_tab[MAX_CODE_ALIGN + 1];
 
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
@@ -1010,7 +1010,7 @@ shorten_branches (rtx_insn *first)
      alignment of n.  */
   uid_align = XCNEWVEC (rtx, max_uid);
 
-  for (i = MAX_CODE_ALIGN; --i >= 0;)
+  for (i = MAX_CODE_ALIGN + 1; --i >= 0;)
     align_tab[i] = NULL_RTX;
   seq = get_last_insn ();
   for (; seq; seq = PREV_INSN (seq))
@@ -3625,6 +3625,7 @@ void
 output_asm_insn (const char *templ, rtx *operands)
 {
   extern bool be_very_verbose;
+  extern bool dump_cycles;
   extern void append_reg_usage(FILE *, rtx_insn *);
 
   extern bool dump_reg_track;
@@ -3786,7 +3787,7 @@ output_asm_insn (const char *templ, rtx *operands)
 	putc (c, asm_out_file);
       }
 
-  if (be_very_verbose)
+  if (be_very_verbose || dump_cycles)
     append_reg_usage(asm_out_file, current_insn);
   if (dump_reg_track)
     append_reg_cache(asm_out_file, current_insn);

@@ -258,6 +258,7 @@ amiga_declare_object = 0
   do									\
     {									\
       builtin_define ("__entrypoint=__attribute__((__entrypoint__))");	\
+      builtin_define ("__saveallregs=__attribute__((__saveallregs__))");\
       builtin_define ("__chip=__attribute__((__chip__))");		\
       builtin_define ("__fast=__attribute__((__fast__))");		\
       builtin_define ("__far=__attribute__((__far__))");		\
@@ -382,7 +383,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
     "%{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}}}"
 
 #define STARTFILE_LIBNIX_SPEC                                     \
-  "%:sdk_root(libnix/lib/ "                                 \
   "%{ramiga-*:"                                                   \
     "%{ramiga-lib:libinit.o%s}"                                   \
     "%{ramiga-libr:libinitr.o%s}"                                 \
@@ -393,11 +393,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
       "%{fbaserel:nbcrt0.o%s}"                                    \
       "%{!fbaserel:"						  \
 	"%{fbaserel32:nlbcrt0.o%s}"				  \
-	"%{!fbaserel32:ncrt0.o%s}}}}" \
-   ")"
+	"%{!fbaserel32:ncrt0.o%s}}}}"
 
 #define STARTFILE_CLIB2_SPEC                                      \
-  "%:sdk_root(clib2/lib/ "                                         \
   "%{resident32:nr32crt0.o%s}"                                    \
   "%{!resident32:"                                                \
     "%{fbaserel32:nb32crt0.o%s}"                                  \
@@ -405,20 +403,24 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
       "%{resident:nrcrt0.o%s}"                                    \
       "%{!resident:"                                              \
         "%{fbaserel:nbcrt0.o%s}"                                  \
-        "%{!fbaserel:ncrt0.o%s}}}}" \
-  ")"
+        "%{!fbaserel:ncrt0.o%s}}}}"
 
 #define STARTFILE_NEWLIB_SPEC                               	\
-	"%{!mcpu=68000:%{!mcpu=68010:%{mcpu=680*:"								\
-  	  "%{fbaserel32:libm020/libb32/crt0.o%s}"					\
-	  "%{!fbaserel32:"											\
-      	  "%{fbaserel:libm020/libb/crt0.o%s}"					\
-		  "%{!fbaserel:libm020/crt0.o%s}}"						\
-  	  "}}}"														\
-    "%{!mcpu=68020:%{!mcpu=68030:%{!mcpu=68040:%{!mcpu=68060:%{!mcpu=68080:"		\
-        "%{fbaserel:libb/crt0.o%s}"								\
-        "%{!fbaserel:crt0.o%s}"									\
-	"}}}}}"
+	"%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:" \
+  	  "%{fbaserel32:libm020/libb32/crt0.o%s}"		\
+	  "%{!fbaserel32:"					\
+      	    "%{fbaserel:libm020/libb/crt0.o%s}"			\
+            "%{!fbaserel:libm020/crt0.o%s}}"			\
+  	"}"							\
+	"%{m6800*|mc6800*|m6801*|mcpu=6800*|mcpu=6801*:"	\
+          "%{fbaserel:libb/crt0.o%s}"			\
+          "%{!fbaserel:crt0.o%s}"		\
+	"}"
+
+#define SELF_SPEC \
+ "%{noixemul:-B %:sdk_root(libnix/lib/)} "  \
+ "%{mcrt=nix*:-B %:sdk_root(libnix/lib/)} " \
+ "%{mcrt=clib2:-B %:sdk_root(clib2/lib/)} "
 
 #undef	STARTFILE_SPEC
 #ifdef TARGET_AMIGAOS_VASM
@@ -499,7 +501,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{mcrt=nix*:%(libgcc_libnix)} "                                \
   "%{mcrt=ixemul:%(libgcc_ixemul)} "                              \
   "%{mcrt=clib2:%(libgcc_clib2)} "								  \
-  "%{!mcrt=*:%{!noixemul:-lstubs}} "							  \
+  "%{!mcrt=*:%{!noixemul:-lc -lstubs}} "							  \
   "%{lm:-lm} "
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD
@@ -537,18 +539,14 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{m68881:-fl libm881}"
 #else
 #define LINK_SPEC                                                 \
-  "-L%:sdk_root(../lib) "					  					  \
-  "%{mcpu=68020:-fl libm020} "					  				  \
-  "%{mcpu=68030:-fl libm020} "					  				  \
-  "%{mcpu=68040:-fl libm020} "					  				  \
-  "%{mcpu=68060:-fl libm020} "					  				  \
-  "%{mcpu=68080:-fl libm020} "					  				  \
+  "-L%:sdk_root(../lib) "                                         \
+  "%(link_cpu) "                                                  \
   "%{noixemul:%(link_libnix)} "                                   \
   "%{mcrt=nix*:%(link_libnix)} "                                  \
   "%{mcrt=ixemul:%(link_ixemul)} "                                \
   "%{mcrt=clib2:%(link_clib2)} "                                  \
   "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} "               \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc} "      		  \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} "      		  \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} "         \
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} "  \
   "%{g:-amiga-debug-hunk} "                                       \
@@ -564,7 +562,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
   "%{msmall-code:-fno-function-cse}"
 
 #define LINK_CPU_SPEC							\
-  "%{m6802*|mc68020|m68030|m68040|m68060:-fl libm020} "			\
+  "%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:-fl libm020} "			\
   "%{m68881:-fl libm881}"
 
 /* [cahirwpz] A modified copy of LINK_COMMAND_SPEC from gcc/gcc.c file.
@@ -587,6 +585,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 	      "%{!nostdlib:%{!nodefaultlibs:%L}} "                  \
 	      "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} "             \
 	      "%{!nostdlib:%{!nodefaultlibs:%G}} "                  \
+	      "%{flto} "                                            \
 	      "%{T*} }}}}}} "                                       
 #else
 #define LINK_COMMAND_SPEC                                           \
@@ -603,6 +602,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4))	\
 	      "%{!nostdlib:%{!nodefaultlibs:%L}} "                  \
 	      "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} "             \
 	      "%{!nostdlib:%{!nodefaultlibs:%G}} "                  \
+              "%{flto} "                                            \
 	      "%{T*} }}}}}} "                                       
 #endif
 
@@ -686,6 +686,8 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 
 #define COLLECT2_POSTLINK_HOOK(OUTPUT_FILE) amigaos_postlink_hook(OUTPUT_FILE)
 /* end-GG-local */
+
+#define USE_COLLECT2
 
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
@@ -790,3 +792,7 @@ amigaos_function_arg_reg(unsigned regno);
 
 #undef HAVE_GAS_CFI_DIRECTIVE
 #define HAVE_GAS_CFI_DIRECTIVE 0
+
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO)  \
+  asm_fprintf (FILE, "\tjsr _mcount\n")

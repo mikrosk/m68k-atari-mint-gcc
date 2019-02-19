@@ -6248,6 +6248,40 @@ subst_reloads (rtx_insn *insn)
     {
       struct replacement *r = &replacements[i];
       rtx reloadreg = rld[r->what].reg_rtx;
+
+#ifdef TARGET_AMIGA
+      if (!reloadreg && !rld[r->what].optional && rld[r->what].rclass == ADDR_REGS)
+      {
+    	  rtx a = *r->where;
+    	  const char *fmt = GET_RTX_FORMAT(GET_CODE(a));
+
+    	  while (!REG_P(a) && *fmt == 'e') {
+    		  a = XEXP(a, 0);
+    		  fmt = GET_RTX_FORMAT(GET_CODE(a));
+    	  }
+
+    	  if (REG_P(a) && REGNO(a) < FIRST_PSEUDO_REGISTER) {
+    		  extern rtx_insn *old_prev;
+    		  unsigned regno = REGNO(a);
+    		  unsigned swapregno = CALL_P(insn) ? 13 : 15;
+    		  machine_mode m = GET_MODE(a);
+    		  rtx from = gen_rtx_REG(m, regno);
+    		  rtx to   = gen_rtx_REG(m, swapregno);
+
+    		  rld[r->what].optional = 1;
+
+    		  emit_insn_after (gen_swapsi(from, to), old_prev);
+
+    		  debug_rtx(insn);
+		      validate_replace_rtx_group (from, to, insn);
+    		  debug_rtx(insn);
+
+    		  emit_insn_after  (gen_swapsi(from, to), insn);
+    	  }
+      }
+#endif
+
+
       if (reloadreg)
 	{
 #ifdef DEBUG_RELOAD
@@ -6300,7 +6334,13 @@ subst_reloads (rtx_insn *insn)
 	}
       /* If reload got no reg and isn't optional, something's wrong.  */
       else
-	gcc_assert (rld[r->what].optional);
+      {
+    	  if (!rld[r->what].optional) {
+    		  debug_rtx(insn);
+    		  fprintf(stderr, "no free registers left\n");
+		  gcc_assert (rld[r->what].optional);
+    	  }
+      }
     }
 }
 

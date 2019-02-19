@@ -1946,7 +1946,6 @@ m68k*-*-amigaosvasm*)
 	tm_defines="${tm_defines} MOTOROLA=1 TARGET_AMIGAOS TARGET_AMIGAOS_VASM TARGET_CPU_DEFAULT=0"
 	tmake_file="m68k/t-floatlib m68k/t-m68kbare m68k/t-amigaos"
 	tm_p_file="${tm_p_file} m68k/amigaos-protos.h"
-	extra_objs=amigaos.o
 	extra_options="${extra_options} m68k/amigaos.opt"
 	gnu_ld=yes
 	;;
@@ -1956,7 +1955,6 @@ m68k*-*-amigaos*)
 	tm_defines="${tm_defines} MOTOROLA=1 TARGET_AMIGAOS TARGET_CPU_DEFAULT=0"
 	tmake_file="m68k/t-floatlib m68k/t-m68kbare m68k/t-amigaos"
 	tm_p_file="${tm_p_file} m68k/amigaos-protos.h"
-	extra_objs=amigaos.o
 	extra_options="${extra_options} m68k/amigaos.opt"
 	gnu_ld=yes
 	CFLAGS="-Os"

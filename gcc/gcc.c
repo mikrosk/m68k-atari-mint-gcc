@@ -1042,6 +1042,10 @@ proper position among the other output files.  */
 # define SYSROOT_SPEC "--sysroot=%R"
 #endif
 
+#ifndef SELF_SPEC
+# define SELF_SPEC ""
+#endif
+
 #ifndef SYSROOT_SUFFIX_SPEC
 # define SYSROOT_SUFFIX_SPEC ""
 #endif
@@ -1075,7 +1079,7 @@ static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
 static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
-static const char *self_spec = "";
+static const char *self_spec = SELF_SPEC;
 
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
@@ -2232,8 +2236,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       /* The colon shouldn't be missing.  */
       if (*p1 != ':')
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p1 - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p1 - buffer), p1);
 
       /* Skip back over trailing whitespace.  */
       p2 = p1;
@@ -2246,8 +2250,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       p = skip_whitespace (p1 + 1);
       if (p[1] == 0)
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p - buffer), p);
 
       p1 = p;
       /* Find next blank line or end of string.  */
@@ -6924,8 +6928,8 @@ try_generate_repro (const char **argv)
 
     /* In final attempt we append compiler options and preprocesssed code to last
        generated .out file with configuration and backtrace.  */
-    char **output = &temp_stdout_files[RETRY_ICE_ATTEMPTS - 1];
-    do_report_bug (new_argv, nargs, stderr_commented, output);
+    char **err = &temp_stderr_files[RETRY_ICE_ATTEMPTS - 1];
+    do_report_bug (new_argv, nargs, stderr_commented, err);
   }
 
 out:
@@ -10114,29 +10118,10 @@ driver_get_configure_time_options (void (*cb) (const char *option,
 
 #ifdef TARGET_AMIGA
 const char * amiga_m68k_prefix_func(int argc, const char ** argv) {
-  char * p = 0;
+  char * p;
   if (standard_libexec_prefix)
-    {
-      char * glp = concat(standard_libexec_prefix, "", NULL);
-      p = strrchr(glp, '/');
-      if (p)
-	{
-	  *p = 0;
-	  p = strrchr(glp, '/');
-	  if (p)
-	    {
-	      *p = 0;
-	      p = strrchr(glp, '/');
-	      if (p)
-		{
-		  p[1] = 0;
-		  p = concat(glp, "m68k-amigaos/", NULL);
-		}
-	    }
-        }
-      free(glp);
-    }
-  if (!p)
+      p = make_relative_prefix(standard_libexec_prefix, "", "m68k-amigaos/");
+  else
     p = concat("../../../../", "", NULL);
 
   for (int i = 0; i < argc; ++i) {

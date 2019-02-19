@@ -421,8 +421,14 @@ void
 add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 {
   cpp_dir *p;
-
   char * q;
+  size_t l = strlen(path);
+  if (l > 1 && (path[0] == '"' || path[0] == '\'') && path[l - 1] == path[0])
+    {
+      l -= 2;
+      memmove(path, path + 1, l);
+      path[l] = 0;
+    }
   while ((q = strstr(path, "/../")))
     {
       char * r = q - 1;
@@ -460,7 +466,6 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
     p->sysp = 0;
   p->construct = 0;
   p->user_supplied_p = user_supplied_p;
-
   add_cpp_dir_path (p, chain);
 }
 

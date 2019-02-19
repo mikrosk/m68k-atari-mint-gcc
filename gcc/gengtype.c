@@ -5032,6 +5032,14 @@ parse_program_options (int argc, char **argv)
 	    srcdir = optarg;
 	  else
 	    fatal ("missing source directory");
+#ifdef __CYGWIN__
+	  if (0 == strncmp("/cygdrive/", srcdir, 10))
+	    {
+	      9[(char *)srcdir] = srcdir[10];
+	      10[(char *)srcdir] = ':';
+	      srcdir += 9;
+	    }
+#endif
 	  srcdir_len = strlen (srcdir);
 	  break;
 	case 'B':		/* --backupdir */

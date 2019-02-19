@@ -2321,7 +2321,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 
 	/* Assumed character length will not reduce to a constant expression
 	   with LEN, as required by the standard.  */
-	if (i == 5 && not_restricted
+	if (i == 5 && not_restricted && ap->expr->symtree
 	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
 	    && (ap->expr->symtree->n.sym->ts.u.cl->length == NULL
 		|| ap->expr->symtree->n.sym->ts.deferred))
@@ -4348,14 +4348,15 @@ gfc_is_alloc_class_scalar_function (gfc_expr *expr)
 /* Determine if an expression is a function with an allocatable class array
    result.  */
 bool
-gfc_is_alloc_class_array_function (gfc_expr *expr)
+gfc_is_class_array_function (gfc_expr *expr)
 {
   if (expr->expr_type == EXPR_FUNCTION
       && expr->value.function.esym
       && expr->value.function.esym->result
       && expr->value.function.esym->result->ts.type == BT_CLASS
       && CLASS_DATA (expr->value.function.esym->result)->attr.dimension
-      && CLASS_DATA (expr->value.function.esym->result)->attr.allocatable)
+      && (CLASS_DATA (expr->value.function.esym->result)->attr.allocatable
+	  || CLASS_DATA (expr->value.function.esym->result)->attr.pointer))
     return true;
 
   return false;

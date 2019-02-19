@@ -1804,7 +1804,18 @@ assemble_start_function (tree decl, const char *fnname)
 
       maybe_assemble_visibility (decl);
     }
-
+#ifdef TARGET_AMIGA
+  else if (profile_flag)
+    {
+      char *p;
+      char * sfnname = concat("__static__", fnname, "__", DECL_SOURCE_FILE (decl), "__", dump_base_name, NULL);
+      for (p = sfnname; *p; ++p)
+        if (*p < '0' || (*p > '9' && *p < '@') || (*p > 'Z' && *p != '_' && *p < 'a') || *p > 'z')
+          *p = '.';
+      default_globalize_label(asm_out_file, sfnname);
+      ASM_OUTPUT_FUNCTION_LABEL (asm_out_file, sfnname, current_function_decl);
+    }
+#endif
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (fnname);
 
@@ -2811,7 +2822,7 @@ static void
 decode_addr_const (tree exp, struct addr_const *value)
 {
   tree target = TREE_OPERAND (exp, 0);
-  int offset = 0;
+  HOST_WIDE_INT offset = 0;
   rtx x;
 
   while (1)
@@ -2825,8 +2836,9 @@ decode_addr_const (tree exp, struct addr_const *value)
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
-	  offset += (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (target)))
-		     * tree_to_shwi (TREE_OPERAND (target, 1)));
+	  /* Truncate big offset.  */
+	  offset += (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (target)))
+		     * TREE_INT_CST_LOW (TREE_OPERAND (target, 1)));
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF

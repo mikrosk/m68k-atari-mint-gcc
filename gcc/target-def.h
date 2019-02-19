@@ -47,7 +47,7 @@
 #define TARGET_ASM_UNALIGNED_TI_OP NULL
 #endif /* OBJECT_FORMAT_ELF */
 
-#if !defined(TARGET_ASM_CONSTRUCTOR) && !defined(USE_COLLECT2)
+#if !defined(TARGET_ASM_CONSTRUCTOR) && (!defined(USE_COLLECT2) || defined(TARGET_AMIGA))
 # ifdef CTORS_SECTION_ASM_OP
 #  define TARGET_ASM_CONSTRUCTOR default_ctor_section_asm_out_constructor
 # else
@@ -59,7 +59,7 @@
 # endif
 #endif
 
-#if !defined(TARGET_ASM_DESTRUCTOR) && !defined(USE_COLLECT2)
+#if !defined(TARGET_ASM_DESTRUCTOR) && (!defined(USE_COLLECT2) || defined(TARGET_AMIGA))
 # ifdef DTORS_SECTION_ASM_OP
 #  define TARGET_ASM_DESTRUCTOR default_dtor_section_asm_out_destructor
 # else

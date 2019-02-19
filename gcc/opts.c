@@ -381,8 +381,8 @@ maybe_default_option (struct gcc_options *opts,
       enabled = (level >= 3);
       break;
 
-    case OPT_LEVELS_3_PLUS_AND_SIZE:
-      enabled = (level >= 3 || size);
+    case OPT_LEVELS_3_PLUS_AND_SPEED_ONLY:
+      enabled = (level >= 3 && !size && !debug);
       break;
 
     case OPT_LEVELS_SIZE:
@@ -524,9 +524,9 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fpredictive_commoning, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
-    /* Inlining of functions reducing size is a good idea with -Os
+    /* Inlining of functions is ALWAYS a good idea with -O3
        regardless of them being declared inline.  */
-    { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
+    { OPT_LEVELS_3_PLUS_AND_SPEED_ONLY, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
@@ -974,6 +974,26 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
       opts->x_flag_aggressive_loop_optimizations = 0;
       opts->x_flag_strict_overflow = 0;
     }
+
+  /* Comes from final.c -- no real reason to change it.  */
+#define MAX_CODE_ALIGN 16
+#define MAX_CODE_ALIGN_VALUE (1 << MAX_CODE_ALIGN)
+
+  if (opts->x_align_loops > MAX_CODE_ALIGN_VALUE)
+    error_at (loc, "-falign-loops=%d is not between 0 and %d",
+	      opts->x_align_loops, MAX_CODE_ALIGN_VALUE);
+
+  if (opts->x_align_jumps > MAX_CODE_ALIGN_VALUE)
+    error_at (loc, "-falign-jumps=%d is not between 0 and %d",
+	      opts->x_align_jumps, MAX_CODE_ALIGN_VALUE);
+
+  if (opts->x_align_functions > MAX_CODE_ALIGN_VALUE)
+    error_at (loc, "-falign-functions=%d is not between 0 and %d",
+	      opts->x_align_functions, MAX_CODE_ALIGN_VALUE);
+
+  if (opts->x_align_labels > MAX_CODE_ALIGN_VALUE)
+    error_at (loc, "-falign-labels=%d is not between 0 and %d",
+	      opts->x_align_labels, MAX_CODE_ALIGN_VALUE);
 }
 
 #define LEFT_COLUMN	27

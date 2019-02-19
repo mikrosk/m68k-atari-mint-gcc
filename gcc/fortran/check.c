@@ -3636,8 +3636,11 @@ gfc_check_rank (gfc_expr *a ATTRIBUTE_UNUSED)
 		  ? a->value.function.esym->result->attr.pointer
 		  : a->symtree->n.sym->result->attr.pointer;
 
-  if (a->expr_type == EXPR_OP || a->expr_type == EXPR_NULL
-      || a->expr_type == EXPR_COMPCALL|| a->expr_type == EXPR_PPC
+  if (a->expr_type == EXPR_OP
+      || a->expr_type == EXPR_NULL
+      || a->expr_type == EXPR_COMPCALL
+      || a->expr_type == EXPR_PPC
+      || a->ts.type == BT_PROCEDURE
       || !is_variable)
     {
       gfc_error ("The argument of the RANK intrinsic at %L must be a data "
@@ -5028,7 +5031,7 @@ gfc_check_num_images (gfc_expr *distance, gfc_expr *failed)
 	return false;
 
       if (!gfc_notify_std (GFC_STD_F2008_TS, "FAILED= argument to "
-			   "NUM_IMAGES at %L", &distance->where))
+			   "NUM_IMAGES at %L", &failed->where))
 	return false;
     }
 

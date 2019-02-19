@@ -1927,6 +1927,7 @@ is_reg_dead (unsigned regno, unsigned _pos)
   return true;
 }
 
+bool dump_cycles;
 bool dump_reg_track;
 void
 append_reg_cache (FILE * f, rtx_insn * insn)
@@ -1969,7 +1970,6 @@ append_reg_cache (FILE * f, rtx_insn * insn)
 }
 
 /* helper stuff to enhance the asm output. */
-int my_flag_regusage;
 void
 append_reg_usage (FILE * f, rtx_insn * insn)
 {
@@ -1982,10 +1982,13 @@ append_reg_usage (FILE * f, rtx_insn * insn)
   if (f != stderr)
     {
 	  int cost = insn_rtx_cost(PATTERN(ii.get_insn()), true);
-      if (be_very_verbose > 1)
-	fprintf (f, "\n\t\t\t\t|%d\t%d\t", ii.get_index (), cost);
+      if (be_very_verbose)
+	fprintf (f, "\n\t\t\t\t#%d\t%d\t", ii.get_index (), cost);
       else
-	fprintf (f, "\n\t\t\t\t|\t%d\t", cost);
+	{
+	  fprintf (f, "\t# %d", cost);
+	  return;
+	}
     }
 
   fprintf (f, "%c ", ii.in_proepi () == IN_PROLOGUE ? 'p' : ii.in_proepi () >= IN_EPILOGUE ? 'e' : ' ');
@@ -4847,6 +4850,7 @@ opt_lea_mem()
   return change_count;
 }
 
+
 /**
  * Expand "clr mem" into "moveq #0,dx; move dx,mem", if possible.
  * Perform the cleanup in opt_final().
@@ -4896,6 +4900,65 @@ opt_clear()
     }
   return change_count;
 }
+
+/**
+ * Exchange insns if dst operand of an insn is used in the next insn as src operand.
+ */
+static void
+pipeline_insns()
+{
+  // up
+  for (unsigned index = 1; index < infos.size() - 1; ++index)
+    {
+      insn_info & ii = infos[index];
+
+      // only check if not in prolog and a register is set
+      rtx iiset = single_set(ii.get_insn());
+      if (ii.in_proepi() || ii.is_compare() || !ii.get_dst_reg() || ii.get_hard() || !iiset)
+	continue;
+
+      insn_info & jj = infos[index + 1];
+      // don't touch compares and check for register overlap
+      if (jj.is_compare() || !(jj.get_myuse() & ii.get_def()))
+	continue;
+
+      // check previous insn
+      insn_info & hh = infos[index - 1];
+      rtx hhset = single_set(hh.get_insn());
+      if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset)
+	continue;
+
+      // overlap with current insn
+      if (((ii.get_myuse() | ii.get_def()) & hh.get_def()) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
+	continue;
+
+      rtx pat = PATTERN(hh.get_insn());
+
+      // don't move volatil insns
+      if (pat->volatil)
+	continue;
+
+//      fprintf(stderr, "reorder insns: ");
+//      debug_rtx(hh.get_insn());
+//      debug_rtx(ii.get_insn());
+
+      // swap da insns
+      rtx_insn * head = PREV_INSN(hh.get_insn());
+      rtx_insn * tail = NEXT_INSN(ii.get_insn());
+
+      SET_NEXT_INSN(head) = ii.get_insn();
+      SET_NEXT_INSN(ii.get_insn()) = hh.get_insn();
+      SET_NEXT_INSN(hh.get_insn()) = tail;
+
+      SET_PREV_INSN(tail) = hh.get_insn();
+      SET_PREV_INSN(hh.get_insn()) = ii.get_insn();
+      SET_PREV_INSN(ii.get_insn()) = head;
+
+      std::swap(infos[index], infos[index - 1]);
+      log("(n) reordered insn %d<->%d\n", index - 1, index);
+    }
+}
+
 
 void print_inline_info()
 {
@@ -4975,6 +5038,7 @@ namespace
   unsigned
   pass_bbb_optimizations::execute_bbb_optimizations (void)
   {
+    dump_cycles = strchr (string_bbb_opts, 'C') != 0;
     dump_reg_track = strchr (string_bbb_opts, 'R') != 0;
     be_very_verbose = strchr (string_bbb_opts, 'V') != 0;
     be_verbose = strchr (string_bbb_opts, 'v') != 0;
@@ -4991,6 +5055,7 @@ namespace
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
     bool do_lea_mem = strchr (string_bbb_opts, 'l') || strchr (string_bbb_opts, '+');
     bool do_merge_add = strchr (string_bbb_opts, 'm') || strchr (string_bbb_opts, '+');
+    bool do_pipeline = strchr (string_bbb_opts, 'n') || strchr (string_bbb_opts, '+');
     bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
     bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
     bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
@@ -5061,6 +5126,9 @@ namespace
 	/* elim assignments to the stack pointer last. */
 	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
 	  update_insns ();
+
+	if (do_pipeline)
+	  pipeline_insns ();
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);
@@ -5068,10 +5136,11 @@ namespace
     if (strchr (string_bbb_opts, 'X') || strchr (string_bbb_opts, 'x'))
       dump_insns ("bbb", strchr (string_bbb_opts, 'X'));
 
-    if (dump_reg_track)
+    if (dump_reg_track || dump_cycles || be_very_verbose)
       {
 	update_insns ();
-	track_regs ();
+	if (dump_reg_track)
+	  track_regs ();
       }
 
     if (be_verbose)

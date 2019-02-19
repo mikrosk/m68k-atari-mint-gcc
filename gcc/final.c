@@ -3625,6 +3625,7 @@ void
 output_asm_insn (const char *templ, rtx *operands)
 {
   extern bool be_very_verbose;
+  extern bool dump_cycles;
   extern void append_reg_usage(FILE *, rtx_insn *);
 
   extern bool dump_reg_track;
@@ -3786,7 +3787,7 @@ output_asm_insn (const char *templ, rtx *operands)
 	putc (c, asm_out_file);
       }
 
-  if (be_very_verbose)
+  if (be_very_verbose || dump_cycles)
     append_reg_usage(asm_out_file, current_insn);
   if (dump_reg_track)
     append_reg_cache(asm_out_file, current_insn);

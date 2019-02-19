@@ -692,7 +692,14 @@ amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_U
       {
 	if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
 	  {
-	    fprintf (asm_out_file, "\tsection .bss%s%s,bss\n", name[5]==0 ? "" : "_", name + 5);
+	  if (0 == strncmp(".data_chip", name, 10))
+	    {
+	      fprintf (asm_out_file, "\tsection .bss_chip,bss,chip\n");
+	    }
+	  else
+	    {
+	      fprintf (asm_out_file, "\tsection .bss%s%s,bss\n", name[5]==0 ? "" : "_", name + 5);
+	    }
 	  }
 	else
 	  {

@@ -3,6 +3,10 @@ mregparm=
 Target RejectNegative Var(amigaos_regparm) Joined UInteger Init(-1)
 Pass arguments through registers.
 
+mregparm
+Target RejectNegative Alias(mregparm=, 2)
+Same as -mregparm=2
+
 noixemul
 Target RejectNegative
 Do not use ixemul.library - use libnix instead to link

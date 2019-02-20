@@ -1981,7 +1981,10 @@ append_reg_usage (FILE * f, rtx_insn * insn)
 
   if (f != stderr)
     {
-	  int cost = insn_rtx_cost(PATTERN(ii.get_insn()), true);
+      int cost = -1;
+      rtx set = single_set(ii.get_insn());
+      if (set)
+	cost = rtx_cost(set, GET_MODE(SET_DEST(set)), INSN, 0, true);
       if (be_very_verbose)
 	fprintf (f, "\n\t\t\t\t#%d\t%d\t", ii.get_index (), cost);
       else
@@ -4929,7 +4932,7 @@ pipeline_insns()
 	continue;
 
       // overlap with current insn
-      if (((ii.get_myuse() | ii.get_def()) & hh.get_def()) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
+      if (((ii.get_myuse() | ii.get_def()) & hh.get_def() & ~(1<<FIRST_PSEUDO_REGISTER)) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
 	continue;
 
       rtx pat = PATTERN(hh.get_insn());

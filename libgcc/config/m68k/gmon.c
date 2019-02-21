@@ -31,6 +31,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma GCC push_options
+#pragma GCC optimize ("-O2")
+
 #include <unistd.h>
 
 #include <stdio.h>
@@ -425,3 +428,5 @@ int profil(char *buf, size_t bufsiz,
   vbdata.data = 0;
   return 0;
 }
+
+#pragma GCC pop_options

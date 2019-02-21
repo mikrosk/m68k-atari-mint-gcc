@@ -22,6 +22,9 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
+#pragma GCC push_options
+#pragma GCC optimize ("-O2")
+
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
@@ -1791,3 +1794,5 @@ alias (_Unwind_SetIP);
 #endif
 
 #endif /* !USING_SJLJ_EXCEPTIONS */
+
+#pragma GCC pop_options

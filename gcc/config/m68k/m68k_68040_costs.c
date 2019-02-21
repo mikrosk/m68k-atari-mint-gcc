@@ -7,7 +7,9 @@
 #include "rtl.h"
 
 /**
- * This function also calculates the "fetch effective address" costs.
+ * calculate costs for the 68040.
+ * opno == 1: calculate as if dst is a register
+ * opno == 0: calculate difference to register assignment
  */
 bool
 m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
@@ -15,11 +17,39 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 {
   int code = GET_CODE(x);
   int total2 = 0;
+  *total = 0;
   switch (code)
     {
     case CALL:
-      *total = 3;
+      {
+	rtx a = XEXP(x, 0);
+	if (MEM_P(a))
+	  {
+	    rtx b = XEXP(a, 0);
+	    if (REG_P(b) || GET_CODE(b) == PC)
+	      {
+		*total = 6;
       return true;
+	      }
+	    if (GET_CODE(b) == PLUS)
+	      {
+		if (REG_P(XEXP(b, 0)))
+		  {
+		    *total = 8;
+		    return true;
+		  }
+	      }
+	    else if (SYMBOL_REF_P(b))
+	      {
+		tree decl = SYMBOL_REF_DECL(b);
+
+		*total = 6;
+      return true;
+	      }
+	  }
+	*total = 12;
+	return true;
+      }
     case NE:
     case EQ:
     case GE:
@@ -32,28 +62,15 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case LTU:
       return m68k_68040_costs (XEXP(x, 0), mode, code, 0, total, speed);
     case CONST:
-      {
-	rtx a = XEXP(x, 0);
-	if (GET_CODE(a) == PLUS)
-	  {
-	    rtx b = XEXP(a, 0);
-	    rtx c = XEXP(a, 1);
-	    if (GET_CODE(b) == SYMBOL_REF)
-	      {
 		*total = 1;
 		return true;
-	      }
-	    *total = 3;
-	    return true;
-	  }
-      }
-      break;
+	  break;
     case LABEL_REF:
     case SYMBOL_REF:
       *total = 1;
       return true;
     case CONST_INT:
-      *total = 1;
+      *total = 0;
       return true;
     case CONST_DOUBLE:
       *total = GET_MODE_SIZE(mode) > 4 ? 2 : 1;
@@ -72,8 +89,7 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
-      m68k_68040_costs (XEXP(x, 0), mode, code, 0, total, speed);
-      *total += 5;
+      *total = 4;
       return true;
     case TRUNCATE:
     case ZERO_EXTEND:
@@ -96,17 +112,17 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx a = XEXP(x, 0);
 	if (REG_P(a))
 	  {
-	    *total = 0;
+	    *total = 1;
 	    return true;
 	  }
 	if (GET_CODE(a) == POST_INC)
 	  {
-	    *total = 0;
+	    *total = 1;
 	    return true;
 	  }
 	if (GET_CODE(a) == PRE_DEC)
 	  {
-	    *total = 0;
+	    *total = 1;
 	    return true;
 	  }
 	if (GET_CODE(a) == PLUS)
@@ -115,7 +131,7 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	    rtx c = XEXP(a, 1);
 	    if (REG_P(b) && GET_CODE(c) == CONST_INT)
 	      {
-		*total = 0;
+		*total = 1;
 		return true;
 	      }
 	    if (REG_P(b) && REG_P(c))
@@ -124,7 +140,7 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		return true;
 	      }
 	  }
-	*total = 3;
+	*total = 2;
 	return true;
       }
       break;
@@ -132,38 +148,13 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
       {
 	rtx dst = XEXP(x, 0);
 	rtx src = XEXP(x, 1);
-
-	if (GET_CODE(dst) == CC0)
-	  return m68k_68040_costs (src, GET_MODE(XEXP(src,0)), CC0, 0, total,
-				   speed);
-
-	if (REG_P(dst))
-	  {
-	    // handle moveq
-	    if (REGNO(dst) < 8 && GET_CODE(src) == CONST_INT)
-	      {
-		int ival = INTVAL(src);
-		if (ival >= -128 && ival <= 127)
+	if (REG_P(dst) || GET_CODE(dst) == CC0)
 		  {
-		    *total = 0;
+	    if (m68k_68040_costs (src, mode, code, 1, total, speed))
 		    return true;
 		  }
-	      }
-
-	    // ADDQ / SUBQ
-	    if (GET_CODE(src) == PLUS || GET_CODE(src) == MINUS)
-	      {
-		rtx a = XEXP(src, 0);
-		rtx b = XEXP(src, 1);
-		if (REGNO(a) == REGNO(dst) && REG_P(a) && GET_CODE(b) == CONST_INT && UINTVAL(b) <= 8)
-		  {
-		    *total = 0;
-		    return true;
-		  }
-	      }
-	  }
-	if (m68k_68040_costs (src, mode, code, 1 /* yes 1 */, total, speed)
-	    && m68k_68040_costs (dst, mode, code, 1, &total2, speed))
+	else if (m68k_68040_costs (dst, mode, code, 0, total, speed)
+	    && m68k_68040_costs (src, mode, code, 1, &total2, speed))
 	  {
 	    *total += total2;
 	    return true;
@@ -196,10 +187,11 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  {
 	    if (GET_CODE(b) == CONST_INT)
 	      {
+		*total = 3;
 		return true;
 	      }
 	  }
-	*total += 1;
+	*total = 4;
 	return true;
       }
       break;
@@ -209,19 +201,46 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx dst = XEXP(x, 0);
 	rtx src = XEXP(x, 1);
 
-	/* if there is an extended HImode, mul.w might be a candidate. */
-	if (GET_CODE (dst) == ZERO_EXTEND || GET_CODE (dst) == SIGN_EXTEND)
+	if (GET_CODE(src) == CONST_INT)
 	  {
-	    *total = 0;
-	    mode = HImode;
-	    dst = XEXP(dst, 0);
+	    unsigned i = INTVAL(src);
+	    int bits = 0, l = 0;
+	    if (i > 0)
+	      {
+		if (GET_CODE (dst) == ZERO_EXTEND || REG_P(dst))
+		  {
+		    while (i)
+		      {
+			if (i & 1)
+			  ++bits;
+			i >>= 1;
 	  }
-	if (m68k_68040_costs (dst, mode, code, 0, total, speed)
-	    && m68k_68040_costs (src, mode, code, 1, &total2, speed))
+		    // it's a shift
+		    if (bits == 1 && REG_P(dst))
 	  {
-	    *total += total2 + 20;
+			*total = 3;
+			return true;
+		      }
+		  }
+		else
+		  // SIGN_EXTEND
+		  while (i || l)
+		    {
+		      if ((i & 1) != l)
+			{
+			  l = !l;
+			  ++bits;
+			}
+		      i >>= 1;
+		    }
+
+		*total = 12 + (bits>>2);
 	    return true;
 	  }
+      }
+
+	*total = GET_MODE_SIZE(mode) > 2 ? 20 : 16;
+	return true;
       }
       break;
     case COMPARE:
@@ -230,21 +249,25 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx b = XEXP(x, 1);
 	if (REG_P(a))
 	  {
-	    if (GET_CODE(b) == CONST_INT && INTVAL(b) == 0)
+	    if (GET_CODE(b) == CONST_INT)
 	      {
-		*total = 1;
+		*total = 0;
 		return true;
 	      }
 	    m68k_68040_costs (b, mode, code, 1, total, speed);
-	    *total + 1;
 	    return true;
 	  }
-	if (m68k_68040_costs (a, mode, code, 0, total, speed)
-	    && m68k_68040_costs (b, mode, code, 1, &total2, speed))
+	if (m68k_68040_costs (a, mode, code, 0, total, speed))
 	  {
-	    *total += total2 + 1;
+	    if (GET_CODE(b) == CONST_INT && INTVAL(b) == 0)
+	      return true;
+
+	    if (m68k_68040_costs (b, mode, code, 1, &total2, speed))
+	      {
+	    *total += total2;
 	    return true;
 	  }
+      }
       }
       break;
     case IF_THEN_ELSE:

@@ -7,7 +7,9 @@
 #include "rtl.h"
 
 /**
- * This function also calculates the "fetch effective address" costs.
+ * calculate costs for the 68020.
+ * opno == 1: calculate as if dst is a register
+ * opno == 0: calculate difference to register assignment
  */
 bool
 m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
@@ -15,11 +17,39 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 {
   int code = GET_CODE(x);
   int total2 = 0;
+  *total = 0;
   switch (code)
     {
     case CALL:
-      *total = 13;
-      return true;
+      {
+	rtx a = XEXP(x, 0);
+	if (MEM_P(a))
+	  {
+	    rtx b = XEXP(a, 0);
+	    if (REG_P(b) || GET_CODE(b) == PC)
+	      {
+		*total = 13;
+		return true;
+	      }
+	    if (GET_CODE(b) == PLUS)
+	      {
+		if (REG_P(XEXP(b, 0)))
+		  {
+		    *total = 15;
+		    return true;
+		  }
+	      }
+	    else if (SYMBOL_REF_P(b))
+	      {
+		tree decl = SYMBOL_REF_DECL(b);
+
+		*total = 13;
+		return true;
+	      }
+	  }
+	*total = 19;
+	return true;
+      }
     case NE:
     case EQ:
     case GE:
@@ -37,43 +67,46 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	if (GET_CODE(a) == PLUS)
 	  {
 	    rtx b = XEXP(a, 0);
-	    rtx c = XEXP(a, 1);
-	    if (GET_CODE(b) == SYMBOL_REF)
+	    if (GET_CODE(b) == SYMBOL_REF || GET_CODE(b) == LABEL_REF)
 	      {
-		*total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
+		*total = GET_MODE_SIZE(mode) > 2 ? 6 : 4;
 		return true;
 	      }
-	    *total = GET_MODE_SIZE(mode) > 2 ? 7 : 5;
+	    *total = 9;
 	    return true;
 	  }
       }
       break;
     case LABEL_REF:
     case SYMBOL_REF:
-      *total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
+      *total = GET_MODE_SIZE(mode) > 2 ? 6 : 4;
       return true;
     case CONST_INT:
-      *total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
+      if (INTVAL(x) >= -128 && INTVAL(x) <= 127)
+	*total = 1;
+      else
+	*total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
       return true;
     case CONST_DOUBLE:
       *total = GET_MODE_SIZE(mode) > 4 ? 10 : 5;
       return true;
     case POST_INC:
-      *total = opno ? 0 : 2;
+      *total = 0;
       return true;
     case PRE_DEC:
       *total = opno ? 1 : 3;
       return true;
     case REG:
+    case PC:
+      *total = 3;
+      return true;
     case SUBREG:
     case STRICT_LOW_PART:
-    case PC:
-      *total = opno ? 2 : 0;
+      *total = 0;
       return true;
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
-      m68k_68020_costs (XEXP(x, 0), mode, code, 0, total, speed);
-      *total += 8;
+      *total = 8;
       return true;
     case TRUNCATE:
     case ZERO_EXTEND:
@@ -81,6 +114,8 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case NOT:
     case NEG:
+      *total = 3;
+      return true;
     case SIGN_EXTEND:
       *total = 4;
       return true;
@@ -96,35 +131,45 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx a = XEXP(x, 0);
 	if (REG_P(a))
 	  {
-	    *total = opno ? 2 : 4;
+	    *total = opno ? 7 : 5;
+	    if (REGNO(a) < 8)
+	      *total += 5;
 	    return true;
 	  }
 	if (GET_CODE(a) == POST_INC)
 	  {
-	    *total = opno ? 2 : 4;
+	    *total = opno ? 7 : 5;
 	    return true;
 	  }
 	if (GET_CODE(a) == PRE_DEC)
 	  {
-	    *total = opno ? 3 : 5;
+	    *total = opno ? 8 : 6;
+	    return true;
+	  }
+	if (GET_CODE(a) == SYMBOL_REF || GET_CODE(a) == LABEL_REF)
+	  {
+	    *total = opno ? 10 : 9;
 	    return true;
 	  }
 	if (GET_CODE(a) == PLUS)
 	  {
 	    rtx b = XEXP(a, 0);
 	    rtx c = XEXP(a, 1);
-	    if (REG_P(b) && (GET_CODE(c) == CONST_INT || GET_CODE(c) == SYMBOL_REF))
+	    if (REG_P(b)
+		&& (GET_CODE(c) == CONST_INT || GET_CODE(c) == SYMBOL_REF))
 	      {
-		*total = opno ? 3 : 5;
+		*total = opno ? 10 : 9;
+		if (REGNO(b) < 8)
+		  *total += 5;
 		return true;
 	      }
 	    if (REG_P(b) && REG_P(c))
 	      {
-		*total = opno ? 7 : 9;
+		*total = opno ? 12 : 10;
 		return true;
 	      }
 	  }
-	*total = opno ? 12 : 14;
+	*total = opno ? 15 : 13;
 	return true;
       }
       break;
@@ -132,40 +177,17 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
       {
 	rtx dst = XEXP(x, 0);
 	rtx src = XEXP(x, 1);
-
-	if (GET_CODE(dst) == CC0)
-	  return m68k_68020_costs (src, GET_MODE(XEXP(src,0)), CC0, 0, total,
-				   speed);
-
-	if (REG_P(dst))
+	if (REG_P(dst) || GET_CODE(dst) == CC0)
 	  {
-	    // handle moveq
-	    if (REGNO(dst) < 8 && GET_CODE(src) == CONST_INT)
-	      {
-		int ival = INTVAL(src);
-		if (ival >= -128 && ival <= 127)
-		  {
-		    *total = 3;
-		    return true;
-		  }
-	      }
-
-	    // ADDQ / SUBQ
-	    if (GET_CODE(src) == PLUS || GET_CODE(src) == MINUS)
-	      {
-		rtx a = XEXP(src, 0);
-		rtx b = XEXP(src, 1);
-		if (REGNO(a) == REGNO(dst) && REG_P(a) && GET_CODE(b) == CONST_INT && UINTVAL(b) <= 8)
-		  {
-		    *total = 3;
-		    return true;
-		  }
-	      }
+	    if (m68k_68020_costs (src, mode, code, 1, total, speed))
+	      return true;
 	  }
-	if (m68k_68020_costs (src, mode, code, 1 /* yes 1 */, total, speed)
-	    && m68k_68020_costs (dst, mode, code, 1, &total2, speed))
+	else if (m68k_68020_costs (dst, mode, code, 0, total, speed)
+	    && m68k_68020_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2 + 2;
+	    *total += total2;
+	    if (!REG_P(dst))
+	      *total -= 3;
 	    return true;
 	  }
       }
@@ -181,7 +203,9 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	if (m68k_68020_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68020_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2 + REG_P(dst) ? 0 : 3;
+	    *total += total2 + 2;
+	    if (REG_P(dst))
+	      *total -= REG_P(src) ? 5 : 2;
 	    return true;
 	  }
       }
@@ -196,11 +220,11 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  {
 	    if (GET_CODE(b) == CONST_INT)
 	      {
-		*total += 4;
+		*total = 4;
 		return true;
 	      }
 	  }
-	*total += 6;
+	*total = 6;
 	return true;
       }
       break;
@@ -210,19 +234,46 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx dst = XEXP(x, 0);
 	rtx src = XEXP(x, 1);
 
-	/* if there is an extended HImode, mul.w might be a candidate. */
-	if (GET_CODE (dst) == ZERO_EXTEND || GET_CODE (dst) == SIGN_EXTEND)
+	if (GET_CODE(src) == CONST_INT)
 	  {
-	    *total = 0;
-	    mode = HImode;
-	    dst = XEXP(dst, 0);
+	    unsigned i = INTVAL(src);
+	    int bits = 0, l = 0;
+	    if (i > 0)
+	      {
+		if (GET_CODE (dst) == ZERO_EXTEND || REG_P(dst))
+		  {
+		    while (i)
+		      {
+			if (i & 1)
+			  ++bits;
+			i >>= 1;
+		      }
+		    // it's a shift
+		    if (bits == 1 && REG_P(dst))
+		      {
+			*total = 4;
+			return true;
+		      }
+		  }
+		else
+		  // SIGN_EXTEND
+		  while (i || l)
+		    {
+		      if ((i & 1) != l)
+			{
+			  l = !l;
+			  ++bits;
+			}
+		      i >>= 1;
+		    }
+
+		*total = 12 + bits;
+		return true;
+	      }
 	  }
-	if (m68k_68020_costs (dst, mode, code, 0, total, speed)
-	    && m68k_68020_costs (src, mode, code, 1, &total2, speed))
-	  {
-	    *total += total2 + GET_MODE_SIZE(mode) > 2 ? 44 : 28;
-	    return true;
-	  }
+
+	*total = GET_MODE_SIZE(mode) > 2 ? 44 : 28;
+	return true;
       }
       break;
     case COMPARE:
@@ -231,20 +282,25 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx b = XEXP(x, 1);
 	if (REG_P(a))
 	  {
-	    if (GET_CODE(b) == CONST_INT && INTVAL(b) == 0)
+	    if (GET_CODE(b) == CONST_INT)
 	      {
-		*total = 3;
+		*total = INTVAL(b) == 0 ? 0 : 1;
 		return true;
 	      }
 	    m68k_68020_costs (b, mode, code, 1, total, speed);
-	    *total + 3;
+	    *total += 3;
 	    return true;
 	  }
-	if (m68k_68020_costs (a, mode, code, 0, total, speed)
-	    && m68k_68020_costs (b, mode, code, 1, &total2, speed))
+	if (m68k_68020_costs (a, mode, code, 0, total, speed))
 	  {
-	    *total += total2 + 3;
-	    return true;
+	    if (GET_CODE(b) == CONST_INT && INTVAL(b) == 0)
+	      return true;
+
+	    if (m68k_68020_costs (b, mode, code, 1, &total2, speed))
+	      {
+		*total += total2 + 3;
+		return true;
+	      }
 	  }
       }
       break;

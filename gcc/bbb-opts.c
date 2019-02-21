@@ -1986,10 +1986,10 @@ append_reg_usage (FILE * f, rtx_insn * insn)
       if (set)
 	cost = rtx_cost(set, GET_MODE(SET_DEST(set)), INSN, 0, true);
       if (be_very_verbose)
-	fprintf (f, "\n\t\t\t\t#%d\t%d\t", ii.get_index (), cost);
+	fprintf (f, "\n\t\t\t\t#%d\t%d %d\t", ii.get_index (), cost, set ? insn_rtx_cost(set, true): 0);
       else
 	{
-	  fprintf (f, "\t# %d", cost);
+	  fprintf (f, "\t# %d %d", cost, set ? insn_rtx_cost(set, true): 0);
 	  return;
 	}
     }

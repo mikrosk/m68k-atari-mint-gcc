@@ -4908,7 +4908,7 @@ opt_clear()
  * Exchange insns if dst operand of an insn is used in the next insn as src operand.
  */
 static void
-pipeline_insns()
+opt_pipeline_insns()
 {
   // up
   for (unsigned index = 1; index < infos.size() - 1; ++index)
@@ -4928,7 +4928,7 @@ pipeline_insns()
       // check previous insn
       insn_info & hh = infos[index - 1];
       rtx hhset = single_set(hh.get_insn());
-      if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset)
+      if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset || !hh.get_dst_reg())
 	continue;
 
       // overlap with current insn
@@ -5131,7 +5131,7 @@ namespace
 	  update_insns ();
 
 	if (do_pipeline)
-	  pipeline_insns ();
+	  opt_pipeline_insns ();
       }
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);

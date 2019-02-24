@@ -4555,7 +4555,14 @@ static int
 try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 {
   int const regno = REGNO(reg);
-  unsigned size = GET_MODE_SIZE(ii.get_mode ());
+  rtx iiset = single_set(ii.get_insn());
+  if (!iiset)
+    return 0;
+
+  // move.w (a0)+,a1 reads a word but writes a long...
+  unsigned size = GET_MODE_SIZE(ii.get_mode());
+  if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
+    size /= 2;
   if (size > 4)
     return 0;
 

@@ -75,6 +75,9 @@
 #include <set>
 #include <map>
 
+//#define XUSE(c) fputc(c, stderr)
+#define XUSE(c) done = 0
+
 int be_very_verbose;
 bool be_verbose;
 
@@ -5048,6 +5051,7 @@ namespace
   unsigned
   pass_bbb_optimizations::execute_bbb_optimizations (void)
   {
+    int done;
     dump_cycles = strchr (string_bbb_opts, 'C') != 0;
     dump_reg_track = strchr (string_bbb_opts, 'R') != 0;
     be_very_verbose = strchr (string_bbb_opts, 'V') != 0;
@@ -5084,42 +5088,43 @@ namespace
 	  update_insns ();
 
 	int pass = 0;
-	for (;;)
+	for (;pass == 0;)
 	  {
-	    int done = 1;
+	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", ++pass);
 	    if (do_opt_strcpy && opt_strcpy ())
-	      done = 0, update_insns ();
+	      XUSE('s'), done = 0, update_insns ();
 
 	    if (do_commute_add_move && opt_commute_add_move ())
-	      done = 0, update_insns ();
+	      XUSE('a'), done = 0, update_insns ();
 
 	    if (do_propagate_moves && opt_propagate_moves ())
-	      done = 0, update_insns ();
+	      XUSE('p'), done = 0, update_insns ();
 
 	    if (do_const_cmp_to_sub && opt_const_cmp_to_sub ())
-	      done = 0, update_insns ();
+	      XUSE('c'), done = 0, update_insns ();
 
 	    if (do_merge_add && opt_merge_add ())
-	      done = 0;
-
-	    if (do_elim_dead_assign && opt_elim_dead_assign (STACK_POINTER_REGNUM))
-	      done = 0, update_insns ();
+	      XUSE('m'), done = 0;
 
 	    if (do_absolute && opt_absolute ())
-	      done = 0, update_insns ();
+	      XUSE('b'), done = 0, update_insns ();
 
 	    if (do_autoinc && opt_autoinc ())
-	      done = 0, update_insns ();
+	      XUSE('i'), done = 0, update_insns ();
 
 	    if (do_bb_reg_rename)
+	      while (opt_reg_rename ())
+		{
+		  XUSE('r');
+		      update_insns ();
+		      done = 0;
+		}
+
+	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      {
-		while (opt_reg_rename ())
-		  {
-			update_insns ();
-			done = 0;
-		  }
+		XUSE('e'), done = 0, update_insns ();
 	      }
 
 	    if (done)
@@ -5128,14 +5133,14 @@ namespace
 
 	/* convert back to clear befor fixing the stack frame */
 	if (do_opt_final && opt_final())
-	    update_insns();
+	  XUSE('z'), update_insns();
 
 	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
-	  update_insns ();
+	  XUSE('f'), update_insns ();
 
 	/* elim assignments to the stack pointer last. */
 	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
-	  update_insns ();
+	  XUSE('e'), update_insns ();
 
 	if (do_pipeline)
 	  opt_pipeline_insns ();
@@ -5156,6 +5161,7 @@ namespace
     if (be_verbose)
       print_inline_info();
 
+    XUSE('\n');
     return r;
   }
 
@@ -5200,7 +5206,8 @@ namespace
     virtual unsigned int
     execute (function *)
     {
-      return execute_bbb_baserel ();
+      //return execute_bbb_baserel ();
+      return 0;
     }
 
     opt_pass *
@@ -5281,7 +5288,7 @@ namespace
 		    ++cur_tmp_use;
 		  }
 
-		// if the change does not validate, poke it hard and pray that it's fixed later on.
+		// if the change does not validate, poke it hard and pray that it's fixed later on. see maybe_fix()
 		if (!validate_unshare_change(insn, x, r, 0))
 		  {
 //		    fprintf(stderr, "can't convert to baserel: ");
@@ -5389,6 +5396,10 @@ namespace
      *
      */
 
+    /* MEM can be nested inside. */
+    if (GET_CODE(x) == ZERO_EXTEND || GET_CODE(x) == SIGN_EXTEND)
+      x = XEXP(x, 0);
+
     if (MEM_P(x))
       {
 	rtx pl1 = XEXP(x, 0);
@@ -5421,7 +5432,7 @@ namespace
 		rtx set = gen_rtx_SET(r, pl2);
 		emit_insn_before(set, insn);
 
-		// use that registers instead of pl2
+		// use that register instead of pl2
 		validate_change(insn, &XEXP(pl1, 0), r, 0);
 
 		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))

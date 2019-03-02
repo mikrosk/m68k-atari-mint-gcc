@@ -465,10 +465,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{p:-lc_p} %{pg:-lc_p}"
 #define LIB_LIBNIX_SPEC \
   "%{mcrt=*:-l%*} " \
-  "-lnixmain -lnix " \
-  "%{mcrt=*:-l%*} " \
-  "%{!mcrt=*:-lnix20} " \
-  "-lamiga " \
+  "-lnixmain " \
+  "%{!mcrt=*:-lnix20 -lnix} " \
   "%{mstackcheck:-lstack} " \
   "%{mstackextend:-lstack}"
 #define LIB_CLIB2_SPEC \
@@ -492,9 +490,13 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 #endif
 
 #define LIBGCC_IXEMUL_SPEC ""
-#define LIBGCC_LIBNIX_SPEC "-lnix " \
-  "%{mcrt=*:-l%*} " \
-  "%{!mcrt=*:-lnix20} -lstubs"
+#define LIBGCC_LIBNIX_SPEC \
+  "-lstubs " \
+  "-lamiga " \
+  "%{mcrt=*:-l%*}" \
+  "%{!mcrt=*:-lnix20} " \
+   "-lnix "
+
 #define LIBGCC_CLIB2_SPEC "-lc"
 #define LIBGCC_SPEC "-lgcc " \
   "%{noixemul:%(libgcc_libnix)} " \

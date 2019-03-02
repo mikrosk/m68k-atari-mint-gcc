@@ -2416,13 +2416,13 @@ find_start (unsigned start, unsigned rename_regno)
     {
       unsigned startm1 = start - 1;
 
-      /* do not run over RETURNS */
       insn_info & jj = infos[start];
 
       /* stop at labels. If a label is a start pos, a search is maybe started again. */
       if (jj.is_label ())
 	break;
 
+      /* do not run over RETURNS */
       insn_info & bb = infos[startm1];
       if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
@@ -2548,7 +2548,8 @@ opt_reg_rename (void)
 
 //		      printf ("label start check %d use %d\n", pos, bb.is_use (rename_regno) || bb.is_def(rename_regno)); fflush (stdout);
 
-		      if (bb.is_use (rename_regno) || bb.is_def (rename_regno))
+		      // search previous insn if it's a label or the register is used or defined.
+		      if (bb.is_label() || bb.is_use (rename_regno) || bb.is_def (rename_regno))
 			{
 			  unsigned start = find_start (pos - 1, rename_regno);
 			  todo.insert (start);
@@ -5088,43 +5089,45 @@ namespace
 	  update_insns ();
 
 	int pass = 0;
-	for (;pass == 0;)
+	for (;;)
 	  {
 	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", ++pass);
 	    if (do_opt_strcpy && opt_strcpy ())
-	      XUSE('s'), done = 0, update_insns ();
+	      {XUSE('s'); done = 0; update_insns (); }
 
 	    if (do_commute_add_move && opt_commute_add_move ())
-	      XUSE('a'), done = 0, update_insns ();
+	      {XUSE('a'); done = 0; update_insns (); }
 
 	    if (do_propagate_moves && opt_propagate_moves ())
-	      XUSE('p'), done = 0, update_insns ();
+	      {XUSE('p'); done = 0; update_insns (); }
 
 	    if (do_const_cmp_to_sub && opt_const_cmp_to_sub ())
-	      XUSE('c'), done = 0, update_insns ();
+	      {XUSE('c'); done = 0; update_insns (); }
 
 	    if (do_merge_add && opt_merge_add ())
-	      XUSE('m'), done = 0;
+	      {XUSE('m'); done = 0; update_insns(); }
 
 	    if (do_absolute && opt_absolute ())
-	      XUSE('b'), done = 0, update_insns ();
+	      {XUSE('b'); done = 0; update_insns (); }
 
 	    if (do_autoinc && opt_autoinc ())
-	      XUSE('i'), done = 0, update_insns ();
+	      {XUSE('i'); done = 0; update_insns (); }
 
 	    if (do_bb_reg_rename)
 	      while (opt_reg_rename ())
 		{
 		  XUSE('r');
-		      update_insns ();
-		      done = 0;
+		  update_insns ();
+		  done = 0;
 		}
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      {
-		XUSE('e'), done = 0, update_insns ();
+		XUSE('e');
+		done = 0;
+		update_insns ();
 	      }
 
 	    if (done)
@@ -5133,14 +5136,14 @@ namespace
 
 	/* convert back to clear befor fixing the stack frame */
 	if (do_opt_final && opt_final())
-	  XUSE('z'), update_insns();
+	  { XUSE('z'); update_insns(); }
 
 	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
-	  XUSE('f'), update_insns ();
+	  { XUSE('f'); update_insns (); }
 
 	/* elim assignments to the stack pointer last. */
 	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
-	  XUSE('e'), update_insns ();
+	  { XUSE('e'); update_insns (); }
 
 	if (do_pipeline)
 	  opt_pipeline_insns ();
@@ -5171,335 +5174,4 @@ rtl_opt_pass *
 make_pass_bbb_optimizations (gcc::context * ctxt)
 {
   return new pass_bbb_optimizations (ctxt);
-}
-
-namespace
-{
-
-  const pass_data pass_data_bbb_baserel =
-    { RTL_PASS, /* type */
-    "bebbo's-baserel-pass", /* name */
-    OPTGROUP_NONE, /* optinfo_flags */
-    TV_NONE, /* tv_id */
-    0, /* properties_required */
-    0, /* properties_provided */
-    0, /* properties_destroyed */
-    0, /* todo_flags_start */
-    0, //( TODO_df_finish | TODO_df_verify), /* todo_flags_finish */
-      };
-
-  class pass_bbb_baserel : public rtl_opt_pass
-  {
-  public:
-    pass_bbb_baserel (gcc::context *ctxt) :
-	rtl_opt_pass (pass_data_bbb_baserel, ctxt), pp (0)
-    {
-    }
-
-    /* opt_pass methods: */
-    virtual bool
-    gate (function *)
-    {
-      return TARGET_AMIGA && flag_pic >= 3;
-    }
-
-    virtual unsigned int
-    execute (function *)
-    {
-      //return execute_bbb_baserel ();
-      return 0;
-    }
-
-    opt_pass *
-    clone ()
-    {
-      pass_bbb_baserel * bbb = new pass_bbb_baserel (m_ctxt);
-      return bbb;
-    }
-
-    unsigned int pp;
-
-    unsigned
-    execute_bbb_baserel (void);
-  };
-// class pass_bbb_optimizations
-
-  static rtx a4reg;
-  static int cur_tmp_use;
-  static rtx cur_symbol[8];
-  static rtx cur_tmp_reg[8];
-
-  int make_pic_ref(rtx_insn * insn, rtx * x, bool * use_tmp)
-  {
-    int r = 0;
-    enum rtx_code code = GET_CODE(*x);
-    if (code == SYMBOL_REF)
-      {
-	bool ispic = false;
-	section * sec = 0;
-
-	tree decl = SYMBOL_REF_DECL (*x);
-	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && !(DECL_SECTION_NAME(decl)))
-	  {
-	    sec = get_variable_section(decl, false);
-	    ispic = (sec->common.flags & 0x200) && !decl->base.readonly_flag; // SECTION_WRITE;
-	  }
-
-//	  if (decl)
-//	    printf("%s: %8x %d\n", decl->decl_minimal.name->identifier.id.str, sec ? sec->common.flags : 0, ispic);
-
-	if (ispic)
-	  {
-	    rtx symbol = *x;
-
-	    // create the pic_ref expression
-	    rtx s = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, *x, GEN_INT (0)),
-						UNSPEC_RELOC16);
-	    s = gen_rtx_CONST (Pmode, s);
-	    s = gen_rtx_PLUS (Pmode, a4reg, s);
-	    s = gen_rtx_CONST (Pmode, s);
-
-	    // try to use it directly.
-	    if (!use_tmp)
-	      validate_unshare_change(insn, x, s, 0);
-	    else if (!*use_tmp)
-	      *use_tmp |= !validate_unshare_change(insn, x, s, 0);
-
-	    // if direct use failed, use a tmp register per symbol
-	    if (use_tmp && *use_tmp)
-	      {
-		rtx r = 0;
-		for (int i = 0; i < cur_tmp_use; ++i)
-		  {
-		    if (rtx_equal_p(cur_symbol[i], symbol))
-		      {
-		        r = cur_tmp_reg[i];
-			break;
-		      }
-		  }
-		if (!r)
-		  {
-		    r = gen_reg_rtx (Pmode);
-		    rtx set = gen_rtx_SET(r, s);
-		    emit_insn_before(set, insn);
-
-		    cur_symbol[cur_tmp_use] = symbol;
-		    cur_tmp_reg[cur_tmp_use] = r;
-		    ++cur_tmp_use;
-		  }
-
-		// if the change does not validate, poke it hard and pray that it's fixed later on. see maybe_fix()
-		if (!validate_unshare_change(insn, x, r, 0))
-		  {
-//		    fprintf(stderr, "can't convert to baserel: ");
-//		    debug_rtx(insn);
-		    *x = r;
-//		    debug_rtx(insn);
-		    return -1;
-		  }
-	      }
-	  }
-
-	return ispic;
-      }
-
-    switch (code)
-    {
-      /*
-       * Handle set: SRC and DEST may each have different symbols, so reset the use_tmp flag.
-       */
-      case SET:
-	r |= make_pic_ref(insn, &SET_DEST(*x), use_tmp);
-	if (use_tmp)
-	  *use_tmp = false;
-	r |= make_pic_ref(insn, &SET_SRC(*x), use_tmp);
-	if (use_tmp)
-	  *use_tmp = false;
-	return r;
-	/*
-	 * No inplace pic ref if a register is seen
-	 */
-      case REG:
-	if (use_tmp)
-	  *use_tmp = true;
-	break;
-	/*
-	 * There are shared CONST(PLUS(SYMBOL, CONST_INT)) rtx! (evil!)
-	 * Make a copy if one is seen, to avoid double replacement.
-	 */
-      case CONST:
-	if (GET_CODE(XEXP(*x, 0)) == PLUS && GET_CODE(XEXP(XEXP(*x, 0), 0)) == SYMBOL_REF)
-	  {
-	    /* copy_rtx can't unshare, so do it by hand. */
-	    rtx c = gen_rtx_CONST(GET_MODE(*x), gen_rtx_PLUS(GET_MODE(XEXP(*x, 0)), XEXP(XEXP(*x, 0), 0), XEXP(XEXP(*x, 0), 1)));
-	    *x = c;
-	  }
-	break;
-	/*
-	 * Default: try in place first.
-	 */
-      default:
-	break;
-    }
-
-    const char *fmt = GET_RTX_FORMAT(code);
-    for (int i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-      {
-        if (fmt[i] == 'e')
-  	{
-  	  r |= make_pic_ref(insn, &XEXP(*x, i), use_tmp);
-  	}
-        else if (fmt[i] == 'E')
-  	for (int j = XVECLEN (*x, i) - 1; j >= 0; j--)
-  	  {
-  	    r |= make_pic_ref(insn, &XVECEXP(*x, i, j), use_tmp);
-  	  }
-      }
-    return r;
-  }
-
-  void
-  maybe_fix(rtx x, rtx_insn * insn)
-  {
-    /* check for necessary fixes
-     * 1. (mem/f:SI (plus:SI (reg:SI 8 a0)
-     *       (const:SI (plus:SI (reg:SI 0 d0 [96])
-     *         (const_int 8 [0x8]))))
-     *
-     *   (mem:SI (plus:SI (plus:SI (reg/v:SI 8 a0)
-     *                             (reg:SI 0 d0))
-     *         (const_int 8 [0x8])))
-     *
-     *
-     *
-     * 2. not converted properly
-     * (mem:SI (plus:SI (mult:SI (reg:SI 31 )
-     *                           (const_int 8 [0x8]))
-     *                  (const:SI (plus:SI (reg:SI 99 )
-     *                                     (const_int 4 [0x4]))))
-     *
-     *
-     * 3. (mem:SI (plus:SI (plus:SI (reg:SI 35 [ _23 ])
-     *                              (reg:SI 31 [ ivtmp.233 ]))
-     *                     (reg:SI 46)) )
-     *
-     * 3 registers are too many.
-     *
-     * 4. (mem/f:SI (plus:SI (plus:SI (mult:SI (reg:SI 1 d1)
-     *                                         (const_int 4 [0x4]))
-     *                                (reg:SI 14 a6))
-     *                       (const:SI (plus:SI (reg:SI 0 d0 [1060])
-     *                                          (const_int 8 [0x8]))))
-     *
-     * again 3 registers.
-     * Also move the const/plus/reg into a separate register.
-     *
-     */
-
-    /* MEM can be nested inside. */
-    if (GET_CODE(x) == ZERO_EXTEND || GET_CODE(x) == SIGN_EXTEND)
-      x = XEXP(x, 0);
-
-    if (MEM_P(x))
-      {
-	rtx pl1 = XEXP(x, 0);
-	if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 0)) || GET_CODE(XEXP(pl1, 0)) == MULT))
-	  {
-	    rtx reg1 = XEXP(pl1, 0);
-	    if (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)
-	      {
-		rtx plus = XEXP(XEXP(pl1, 1), 0);
-		rtx reg2 = XEXP(plus, 0);
-		rtx add = XEXP(plus, 1);
-
-		rtx p1 = gen_rtx_PLUS(GET_MODE(plus), reg1, reg2);
-		rtx p2 = gen_rtx_PLUS(GET_MODE(plus), p1, add);
-
-		validate_change(insn, &XEXP(x, 0), p2, 0);
-	      }
-	  }
-	else if (GET_CODE(pl1) == CONST && GET_CODE(XEXP(pl1, 0)) == PLUS)
-	  {
-	    validate_change (insn, &XEXP(x, 0), XEXP(pl1, 0), 0);
-	  }
-	else if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 1)) || (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)))
-	  {
-	    rtx pl2 = XEXP(pl1, 0);
-	    if (GET_CODE(pl2) == PLUS && (REG_P(XEXP(pl2, 0)) || GET_CODE(XEXP(pl2, 0)) == MULT) && REG_P(XEXP(pl2, 1)))
-	      {
-		// create an additional add insn for pl2
-		rtx r = gen_reg_rtx (Pmode);
-		rtx set = gen_rtx_SET(r, pl2);
-		emit_insn_before(set, insn);
-
-		// use that register instead of pl2
-		validate_change(insn, &XEXP(pl1, 0), r, 0);
-
-		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))
-		  {
-		    rtx r2 = gen_reg_rtx (Pmode);
-		    rtx set2 = gen_rtx_SET(r2, XEXP(XEXP(pl1, 1), 0));
-		    emit_insn_before(set2, insn);
-
-		    validate_change(insn, &XEXP(pl1, 1), r2, 0);
-		  }
-
-	      }
-	  }
-      }
-  }
-
-  /* Main entry point to the pass.  */
-  unsigned
-  pass_bbb_baserel::execute_bbb_baserel (void)
-  {
-    a4reg = gen_rtx_REG (Pmode, PIC_REG);
-
-    rtx_insn *insn, *next;
-    for (insn = get_insns (); insn; insn = next)
-      {
-	next = NEXT_INSN (insn);
-
-	if (NONJUMP_INSN_P(insn))
-	  {
-
-	    rtx set = single_set (insn);
-
-	    bool b = false;
-	    cur_tmp_use = 0;
-	    if (make_pic_ref(insn, &PATTERN(insn), &b) && set)
-	      {
-		/* some insns need a further patch to be valid.
-		 * See maybe_fix.
-		 */
-		rtx dest = SET_DEST(set);
-		rtx src = SET_SRC(set);
-
-		if (GET_CODE(src) == COMPARE)
-		  {
-		    dest = XEXP(src, 0);
-		    src = XEXP(src, 1);
-		  }
-
-		maybe_fix(dest, insn);
-		maybe_fix(src, insn);
-	      }
-
-	    rtx note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
-	    if (note)
-	      {
-		make_pic_ref(insn, &XEXP (note, 0), 0);
-	      }
-	  }
-      }
-
-    return 0;
-  }
-
-}      // anon namespace
-
-rtl_opt_pass *
-make_pass_bbb_baserel (gcc::context * ctxt)
-{
-  return new pass_bbb_baserel (ctxt);
 }

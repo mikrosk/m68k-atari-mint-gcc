@@ -495,7 +495,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "-lamiga " \
   "%{mcrt=*:-l%*}" \
   "%{!mcrt=*:-lnix20} " \
-   "-lnix "
+   "-lnix " \
+  "%{mcrt=nix20:-lnix20 -lstubs} " \
+  "%{!mcrt=*:-lnix20 -lstubs} "
 
 #define LIBGCC_CLIB2_SPEC "-lc"
 #define LIBGCC_SPEC "-lgcc " \

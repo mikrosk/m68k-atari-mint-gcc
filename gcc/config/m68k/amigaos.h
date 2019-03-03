@@ -434,7 +434,8 @@ while (0)
 /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
      affects_type_identity } */
 #define SUBTARGET_ATTRIBUTES                                            \
-  { "asmregs", 0, 0, false,  false, false, 0, true }, \
+  { "asmreg", 1, 1, false, true, false, amigaos_handle_type_attribute, true }, \
+  { "asmregs", 1, 1, false,  false, true, 0, true }, \
   { "chip", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "fast", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "far",  0, 0, false, true, false, amigaos_handle_type_attribute, false }, \

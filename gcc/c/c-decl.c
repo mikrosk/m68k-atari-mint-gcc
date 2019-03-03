@@ -4451,16 +4451,17 @@ c_decl_attributes (tree *node, tree attributes, int flags)
       char const * synthetic = "";
       for (tree params = TYPE_ARG_TYPES(TREE_TYPE(*node)); params; params = TREE_CHAIN(params))
 	{
-	  tree asmattr = lookup_attribute("asm", TYPE_ATTRIBUTES(TREE_VALUE(params)));
+	  tree asmattr = lookup_attribute("asmreg", TYPE_ATTRIBUTES(TREE_VALUE(params)));
 	  if (asmattr)
-	    synthetic = concat(synthetic, reg_names[TREE_FIXED_CST_PTR(TREE_VALUE(asmattr))->data.low], NULL);
+	    synthetic = concat(synthetic, reg_names[TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmattr)))], NULL);
 	}
       if (strlen(synthetic) > 0)
 	{
 	  tree t;
 	  tree asmid = get_identifier("asmregs");
 	  tree syntheticid = get_identifier(synthetic);
-	  tree newattr = tree_cons(asmid, syntheticid, NULL_TREE);
+	  tree value = tree_cons(syntheticid, syntheticid, NULL_TREE);
+	  tree newattr = tree_cons(asmid, value, NULL_TREE);
 
 	  /* create a type copy with additional attribute. */
 	  tree atype = copy_node (TREE_TYPE(*node));
@@ -5117,7 +5118,7 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
 
   decl = pushdecl (decl);
 
-#ifdef TARGET_AMIGAOS
+#ifdef TARGET_AMIGA
   if (parm->asmspec)
     {
       tree atype = TREE_TYPE(decl);
@@ -5140,10 +5141,9 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
       else
 	{
 	  /* Build tree for __attribute__ ((asm(regnum))). */
-	  FIXED_VALUE_TYPE fv =
-	    { reg_number, 0, BImode };
-	  tree ttasm = get_identifier("asm");
-	  tree t, attrs = tree_cons(ttasm, build_fixed (ttasm, fv), NULL_TREE);
+	  tree ttasm = get_identifier("asmreg");
+	  tree value = tree_cons(ttasm, build_int_cst(NULL, reg_number), NULL_TREE);
+	  tree t, attrs = tree_cons(ttasm, value, NULL_TREE);
 	  /* First check whether such a type already exists - if yes, use
 	   that one. This is very important, since otherwise
 	   common_type() would think that it sees two different

@@ -376,12 +376,12 @@ amigaos_function_arg (cumulative_args_t cum_v, machine_mode mode, const_tree typ
 
   struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
 
-  tree asmtree = type && cum->current_param_type ? TYPE_ATTRIBUTES(TREE_VALUE(cum->current_param_type)) : NULL_TREE;
+  tree asmtree = type && cum->current_param_type ? lookup_attribute("asmreg", TYPE_ATTRIBUTES(TREE_VALUE(cum->current_param_type))) : NULL_TREE;
 
-  if (asmtree && 0 == strcmp ("asm", IDENTIFIER_POINTER(TREE_PURPOSE(asmtree))))
+  if (asmtree)
     {
       int i;
-      cum->last_arg_reg = TREE_FIXED_CST_PTR(TREE_VALUE(asmtree))->data.low;
+      cum->last_arg_reg = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmtree)));
       cum->last_arg_len = HARD_REGNO_NREGS(cum->last_arg_reg, mode);
 
       for (i = 0; i < cum->last_arg_len; i++)
@@ -526,8 +526,8 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 		  DPRINTF((stderr, "regparm with val: %d\n", TREE_CODE(val)));
 		  if (TREE_CODE (val) == INTEGER_CST)
 		    {
-		      int no = TREE_INT_CST_LOW(val);
-		      if (no < 0 || no > AMIGAOS_MAX_REGPARM)
+		      unsigned no = TREE_INT_CST_LOW(val);
+		      if (no > AMIGAOS_MAX_REGPARM)
 			{
 			  error ("`regparm' attribute: value %d not in [0 - %d]", no,
 			  AMIGAOS_MAX_REGPARM);
@@ -595,6 +595,27 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	  if (is_attribute_p ("chip", name) || is_attribute_p ("fast", name) || is_attribute_p ("far", name))
 	    {
 	      // OK
+	    }
+	  else if (is_attribute_p ("asmreg", name))
+	    {
+	      if (args && TREE_CODE (args) == TREE_LIST)
+		{
+		  tree val = TREE_VALUE(args);
+		  if (TREE_CODE (val) == INTEGER_CST)
+		    {
+		      unsigned no = TREE_INT_CST_LOW(val);
+		      if (no >= 23)
+			{
+			  error ("`asmreg' attribute: value %d not in [0 - 23]", no);
+			  break;
+			}
+		    }
+		  else
+		    {
+		      error ("invalid argument(s) to `asmreg' attribute");
+		      break;
+		    }
+		}
 	    }
 	  else
 	    {
@@ -812,10 +833,10 @@ amigaos_static_chain_rtx (const_tree decl, bool incoming ATTRIBUTE_UNUSED)
     for (tree current_param_type = TYPE_ARG_TYPES(fntype); current_param_type; current_param_type = TREE_CHAIN(current_param_type))
       {
 	tree asmtree = TYPE_ATTRIBUTES(TREE_VALUE(current_param_type));
-	if (!asmtree || strcmp ("asm", IDENTIFIER_POINTER(TREE_PURPOSE(asmtree))))
+	if (!asmtree || strcmp ("asmreg", IDENTIFIER_POINTER(TREE_PURPOSE(asmtree))))
 	  continue;
 
-	unsigned regno = TREE_FIXED_CST_PTR(TREE_VALUE(asmtree))->data.low;
+	unsigned regno = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmtree)));
 	used |= 1 << regno;
       }
 

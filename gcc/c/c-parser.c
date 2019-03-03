@@ -3840,7 +3840,7 @@ c_parser_parameter_declaration (c_parser *parser, tree attrs)
   /**
    * SBF: Add support for __asm("xy") register spec.
    */
-#ifdef TARGET_AMIGAOS
+#ifdef TARGET_AMIGA
   tree asmspec = NULL_TREE;
   if (c_parser_next_token_is_keyword (parser, RID_ASM))
     {
@@ -3853,7 +3853,7 @@ c_parser_parameter_declaration (c_parser *parser, tree attrs)
 
   struct c_parm * cparm = build_c_parm (specs, chainon (postfix_attrs, prefix_attrs),
 		       declarator);
-#ifdef TARGET_AMIGAOS
+#ifdef TARGET_AMIGA
   cparm->asmspec = asmspec;
 #endif
   return cparm;

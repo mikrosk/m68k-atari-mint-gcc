@@ -5522,6 +5522,7 @@ namespace
 		    src = XEXP(src, 1);
 		  }
 
+		rtx_insn * new_insn = make_insn_raw (PATTERN(insn));
 		if (insn_invalid_p(new_insn))
 		  {
 		    maybe_fix(dest, insn);

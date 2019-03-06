@@ -5523,7 +5523,7 @@ namespace
 		  }
 
 		rtx_insn * new_insn = make_insn_raw (PATTERN(insn));
-		if (insn_invalid_p(new_insn))
+		if (insn_invalid_p(new_insn, 0))
 		  {
 		    maybe_fix(dest, insn);
 		    maybe_fix(src, insn);

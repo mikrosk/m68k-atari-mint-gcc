@@ -2142,6 +2142,17 @@ m68k_decompose_address (machine_mode mode, rtx x,
 	{
 	  address->offset = XEXP (x, 1);
 	  x = XEXP (x, 0);
+
+	  if (GET_CODE(address->offset) == CONST)
+	    {
+	      rtx y = XEXP(address->offset, 0);
+	      if (GET_CODE(y) == PLUS && REG_P(XEXP(y, 0)))
+		{
+		  address->index = XEXP(y, 0);
+		  address->offset = XEXP (y, 1);
+		  address->scale = 1;
+		}
+	    }
 	}
 
       /* Check for a suppressed index register.  */
@@ -4005,7 +4016,7 @@ m68k_output_movem (rtx *operands, rtx pattern,
 static rtx
 find_addr_reg (rtx addr)
 {
-  while (GET_CODE (addr) == PLUS)
+  while (GET_CODE (addr) == PLUS || GET_CODE (addr) == MULT)
     {
       if (GET_CODE (XEXP (addr, 0)) == REG)
 	addr = XEXP (addr, 0);

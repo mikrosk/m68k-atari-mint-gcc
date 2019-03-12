@@ -5438,55 +5438,132 @@ namespace
      */
 
     /* MEM can be nested inside. */
-    if (GET_CODE(x) == ZERO_EXTEND || GET_CODE(x) == SIGN_EXTEND)
+    if (GET_CODE(x) == ZERO_EXTEND || GET_CODE(x) == SIGN_EXTEND || GET_CODE(x) == STRICT_LOW_PART)
       x = XEXP(x, 0);
 
     if (MEM_P(x))
       {
-	rtx pl1 = XEXP(x, 0);
-	if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 0)) || GET_CODE(XEXP(pl1, 0)) == MULT))
+	rtx plus = XEXP(x, 0);
+	if (GET_CODE(plus) == CONST)
+	  plus = XEXP(plus, 0);
+
+	// it's really a PLUS
+	if (GET_CODE(plus) == PLUS)
 	  {
-	    rtx reg1 = XEXP(pl1, 0);
-	    if (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)
+	    rtx op0 = XEXP(plus, 0);
+	    if (GET_CODE(op0) == CONST)
+	      op0 = XEXP(op0, 0);
+	    rtx op1 = XEXP(plus, 1);
+	    if (GET_CODE(op1) == CONST)
+	      op1 = XEXP(op1, 0);
+
+	    // set to MEM - not null
+	    rtx op00 = x;
+	    rtx op01 = x;
+	    rtx op10 = x;
+	    rtx op11 = x;
+	    if (GET_CODE(op0) == PLUS)
 	      {
-		rtx plus = XEXP(XEXP(pl1, 1), 0);
-		rtx reg2 = XEXP(plus, 0);
-		rtx add = XEXP(plus, 1);
+		op00 = XEXP(op0, 0);
+		op01 = XEXP(op0, 1);
+	      }
+	    if (GET_CODE(op1) == PLUS)
+	      {
+		op10 = XEXP(op1, 0);
+		op11 = XEXP(op1, 1);
+	      }
 
-		rtx p1 = gen_rtx_PLUS(GET_MODE(plus), reg1, reg2);
-		rtx p2 = gen_rtx_PLUS(GET_MODE(plus), p1, add);
+	    int regCount0 = REG_P(op00) + REG_P(op01) + REG_P(op0);
+	    int regCount1 = REG_P(op10) + REG_P(op11) + REG_P(op1);
 
-		validate_change(insn, &XEXP(x, 0), p2, 0);
+	    // patch needed if too many registers
+	    if (regCount0 + regCount1 <= 2)
+	      return;
+
+	    // use a temp register for op0
+	    if (regCount0 == 2)
+	      {
+		rtx t0 = gen_reg_rtx (Pmode);
+		rtx set = gen_rtx_SET(t0, XEXP(plus, 0));
+		emit_insn_before(set, insn);
+
+		validate_change(insn, &XEXP(plus, 0), t0, 0);
+	      }
+	    // use a temp register for op1
+	    if (regCount1 == 2)
+	      {
+		rtx t1 = gen_reg_rtx (Pmode);
+		rtx set = gen_rtx_SET(t1, XEXP(plus, 1));
+		emit_insn_before(set, insn);
+
+		validate_change(insn, &XEXP(plus, 1), t1, 0);
 	      }
 	  }
-	else if (GET_CODE(pl1) == CONST && GET_CODE(XEXP(pl1, 0)) == PLUS)
+
+#if 0
+	// CONST(PLUS(...)) -> PLUS(...)
+	if (GET_CODE(plus) == CONST && GET_CODE(XEXP(plus, 0)) == PLUS)
 	  {
-	    validate_change (insn, &XEXP(x, 0), XEXP(pl1, 0), 0);
+	    validate_change (insn, &XEXP(x, 0), XEXP(plus, 0), 0);
+	    plus = XEXP(x, 0);
 	  }
-	else if (GET_CODE(pl1) == PLUS && (REG_P(XEXP(pl1, 1)) || (GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS)))
+
+	// it's really a PLUS
+	if (GET_CODE(plus) == PLUS)
 	  {
-	    rtx pl2 = XEXP(pl1, 0);
-	    if (GET_CODE(pl2) == PLUS && (REG_P(XEXP(pl2, 0)) || GET_CODE(XEXP(pl2, 0)) == MULT) && REG_P(XEXP(pl2, 1)))
+	    rtx op10 = XEXP(plus, 0);
+	    rtx op11 = XEXP(plus, 1);
+
+	    if (GET_CODE(op10) == PLUS)
+	      {
+		// DROP CONST from inner PLUS
+		if (GET_CODE(op11) == CONST && GET_CODE(XEXP(op11, 0)) == PLUS)
+		  {
+		    rtx plus2 = XEXP(op11, 0);
+		    rtx op20 = XEXP(plus2, 0);
+		    rtx op21 = XEXP(plus2, 1);
+
+		    rtx p2 = gen_rtx_PLUS(GET_MODE(plus2), op20, op21);
+		    rtx p1 = gen_rtx_PLUS(GET_MODE(plus2), op10, p2);
+
+		    // replace plus
+		    validate_change(insn, &XEXP(x, 0), p1, 0);
+
+		    // update variables
+		    plus = XEXP(x, 0);
+		    op10 = XEXP(plus, 0);
+		    op11 = XEXP(plus1, 1);
+		  }
+	      }
+
+	    // is 2nd operator also a plus?
+	    while ((GET_CODE(op11) == PLUS) && (GET_CODE(op10) == PLUS && (REG_P(XEXP(op10, 0)) || GET_CODE(XEXP(op10, 0)) == MULT) && REG_P(XEXP(op10, 1))))
 	      {
 		// create an additional add insn for pl2
 		rtx r = gen_reg_rtx (Pmode);
-		rtx set = gen_rtx_SET(r, pl2);
+		rtx set = gen_rtx_SET(r, op10);
 		emit_insn_before(set, insn);
 
-		// use that register instead of pl2
-		validate_change(insn, &XEXP(pl1, 0), r, 0);
+		// use that register instead of op10
+		validate_change(insn, &XEXP(plus, 0), r, 0);
 
-		if ((GET_CODE(XEXP(pl1, 1)) == CONST && GET_CODE(XEXP(XEXP(pl1, 1), 0)) == PLUS))
+		if ((GET_CODE(XEXP(plus, 1)) == CONST && GET_CODE(XEXP(XEXP(plus1, 1), 0)) == PLUS))
 		  {
 		    rtx r2 = gen_reg_rtx (Pmode);
-		    rtx set2 = gen_rtx_SET(r2, XEXP(XEXP(pl1, 1), 0));
+		    rtx set2 = gen_rtx_SET(r2, XEXP(XEXP(plus, 1), 0));
 		    emit_insn_before(set2, insn);
 
-		    validate_change(insn, &XEXP(pl1, 1), r2, 0);
+		    validate_change(insn, &XEXP(plus, 1), r2, 0);
 		  }
+
+		// update variables
+		plus = XEXP(x, 0);
+		op10 = XEXP(plus, 0);
+		op11 = XEXP(plus, 1);
 
 	      }
 	  }
+#endif
       }
   }
 
@@ -5510,21 +5587,21 @@ namespace
 	    cur_tmp_use = 0;
 	    if (make_pic_ref(insn, &PATTERN(insn), &b) && set)
 	      {
-		/* some insns need a further patch to be valid.
-		 * See maybe_fix.
-		 */
-		rtx dest = SET_DEST(set);
-		rtx src = SET_SRC(set);
-
-		if (GET_CODE(src) == COMPARE)
+//		rtx_insn * new_insn = make_insn_raw (PATTERN(insn));
+//		if (insn_invalid_p(new_insn, 0))
 		  {
-		    dest = XEXP(src, 0);
-		    src = XEXP(src, 1);
-		  }
+		    /* some insns need a further patch to be valid.
+		     * See maybe_fix.
+		     */
+		    rtx dest = SET_DEST(set);
+		    rtx src = SET_SRC(set);
 
-		rtx_insn * new_insn = make_insn_raw (PATTERN(insn));
-		if (insn_invalid_p(new_insn, 0))
-		  {
+		    if (GET_CODE(src) == COMPARE)
+		      {
+			dest = XEXP(src, 0);
+			src = XEXP(src, 1);
+		      }
+
 		    maybe_fix(dest, insn);
 		    maybe_fix(src, insn);
 		  }

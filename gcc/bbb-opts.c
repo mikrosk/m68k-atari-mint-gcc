@@ -3506,6 +3506,30 @@ track_sp (int & a5_touched)
 	    {
 	      if (ii.get_sp_offset () != sp_offset)
 		return E_SP_MISMATCH;
+
+	      // check all jumps to this label
+	      if (ii.is_label())
+		{
+		  for (l2j_iterator j = label2jump.find (ii.get_insn ()->u2.insn_uid), k = j;
+		      j != label2jump.end () && j->first == k->first; ++j)
+		    {
+		      insn_info & ll = *insn2info.find(j->second)->second;
+		      if (ll.is_visited () && ll.get_sp_offset () != sp_offset)
+			return E_SP_MISMATCH;
+		    }
+		}
+
+		// check the label(s) for this jump
+		if (ii.is_jump ())
+		  {
+		    for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+		      {
+			insn_info & ll = infos[i->second];
+			if (ll.is_visited () && ll.get_sp_offset () != sp_offset)
+			  return E_SP_MISMATCH;
+		      }
+		  }
+
 	      break;
 	    }
 
@@ -3513,17 +3537,38 @@ track_sp (int & a5_touched)
 	  ii.mark_visited ();
 	  ii.set_sp_offset (sp_offset);
 
+	  // add all referencing jumps
+	  if (ii.is_label())
+	    {
+		  for (l2j_iterator j = label2jump.find (ii.get_insn ()->u2.insn_uid), k = j;
+		      j != label2jump.end () && j->first == k->first; ++j)
+		{
+		  insn_info & ll = *insn2info.find(j->second)->second;
+		  if (!ll.is_visited())
+		    {
+		      ll.set_sp_offset(sp_offset);
+		      todo.insert (ll.get_index());
+		    }
+		  else if (ll.get_sp_offset() != sp_offset)
+		    return E_SP_MISMATCH;
+		}
+	      continue;
+	    }
+
+
 	  // add all referred labels
 	  if (ii.is_jump ())
 	    {
 	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
 		{
 		  insn_info & ll = infos[i->second];
-		  if (ll.is_visited () && ll.get_sp_offset () != sp_offset)
+		  if (!ll.is_visited())
+		    {
+		      ll.set_sp_offset(sp_offset);
+		      todo.insert (i->second);
+		    }
+		  else if (ll.get_sp_offset() != sp_offset)
 		    return E_SP_MISMATCH;
-
-		  ll.set_sp_offset (sp_offset);
-		  todo.insert (i->second);
 		}
 	      continue;
 	    }

@@ -1868,17 +1868,14 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 	  /* some operation to the same value as dst. eg. eor #5,symbol+8 -> eor #5,8(ax) */
 	  if (src_op)
 	    {
-	      if (src_ee)
-		src = gen_rtx_fmt_ee(src_op, mode, src, gen_rtx_CONST_INT (mode, src_intval));
-	      else
-		{
-		  if (src_op == SIGN_EXTEND)
-		    {
-		      PUT_MODE_RAW(src, mode == SImode ? HImode : mode == HImode ? QImode : SImode);
-		      src->call = 1;
-		    }
-		  src = gen_rtx_fmt_e(src_op, mode, src);
-		}
+	      rtx srccopy = copy_rtx(SET_SRC(PATTERN(insn)));
+	      // find the parent of the MEM
+	      rtx outer = srccopy;
+	      while (!MEM_P(XEXP(outer, 0)))
+		outer = XEXP(outer, 0);
+
+	      XEXP(outer, 0) = src;
+	      src = srccopy;
 	    }
 
 	  if (apply)

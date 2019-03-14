@@ -69,7 +69,7 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
 		    return true;
 		  }
 	      }
-	    else if (SYMBOL_REF_P(b))
+	    else if (SYMBOL_REF_P(b) || GET_CODE(b) == CONST_INT)
 	      {
 		tree decl = SYMBOL_REF_DECL (b);
 

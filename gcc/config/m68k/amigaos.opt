@@ -51,6 +51,10 @@ malways-restore-a4
 Restore a4 in all functions
 Target Common Report Mask(ALWAYS_RESTORE_A4)
 
+mrestore-a4
+Restore a4 in public functions
+Target Common Report Mask(RESTORE_A4)
+
 fbbb=
 Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
 Enable Bebbo's optimizations.\n

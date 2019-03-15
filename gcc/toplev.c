@@ -215,7 +215,7 @@ get_src_pwd (void)
 	      char * p = concat(src_pwd, "", NULL);
 	      p[0] = src_pwd[10];
 	      p[1] = ':';
-	      memcpy(&p[2], &src_pwd[11], l);
+	      memmove(&p[2], &src_pwd[11], l);
 	      src_pwd = p;
 	    }
 #endif

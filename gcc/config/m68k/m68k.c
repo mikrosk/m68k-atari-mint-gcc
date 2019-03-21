@@ -4721,9 +4721,15 @@ m68k_delegitimize_address (rtx orig_x)
    style relocations in an address.  When generating -fpic code the
    offset is output in word mode (e.g. movel a5@(_foo:w), a0).  When generating
    -fPIC code the offset is output in long mode (e.g. movel a5@(_foo:l), a0) */
-
+static void
+print_operand_address2 (FILE *file, rtx addr, int offset);
 void
 print_operand_address (FILE *file, rtx addr)
+{
+  print_operand_address2(file, addr, 0);
+}
+static void
+print_operand_address2 (FILE *file, rtx addr, int offset)
 {
   struct m68k_address address;
 
@@ -4747,8 +4753,7 @@ print_operand_address (FILE *file, rtx addr)
     addr = XEXP(addr, 0);
   if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))
     {
-      fprintf (file, "%d+", (int) INTVAL (XEXP(addr, 1)));
-      print_operand_address(file, XEXP(XEXP(addr, 0),0));
+      print_operand_address2(file, XEXP(XEXP(addr, 0),0), INTVAL (XEXP(addr, 1)));
       return;
     }
   if (amiga_is_const_pic_ref(addr))
@@ -4768,10 +4773,8 @@ print_operand_address (FILE *file, rtx addr)
       if (GET_CODE(*x) == PLUS)
 	{
 	  rtx plus = *x;
-	  fprintf (file, "%d+", (int) INTVAL (XEXP(plus, 1)));
-
 	  *x = XEXP(plus, 0);
-	  print_operand_address(file, XEXP(addr, 0));
+	  print_operand_address2(file, XEXP(addr, 0), INTVAL (XEXP(plus, 1)));
 	  *x = plus;
 	}
       else
@@ -4805,6 +4808,7 @@ print_operand_address (FILE *file, rtx addr)
       gcc_assert (address.offset == addr);
       if (GET_CODE (addr) == CONST_INT)
 	{
+	  if (offset) fprintf(file, "%d+", offset);
 	  /* (xxx).w or (xxx).l.  */
 	  if (IN_RANGE (INTVAL (addr), -0x8000, 0x7fff))
 	    fprintf (file, MOTOROLA ? "%d.w" : "%d:w", (int) INTVAL (addr));
@@ -4816,6 +4820,7 @@ print_operand_address (FILE *file, rtx addr)
 	  /* (d16,PC) or (bd,PC,Xn) (with suppressed index register).  */
 	  putc ('(', file);
 	  if (ket) putc ('[', file);
+	  if (offset) fprintf(file, "%d+", offset);
 	  output_addr_const (file, addr);
 #ifdef TARGET_AMIGA
 	  asm_fprintf (file, ",%Rpc");
@@ -4836,6 +4841,7 @@ print_operand_address (FILE *file, rtx addr)
 	    {
 	      putc ('(', file);
 	      if (ket) putc ('[', file);
+	      if (offset) fprintf(file, "%d+", offset);
 	      output_addr_const (file, addr);
 #ifdef TARGET_AMIGA
 	  if (SYMBOL_REF_FUNCTION_P(addr))
@@ -4847,8 +4853,10 @@ print_operand_address (FILE *file, rtx addr)
 	      if (ket) putc (']', file);
 	      putc (')', file);
 	    }
-	  else
+	  else {
+	    if (offset) fprintf(file, "%d+", offset);
 	    output_addr_const (file, addr);
+	  }
 
 	}
     }
@@ -4867,6 +4875,8 @@ print_operand_address (FILE *file, rtx addr)
 	{
 	  putc ('(', file);
 	  if (ket) putc ('[', file);
+	  if (offset) fprintf(file, "%d+", offset);
+
 	  /* Print the "offset(base" component.  */
 	  if (labelno >= 0)
 	    asm_fprintf (file, "%LL%d,%Rpc", labelno);

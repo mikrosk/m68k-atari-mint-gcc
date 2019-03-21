@@ -4869,7 +4869,7 @@ print_operand_address (FILE *file, rtx addr)
 	  if (ket) putc ('[', file);
 	  /* Print the "offset(base" component.  */
 	  if (labelno >= 0)
-	    asm_fprintf (file, "%LL%d,%Rpc,", labelno);
+	    asm_fprintf (file, "%LL%d,%Rpc", labelno);
 	  else
 	    {
 	      if (address.offset)

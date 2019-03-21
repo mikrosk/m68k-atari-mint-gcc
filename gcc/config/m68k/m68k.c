@@ -4727,6 +4727,16 @@ print_operand_address (FILE *file, rtx addr)
 {
   struct m68k_address address;
 
+  bool ket;
+
+  if (MEM_P(addr))
+    {
+      addr = XEXP(addr, 0);
+      ket = true;
+    } else
+      ket = false;
+
+
 #ifdef TARGET_AMIGA
   /*
    * SBF: remove the const wrapper.
@@ -4804,13 +4814,16 @@ print_operand_address (FILE *file, rtx addr)
       else if (TARGET_PCREL)
 	{
 	  /* (d16,PC) or (bd,PC,Xn) (with suppressed index register).  */
-	  fputc ('(', file);
+	  putc ('(', file);
+	  if (ket) putc ('[', file);
 	  output_addr_const (file, addr);
 #ifdef TARGET_AMIGA
-	  asm_fprintf (file, ",%Rpc)");
+	  asm_fprintf (file, ",%Rpc");
 #else
-	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc)");
+	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc");
 #endif
+	  if (ket) putc (']', file);
+	  putc (')', file);
 	}
       else
 	{
@@ -4822,19 +4835,21 @@ print_operand_address (FILE *file, rtx addr)
 	      && XSTR (addr, 0)[strlen (XSTR (addr, 0)) - 2] == '.')
 	    {
 	      putc ('(', file);
+	      if (ket) putc ('[', file);
 	      output_addr_const (file, addr);
+#ifdef TARGET_AMIGA
+	  if (SYMBOL_REF_FUNCTION_P(addr))
+	    {
+	      if (flag_smallcode)
+		asm_fprintf(file, ":w,pc");
+	    }
+#endif
+	      if (ket) putc (']', file);
 	      putc (')', file);
 	    }
 	  else
 	    output_addr_const (file, addr);
 
-#ifdef TARGET_AMIGA
-	  if (SYMBOL_REF_FUNCTION_P(addr))
-	    {
-	      if (flag_smallcode)
-		asm_fprintf(file, ":w(pc)");
-	    }
-#endif
 	}
     }
   else
@@ -4850,22 +4865,26 @@ print_operand_address (FILE *file, rtx addr)
 		 : -1);
       if (MOTOROLA)
 	{
+	  putc ('(', file);
+	  if (ket) putc ('[', file);
 	  /* Print the "offset(base" component.  */
 	  if (labelno >= 0)
-	    asm_fprintf (file, "%LL%d(%Rpc,", labelno);
+	    asm_fprintf (file, "%LL%d,%Rpc,", labelno);
 	  else
 	    {
 	      if (address.offset)
 		output_addr_const (file, address.offset);
-
-	      putc ('(', file);
 	      if (address.base)
-		fputs (M68K_REGNAME (REGNO (address.base)), file);
+		{
+		  if (address.offset)
+		    putc (',', file);
+		  fputs (M68K_REGNAME (REGNO (address.base)), file);
+		}
 	    }
 	  /* Print the ",index" component, if any.  */
 	  if (address.index)
 	    {
-	      if (address.base)
+	      if (labelno >= 0 || address.offset || address.base)
 		putc (',', file);
 	      fprintf (file, "%s.%c",
 		       M68K_REGNAME (REGNO (address.index)),
@@ -4873,6 +4892,7 @@ print_operand_address (FILE *file, rtx addr)
 	      if (address.scale != 1)
 		fprintf (file, "*%d", address.scale);
 	    }
+	  if (ket) putc (']', file);
 	  putc (')', file);
 	}
       else /* !MOTOROLA */

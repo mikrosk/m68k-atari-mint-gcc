@@ -164,6 +164,9 @@ class track_var
       case CONST_DOUBLE:
       case SYMBOL_REF:
       case LABEL_REF:
+	// only use full register assignments
+	if (GET_MODE_SIZE(dstMode) != 4)
+	  return false;
 	/* these can be used directly. */
 	*z = x;
 	return true;

@@ -1227,7 +1227,7 @@ static void
 dbxout_source_file (const char *filename)
 {
 
-#ifdef TARGET_AMIGA
+#if defined TARGET_AMIGA && !defined TARGET_AMIGAOS_VASM
   if (filename && (lastfile == 0 || strcmp (filename, lastfile)))
     {
       // search file name
@@ -1309,7 +1309,7 @@ dbxout_source_line (unsigned int lineno, const char *filename,
 {
   dbxout_source_file (filename);
 
-#ifdef TARGET_AMIGA
+#if defined TARGET_AMIGA && !defined TARGET_AMIGAOS_VASM
     fputs ("\t.loc ", asm_out_file);
     fprint_ul (asm_out_file, files_current);
     fputc (' ', asm_out_file);

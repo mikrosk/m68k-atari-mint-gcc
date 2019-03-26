@@ -496,6 +496,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=*:-l%*}" \
   "%{!mcrt=*:-lnix20} " \
    "-lnix " \
+   %{mcrt=*:-l%*}" \
   "%{mcrt=nix20:-lnix20 -lstubs} " \
   "%{!mcrt=*:-lnix20 -lstubs} "
 

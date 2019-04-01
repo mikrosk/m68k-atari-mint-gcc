@@ -435,17 +435,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{!mcrt=*:%{!noixemul:%(startfile_newlib)}} "
 #endif
 
-#define ENDFILE_IXEMUL_SPEC ""
-#define ENDFILE_LIBNIX_SPEC "-lstubs"
-#define ENDFILE_CLIB2_SPEC ""
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  "%{noixemul:%(endfile_libnix)} " \
-  "%{mcrt=nix*:%(endfile_libnix)} " \
-  "%{mcrt=ixemul:%(endfile_ixemul)} " \
-  "%{mcrt=clib2:%(endfile_clib2)}"
-
+#define ENDFILE_SPEC ""
 
 /* Automatically search libamiga.a for AmigaOS specific functions.  Note
    that we first search the standard C library to resolve as much as
@@ -461,53 +453,40 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
    example) calls like sprintf come from -lamiga rather than -lc. */
 
 #define LIB_IXEMUL_SPEC \
-  "%{!p:%{!pg:-lc -lamiga -lc}} " \
+  "%{!p:%{!pg:-lc}} " \
   "%{p:-lc_p} %{pg:-lc_p}"
 #define LIB_LIBNIX_SPEC \
   "%{mcrt=*:-l%*} " \
-  "-lnixmain " \
-  "%{!mcrt=*:-lnix20 -lnix} " \
+  "%{!mcrt=*:-lnix20} " \
+  "-lnixmain -lnix -lstubs " \
   "%{mstackcheck:-lstack} " \
   "%{mstackextend:-lstack}"
 #define LIB_CLIB2_SPEC \
-  "-lc -lamiga -ldebug " \
+  "-lc -ldebug " \
   "%{mstackcheck:-lstack} " \
   "%{mstackextend:-lstack}"
 
 #define LIB_NEWLIB_SPEC \
-  "-lc -lamiga"
+  "-lc " \
+  "-lstubs "
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LIB_SPEC \
   "-lvc -lamiga "
 #else
 #define LIB_SPEC \
+  "-( " \
   "%{noixemul:%(lib_libnix)} " \
   "%{mcrt=nix*:%(lib_libnix)} " \
   "%{mcrt=ixemul:%(lib_ixemul)} " \
   "%{mcrt=clib2:%(lib_clib2)} " \
-  "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} "
+  "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} " \
+  "-lamiga -lgcc "\
+  "%{lm:-lm} "\
+  "-) "
 #endif
 
-#define LIBGCC_IXEMUL_SPEC ""
-#define LIBGCC_LIBNIX_SPEC \
-  "-lstubs " \
-  "-lamiga " \
-  "%{mcrt=*:-l%*}" \
-  "%{!mcrt=*:-lnix20} " \
-   "-lnix " \
-  "%{mcrt=*:-l%*}" \
-  "%{mcrt=nix20:-lnix20 -lstubs} " \
-  "%{!mcrt=*:-lnix20 -lstubs} "
-
-#define LIBGCC_CLIB2_SPEC "-lc"
-#define LIBGCC_SPEC "-lgcc " \
-  "%{noixemul:%(libgcc_libnix)} " \
-  "%{mcrt=nix*:%(libgcc_libnix)} " \
-  "%{mcrt=ixemul:%(libgcc_ixemul)} " \
-  "%{mcrt=clib2:%(libgcc_clib2)} " \
-  "%{!mcrt=*:%{!noixemul:-lc -lstubs}} " \
-  "%{lm:-lm} "
+#define LIBGCC_SPEC ""
 
 /* If debugging, tell the linker to output amiga-hunk symbols *and* a BSD
    compatible debug hunk.
@@ -569,11 +548,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 #define LINK_CPU_SPEC \
   "%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:-fl libm020} " \
   "%{m68881:-fl libm881}"
-
-/* [cahirwpz] A modified copy of LINK_COMMAND_SPEC from gcc/gcc.c file.
-   Don't prepend libgcc.a to link libraries and make sure the options is
-   at the end of command line. Otherwise linker chooses generic functions
-   from libgcc.a instead AmigaOS-specific counterparts from libnix.a. */
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LINK_COMMAND_SPEC \
@@ -644,12 +618,6 @@ extern const char * amiga_m68k_prefix_func(int, const char **);
   {"startfile_libnix", STARTFILE_LIBNIX_SPEC}, \
   {"startfile_clib2", STARTFILE_CLIB2_SPEC}, \
   {"startfile_newlib", STARTFILE_NEWLIB_SPEC}, \
-  {"endfile_ixemul", ENDFILE_IXEMUL_SPEC}, \
-  {"endfile_libnix", ENDFILE_LIBNIX_SPEC}, \
-  {"endfile_clib2", ENDFILE_CLIB2_SPEC}, \
-  {"libgcc_ixemul", LIBGCC_IXEMUL_SPEC}, \
-  {"libgcc_libnix", LIBGCC_LIBNIX_SPEC}, \
-  {"libgcc_clib2", LIBGCC_CLIB2_SPEC}
 
 /* begin-GG-local: dynamic libraries */
 

@@ -1871,7 +1871,7 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 	  /* some operation to the same value as dst. eg. eor #5,symbol+8 -> eor #5,8(ax) */
 	  if (src_op)
 	    {
-	      rtx srccopy = copy_rtx(SET_SRC(PATTERN(insn)));
+	      rtx srccopy = copy_rtx(SET_SRC(set));
 	      // find the parent of the MEM
 	      rtx outer = srccopy;
 	      while (!MEM_P(XEXP(outer, 0)))

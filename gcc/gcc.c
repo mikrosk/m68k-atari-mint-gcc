@@ -3927,8 +3927,8 @@ driver_handle_option (struct gcc_options *opts,
       /* POSIX allows separation of -l and the lib arg; canonicalize
 	 by concatenating -l with its arg */
       add_infile (concat ("-l", arg, NULL), "*");
-      do_save = false;
-      break;
+      save_switch (concat ("-l", arg, NULL), 0, NULL, validated, true);
+      return true;
 
     case OPT_L:
       /* Similarly, canonicalize -L for linkers that may not accept
@@ -6129,10 +6129,6 @@ switch_matches (const char *atom, const char *end_atom, int starred)
   int i;
   int len = end_atom - atom;
   int plen = starred ? len : -1;
-
-  // allow -l switch
-  if (*atom == 'l')
-	  return true;
 
   for (i = 0; i < n_switches; i++)
     if (!strncmp (switches[i].part1, atom, len)

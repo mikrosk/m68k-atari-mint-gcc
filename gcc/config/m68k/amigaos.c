@@ -760,7 +760,7 @@ _amiga_is_const_pic_ref (const_rtx x)
       return false;
     }
 
-  if (GET_CODE(x) == CONST)
+  while (GET_CODE(x) == CONST)
     x = XEXP(x, 0);
   if (GET_CODE(x) != PLUS)
     return false;

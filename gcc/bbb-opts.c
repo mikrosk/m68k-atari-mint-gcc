@@ -353,16 +353,12 @@ public:
 	if (GET_CODE(src) == CONST_INT)
 	  {
 	    unsigned iv = UINTVAL(src);
-	    iv |= iv >> 16;
-	    iv |= iv >> 8;
-	    iv |= iv >> 4;
-	    iv |= iv >> 2;
-	    iv |= iv >> 1;
-
 	    setMask(regno, iv, mode);
 	  }
+	else if (REG_P(src) && REG_NREGS(src) == 1)
+	    setMask(regno, andMask[REGNO(src)], mode);
 	else
-	  andMask[regno] = 0xffffffff;
+	  setMask(regno, 0xffffffff, mode);
 
 	usedRegs[regno] = my_use;
 	// convert reg value int regs value.
@@ -385,16 +381,17 @@ public:
       }
   }
 
-  /** store the and mask or combine it with a previous mask. */
+  /** set the mask and combine it with a previous mask if mode size < 4. */
   void
   setMask(unsigned regno, unsigned mask, machine_mode mode)
   {
-    if (GET_MODE_SIZE(mode) < 2)
-      mask |= 0xffffff00;
+    if (GET_MODE_SIZE(mode) == 1)
+      andMask[regno] = (andMask[regno] & 0xffffff00) | (mask & 0xff);
     else
-    if (GET_MODE_SIZE(mode) < 4)
-      mask |= 0xffff0000;
-    andMask[regno] &= mask;
+    if (GET_MODE_SIZE(mode) == 2)
+      andMask[regno] = (andMask[regno] & 0xffff0000) | (mask & 0xffff);
+    else
+    andMask[regno] = mask;
   }
 
   bool
@@ -441,7 +438,7 @@ public:
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
-    andMask[regno] = 0xffffffff;
+    setMask(regno, 0xffffffff, mode);
   }
 
   void
@@ -4275,26 +4272,73 @@ track_regs ()
 	      continue;
 	    }
 
-	  // operation, autoinf or more than one register used: can't cache
-	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
-	    continue;
-
 	  if (ii.get_src_op ())
 	    {
-	      if (ii.get_src_op() == AND)
+	      if (ii.get_src_op() == AND || ii.get_src_op() == IOR || ii.get_src_op() == XOR || ii.get_src_op() == PLUS)
 		{
 		  rtx op = XEXP(SET_SRC(set), 1);
+		  unsigned mask;
 		  if (GET_CODE(op) == CONST_INT)
-		    track->setMask(dregno, INTVAL(op) & dmask, ii.get_mode());
+		    mask = INTVAL(op);
 		  else if (REG_P(op))
-		    track->setMask(dregno, track->getMask(REGNO(op)) & dmask, ii.get_mode());
+		    mask = track->getMask(REGNO(op));
+		  else
+		    op = 0;
+
+		  if (op)
+		    {
+		      if (ii.get_src_op() == AND) {
+			track->setMask(dregno, mask & dmask, ii.get_mode());
+		      }
+		      else if (ii.get_src_op() == IOR) {
+			track->setMask(dregno, mask | dmask, ii.get_mode());
+		      }
+		      else if (ii.get_src_op() == XOR) {
+			track->setMask(dregno, mask ^ dmask, ii.get_mode());
+		      }
+		      else if (ii.get_src_op() == PLUS) {
+			track->setMask(dregno, ((mask | dmask) << 1) | 1, ii.get_mode());
+		      }
+		    }
 		}
 	      else if (ii.get_src_op() == ZERO_EXTRACT) {
 		  unsigned mask = (1 << INTVAL(XEXP(SET_SRC(set), 1))) - 1;
 		  track->setMask(dregno, mask & dmask, ii.get_mode());
 	      }
+	      else if (ii.get_src_op() == LSHIFTRT || ii.get_src_op() == ASHIFT)
+		{
+		  rtx op = XEXP(SET_SRC(set), 1);
+		  if (GET_CODE(op) != CONST_INT)
+		    if (REG_P(op))
+		      {
+		        rtx val = track->get(REGNO(op));
+		          if (GET_CODE(val) == CONST_INT && INTVAL(val) == (0xffff & INTVAL(val)))
+		  	    op = val;
+		          else
+		            op = 0;
+		      }
+		    else
+		      op = 0;
+
+		  if (op)
+		    {
+		      if (GET_MODE_SIZE(ii.get_mode()) == 2)
+			dmask &= 0xffff;
+		      else
+		      if (GET_MODE_SIZE(ii.get_mode()) == 1)
+			dmask &= 0xff;
+		      if (ii.get_src_op() == LSHIFTRT)
+			track->setMask(dregno, dmask >> INTVAL(op), ii.get_mode());
+		      else if (ii.get_src_op() == ASHIFT)
+			track->setMask(dregno, dmask << INTVAL(op), ii.get_mode());
+		    }
+		}
 	      continue;
 	    }
+
+	  // operation, autoinf or more than one register used: can't cache
+	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
+	    continue;
 
 	  rtx src = SET_SRC(set);
 	  if (ii.is_src_mem () && src->volatil)

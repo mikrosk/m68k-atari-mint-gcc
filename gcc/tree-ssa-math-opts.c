@@ -3800,7 +3800,11 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
+#ifdef TARGET_AMIGA
+      return false;
+#else
       return flag_expensive_optimizations && optimize;
+#endif
     }
 
   virtual unsigned int execute (function *);

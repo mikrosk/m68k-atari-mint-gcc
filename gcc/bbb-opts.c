@@ -4312,7 +4312,7 @@ track_regs ()
 		    if (REG_P(op))
 		      {
 		        rtx val = track->get(REGNO(op));
-		          if (GET_CODE(val) == CONST_INT && INTVAL(val) == (0xffff & INTVAL(val)))
+		          if (val && GET_CODE(val) == CONST_INT && INTVAL(val) == (0xffff & INTVAL(val)))
 		  	    op = val;
 		          else
 		            op = 0;

@@ -3952,8 +3952,8 @@ opt_shrink_stack_frame (void)
 			}
 		      else
 			{
-			  /* pop */
-			  if (usea5)
+			  /* pop - use the same register as in the existing insn*/
+			  if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
 			    {
 			      x += REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
 			      plus = gen_rtx_PLUS(SImode, a5, gen_rtx_CONST_INT (SImode, a5offset + x));
@@ -4795,13 +4795,16 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	      fix = true;
 	    }
 
+	  if (jj.get_src_regno() == jj.get_dst_regno() && jj.get_src_op() == PLUS && jj.get_src_intval() >= size)
+	    fix = true;
+
 	  if (!fix)
 	    return 0;
 
 	  fixups.insert (pos);
 
 	  // done if this is an add
-	  if (ii.is_def (regno))
+	  if (jj.is_def (regno))
 	    break;
 	}
     }

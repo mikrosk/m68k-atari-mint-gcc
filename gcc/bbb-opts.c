@@ -102,7 +102,7 @@ get_current_function_name ()
   if (current_function_decl == NULL)
     strcpy (fxname, "<toplevel>");
   else
-    strcpy (fxname, lang_hooks.decl_printable_name (current_function_decl, 2));
+    strncpy (fxname, lang_hooks.decl_printable_name (current_function_decl, 2), 511);
   return fxname;
 }
 
@@ -3890,7 +3890,7 @@ opt_shrink_stack_frame (void)
 	   * If a5 is used a movem offset(a5) is generated to pop saved registers..
 	   * Otherwise a7 is used and with (a7)+ addressing.
 	   */
-	  int add1 = i < prologueend || !usea5 ? 1 : 0;
+	  int add1 = i < prologueend || !(ii.get_myuse () & (1 << FRAME_POINTER_REGNUM)) ? 1 : 0;
 	  if (regs.size () < regs_seen)
 	    {
 	      log ("(f) shrinking stack frame from %d to %d\n", regs_seen, regs.size ());
@@ -3937,7 +3937,8 @@ opt_shrink_stack_frame (void)
 		    }
 
 		  if (i >= prologueend)
-		    x = usea5 ? -x : 0;
+		    x = (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM)) ? -x : 0;
+
 
 		  for (unsigned k = 0; k < regs.size (); ++k, ++l)
 		    {

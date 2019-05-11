@@ -1269,7 +1269,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	  SET_SRC(set) = XEXP(src, 0);
 	}
       else
-	XEXP(src, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(src, 1)), src_intval -= size);
+	XEXP(src, 1) = gen_rtx_CONST_INT (VOIDmode, src_intval -= size);
     }
   else if (get_src_mem_regno () == regno)
     {
@@ -1291,7 +1291,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	  src_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), src_mem_addr -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size);
     }
 
   if (get_dst_mem_regno () == regno)
@@ -1305,7 +1305,7 @@ insn_info::auto_inc_fixup (int regno, int size)
 	  dst_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (GET_MODE(XEXP(plus, 1)), dst_mem_addr -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size);
     }
 
   rtx pattern = add_clobbers (insn);
@@ -4310,17 +4310,18 @@ track_regs ()
 		{
 		  rtx op = XEXP(SET_SRC(set), 1);
 		  if (GET_CODE(op) != CONST_INT)
-		    if (REG_P(op))
-		      {
-		        rtx val = track->get(REGNO(op));
-		          if (val && GET_CODE(val) == CONST_INT && INTVAL(val) == (0xffff & INTVAL(val)))
-		  	    op = val;
-		          else
-		            op = 0;
-		      }
-		    else
-		      op = 0;
-
+		    {
+		      if (REG_P(op))
+			{
+			  rtx val = track->get(REGNO(op));
+			    if (val && GET_CODE(val) == CONST_INT && INTVAL(val) == (0xffff & INTVAL(val)))
+			      op = val;
+			    else
+			      op = 0;
+			}
+		      else
+			op = 0;
+		    }
 		  if (op)
 		    {
 		      if (GET_MODE_SIZE(ii.get_mode()) == 2)
@@ -4694,7 +4695,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
     return 0;
 
   // move.w (a0)+,a1 reads a word but writes a long...
-  unsigned size = GET_MODE_SIZE(ii.get_mode());
+  int size = GET_MODE_SIZE(ii.get_mode());
   if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
     size /= 2;
   if (size > 4)
@@ -4810,7 +4811,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	}
     }
 
-  if (!match_size || !fixups.size ())
+//  if (!match_size || !fixups.size ())
+  if (!fixups.size ())
     return 0;
 
   if (!ii.make_post_inc (regno))

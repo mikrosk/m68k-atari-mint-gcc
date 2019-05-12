@@ -2136,6 +2136,14 @@ m68k_decompose_address (machine_mode mode, rtx x,
 
   if (TARGET_68020)
     {
+      // dx as address register is ok
+      if (REG_P(x) && REGNO(x) <= 15)
+	{
+	  address->base = x;
+	  return true;
+	}
+
+
       /* Check for a nonzero base displacement.  */
       if (GET_CODE (x) == PLUS
 	  && m68k_legitimate_constant_address_p (XEXP (x, 1), reach, strict_p))

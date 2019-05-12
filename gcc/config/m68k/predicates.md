@@ -173,7 +173,14 @@
 (define_predicate "const_call_operand"
   (ior (match_operand 0 "const_int_operand")
        (and (match_test "m68k_symbolic_call != NULL")
-	    (match_operand 0 "symbolic_operand"))))
+	        (match_operand 0 "symbolic_operand")
+	   )
+       (and (match_code "plus")
+            (match_test "REG_P(XEXP(op, 0)) && REGNO(XEXP(op, 0)) >= 8 && REGNO(XEXP(op, 0)) < 16")
+            (match_test "GET_CODE(XEXP(op, 1)) == CONST_INT")
+       )
+  )
+)
 
 ;; An operand that can be used as the address in a call insn.
 (define_predicate "call_operand"

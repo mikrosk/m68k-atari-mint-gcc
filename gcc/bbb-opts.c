@@ -4728,6 +4728,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	{
 	  insn_info & jj = infos[pos];
 
+	  // do not auto_inc over calls for d0/d1/a0/a1/a7
+	  if (jj.is_call() && ((1 << regno) & ( (1<<15)|(1<<9)|(1<<8)|(1<<1)|(1<<0) )) != 0)
+	    return 0;
+
 	  // check all jumps labels for register usage
 	  if (jj.is_label ())
 	    {

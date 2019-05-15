@@ -4295,7 +4295,7 @@ track_regs ()
 			track->setMask(dregno, mask | dmask, ii.get_mode());
 		      }
 		      else if (ii.get_src_op() == XOR) {
-			track->setMask(dregno, mask ^ dmask, ii.get_mode());
+			track->setMask(dregno, mask | dmask, ii.get_mode());
 		      }
 		      else if (ii.get_src_op() == PLUS) {
 			track->setMask(dregno, ((mask | dmask) << 1) | 1, ii.get_mode());

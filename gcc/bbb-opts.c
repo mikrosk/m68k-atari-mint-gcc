@@ -5571,6 +5571,8 @@ namespace
 		op10 = XEXP(op1, 0);
 		op11 = XEXP(op1, 1);
 	      }
+	    if (GET_CODE(op00) == MULT)
+	      op00 = XEXP(op00, 0);
 
 	    int regCount0 = REG_P(op00) + REG_P(op01) + REG_P(op0);
 	    int regCount1 = REG_P(op10) + REG_P(op11) + REG_P(op1);
@@ -5681,7 +5683,6 @@ namespace
 	  {
 
 	    rtx set = single_set (insn);
-
 	    bool b = false;
 	    cur_tmp_use = 0;
 	    if (make_pic_ref(insn, &PATTERN(insn), &b) && set)

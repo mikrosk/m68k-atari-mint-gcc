@@ -843,6 +843,23 @@ dbxout_finish_complex_stabs (tree sym, stab_code_type code,
 	  chunk += chunklen + 1;
 	  len   -= chunklen + 1;
 
+#ifdef TARGET_AMIGA
+	  /* SBF: symbol is inside unspec */
+	  if (addr && GET_CODE(addr) == PLUS)
+	    {
+	      rtx x = XEXP(addr, 1);
+	      addr = 0;
+	      if (GET_CODE(x) == CONST)
+		{
+		  x = XEXP(x, 0);
+		  if (GET_CODE(x) == UNSPEC)
+		    {
+		      addr = XVECEXP (x, 0, 0);
+		    }
+		}
+	    }
+#endif
+
 	  /* Only put a line number on the last stab in the sequence.  */
 	  DBX_FINISH_STABS (sym, code, len == 0 ? line : 0,
 			    addr, label, number);

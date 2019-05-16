@@ -1713,6 +1713,7 @@ static void
 update_label2jump ()
 {
   update_insn2index ();
+  jump2label.clear();
 
   for (unsigned index = 0; index < infos.size (); ++index)
     {
@@ -2614,8 +2615,15 @@ opt_reg_rename (void)
 		      unsigned label_index = i->second;
 
 		      /* add the label to the search list. */
-		      insn_info & bb = infos[label_index + 1];
-		      if (found.find (label_index) == found.end () && bb.is_use (rename_regno))
+		      int labi = 0;
+
+		      // search next non-label insn
+		      insn_info * bb;
+		      do
+		        bb = &infos[label_index + ++labi];
+		      while (bb->is_label());
+
+		      if (found.find (label_index) == found.end () && bb->is_use (rename_regno))
 			{
 //			  printf ("jump %d -> label %d \n", pos, label_index); fflush (stdout);
 			  todo.insert (label_index);

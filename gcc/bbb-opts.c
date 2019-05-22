@@ -3186,7 +3186,7 @@ opt_commute_add_move (void)
 
       insn_info & jj = infos[index + 1];
 
-      if (!jj.get_dst_mem_reg () || jj.get_dst_mem_regno () != ii.get_src_regno ()
+      if (!jj.get_dst_mem_reg () || jj.get_dst_mem_regno () != ii.get_src_regno () || jj.get_dst_mem_addr()
 	  || jj.get_src_regno () == ii.get_dst_regno () || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval ())
 	continue;
 

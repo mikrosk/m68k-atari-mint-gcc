@@ -668,10 +668,7 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #undef FIXED_INCLUDE_DIR
 #define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../ndk-include"
 
-// this disables tree_loop_distribute_patterns
-#define C_COMMON_OVERRIDE_OPTIONS  flag_no_builtin = 1
 /* Baserel support.  */
-
 extern int amiga_is_const_pic_ref(const_rtx x);
 
 #undef CONSTANT_ADDRESS_P

@@ -4387,6 +4387,11 @@ opt_elim_dead_assign (int blocked_regno)
       if (!ii.is_dst_reg() || ii.get_dst_regno () == blocked_regno)
 	continue;
 
+      // more than one register set? e.g. side effect move.l (a0)+,d0
+      unsigned def = ii.get_def () & 0xffffff;
+      if ((def - 1) & def)
+	continue;
+
       if (GET_CODE(SET_SRC(set)) == AND)
 	{
 	  track_var * tv = ii.get_track_var();

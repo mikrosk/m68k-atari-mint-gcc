@@ -3415,19 +3415,19 @@ opt_merge_add (void)
       insn_info & ii1 = infos[index + 1];
       insn_info & ii2 = infos[index + 2];
 
-      if (!ii2.is_dst_reg ())
+      if (!ii2.is_dst_reg () || ii2.is_src_mem())
 	{
 	  index += 2;
 	  continue;
 	}
 
-      if (!ii1.is_dst_reg ())
+      if (!ii1.is_dst_reg () || ii1.is_src_mem())
 	{
 	  ++index;
 	  continue;
 	}
 
-      if (!ii0.is_dst_reg () || ii0.get_src_op () != PLUS || ii1.get_src_op () != PLUS || ii2.get_src_op () != PLUS)
+      if (!ii0.is_dst_reg () || ii0.is_src_mem() || ii0.get_src_op () != PLUS || ii1.get_src_op () != PLUS || ii2.get_src_op () != PLUS)
 	continue;
 
       if (!ii0.is_src_const () || !ii2.is_src_const () || ii0.get_src_intval () != ii2.get_src_intval ())

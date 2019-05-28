@@ -3977,18 +3977,33 @@ output_addr_const (FILE *file, rtx x)
       /* Some assemblers need integer constants to appear last (eg masm).  */
       if (CONST_INT_P (XEXP (x, 0)))
 	{
+#ifdef TARGET_AMIGA
+	  output_addr_const (file, XEXP (x, 0));
+	  if (INTVAL (XEXP (x, 0)) >= 0)
+	    fprintf (file, "+");
+	  output_addr_const (file, XEXP (x, 1));
+#else
 	  output_addr_const (file, XEXP (x, 1));
 	  if (INTVAL (XEXP (x, 0)) >= 0)
 	    fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 0));
+#endif
 	}
       else
 	{
+#ifdef TARGET_AMIGA
+	  output_addr_const (file, XEXP (x, 1));
+	  if (!CONST_INT_P (XEXP (x, 1))
+	      || INTVAL (XEXP (x, 1)) >= 0)
+	    fprintf (file, "+");
+	  output_addr_const (file, XEXP (x, 0));
+#else
 	  output_addr_const (file, XEXP (x, 0));
 	  if (!CONST_INT_P (XEXP (x, 1))
 	      || INTVAL (XEXP (x, 1)) >= 0)
 	    fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 1));
+#endif
 	}
       break;
 

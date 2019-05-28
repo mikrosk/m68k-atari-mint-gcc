@@ -3964,9 +3964,6 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
      won't optimize anything, so return zero.  */
   nbitsize = GET_MODE_BITSIZE (nmode);
   nbitpos = lbitpos & ~ (nbitsize - 1);
-#ifdef TARGET_AMIGA
-  unsigned obitpos = lbitpos;
-#endif
   lbitpos -= nbitpos;
   if (nbitsize == lbitsize)
     return 0;
@@ -3985,6 +3982,15 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
       if (nbitpos < 0)
 	return 0;
 
+#ifdef xTARGET_AMIGA
+  /* SBF: do no conversion.
+   * if the same component/bitfield reference is used afterwards
+   * a later optimizer may combine these.
+   *
+   * With the transformed version it's not possible.
+   */
+  return build2_loc (loc, code, compare_type, lhs, rhs);
+#else
       /* If not comparing with constant, just rework the comparison
 	 and return.  */
       tree t1 = make_bit_field_ref (loc, linner, lhs, unsigned_type,
@@ -3994,6 +4000,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 				    nbitsize, nbitpos, 1, rreversep);
       t2 = fold_build2_loc (loc, BIT_AND_EXPR, unsigned_type, t2, mask);
       return fold_build2_loc (loc, code, compare_type, t1, t2);
+#endif
     }
 
   /* Otherwise, we are handling the constant case.  See if the constant is too
@@ -4036,16 +4043,19 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
     }
 
 #ifdef TARGET_AMIGA
-  /* use the real bit pattern without and mask, to use bfexts/bfextu */
-  lhs = make_bit_field_ref (loc, linner, lhs, unsigned_type,
-				lbitsize, obitpos, 1, lreversep);
+  /* SBF: do no conversion.
+   * if the same component/bitfield reference is used afterwards
+   * a later optimizer may combine these.
+   *
+   * With the transformed version it's not possible.
+   */
+//  tree atype = lang_hooks.types.type_for_mode (SImode, lunsignedp);
+//  if (TREE_CODE(lhs) == NOP_EXPR)
+//    TREE_TYPE(TREE_OPERAND(lhs, 0)) = atype;
+//  else
+//    TREE_TYPE(lhs) = atype;
 
-  if (TREE_CODE(lhs) == NOP_EXPR)
-    TREE_TYPE(TREE_OPERAND(lhs, 0)) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
-  else
-    TREE_TYPE(lhs) = lang_hooks.types.type_for_mode (SImode, lunsignedp);
-
-  return build2_loc (loc, code, compare_type, lhs, rhs);
+  lhs = build2_loc (loc, code, compare_type, lhs, rhs);
 #else
   /* Make a new bitfield reference, shift the constant over the
      appropriate number of bits and mask it with the computed mask

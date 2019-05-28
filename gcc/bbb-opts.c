@@ -4376,7 +4376,19 @@ opt_elim_dead_assign (int blocked_regno)
   for (int index = infos.size () - 1; index >= 0; --index)
     {
       insn_info & ii = infos[index];
-      if (ii.in_proepi () || !ii.get_dst_reg () || ii.is_compare ())
+
+      if (ii.is_compare ())
+	{
+	  if (blocked_regno == FIRST_PSEUDO_REGISTER && ii.get_dst_reg())
+	    {
+	      unsigned mask = ii.get_track_var()->getMask(ii.get_dst_regno());
+	      if (mask != 0xffffffff)
+		add_reg_note(ii.get_insn(), REG_BIT_MASK, gen_rtx_CONST_INT (SImode, mask));
+	    }
+	  continue;
+	}
+
+      if (ii.in_proepi () || !ii.get_dst_reg ())
 	continue;
 
       rtx_insn * insn = ii.get_insn ();

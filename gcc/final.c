@@ -2725,6 +2725,11 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 			== CONST0_RTX (GET_MODE (XEXP (SET_SRC (set), 0))))
 		      src2 = XEXP (SET_SRC (set), 0);
 		  }
+
+		rtx note = 0;
+		rtx_insn * ninsn = 0;
+		rtx nset = 0, nss = 0;;
+
 		if ((cc_status.value1 != 0
 		     && rtx_equal_p (src1, cc_status.value1))
 		    || (cc_status.value2 != 0
@@ -2732,7 +2737,17 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		    || (src2 != 0 && cc_status.value1 != 0
 		        && rtx_equal_p (src2, cc_status.value1))
 		    || (src2 != 0 && cc_status.value2 != 0
-			&& rtx_equal_p (src2, cc_status.value2)))
+			&& rtx_equal_p (src2, cc_status.value2))
+
+		/** compare with zero can be omitted, if reg is zero and mode is smaller,
+		 *  if next insn is a jmp EQ
+		 */
+		    || (src2 != 0 && GET_CODE(XEXP(src1, 1)) == CONST_INT && INTVAL((XEXP(src1, 1))) == 0
+			&& cc_status.value1 && REG_P(cc_status.value1) && src2 && REG_P(src2) && REGNO(cc_status.value1) == REGNO(src2)
+			&& (note = find_reg_note(insn, REG_BIT_MASK, 0)) && INTVAL(XEXP(note,0)) < (1 << (8*GET_MODE_SIZE(GET_MODE(src2))))
+			&& JUMP_P(ninsn = NEXT_INSN(insn)) && (nset = single_set(ninsn)) && (GET_CODE(nss = XEXP(SET_SRC(nset),0)) == EQ || GET_CODE(nss) == NE)
+			)
+		    )
 		  {
 		    /* Don't delete insn if it has an addressing side-effect.  */
 		    if (! FIND_REG_INC_NOTE (insn, NULL_RTX)

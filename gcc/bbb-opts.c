@@ -1353,6 +1353,8 @@ insn_info::scan ()
 	    for (unsigned r = REGNO(reg); r < END_REGNO (reg); ++r)
 	      mark_myuse (r);
 	}
+      /* mark stack pointer used. there could be parameters on stack*/
+      mark_myuse (15);
       /* mark scratch registers. */
       mark_def (0);
       mark_def (1);

@@ -2136,14 +2136,6 @@ m68k_decompose_address (machine_mode mode, rtx x,
 
   if (TARGET_68020)
     {
-      // dx as address register is ok
-      if (REG_P(x) && REGNO(x) <= 15)
-	{
-	  address->base = x;
-	  return true;
-	}
-
-
       /* Check for a nonzero base displacement.  */
       if (GET_CODE (x) == PLUS
 	  && m68k_legitimate_constant_address_p (XEXP (x, 1), reach, strict_p))
@@ -2161,6 +2153,13 @@ m68k_decompose_address (machine_mode mode, rtx x,
 		  address->scale = 1;
 		}
 	    }
+	}
+
+      // dx as address register is ok
+      if (REG_P(x) && REGNO(x) <= 15)
+	{
+	  address->base = x;
+	  return true;
 	}
 
       /* Check for a suppressed index register.  */
@@ -4757,7 +4756,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
    */
   if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == CONST)
     addr = XEXP(addr, 0);
-  if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == PLUS && amiga_is_const_pic_ref(XEXP(XEXP(addr, 0), 0)))
+  if (GET_CODE(addr) == CONST && GET_CODE(XEXP(addr, 0)) == PLUS) // && amiga_is_const_pic_ref(XEXP(XEXP(addr, 0), 0)))
     addr = XEXP(addr, 0);
   if (GET_CODE(addr) == PLUS && amiga_is_const_pic_ref(XEXP(addr, 0)))
     {

@@ -3906,6 +3906,9 @@ opt_shrink_stack_frame (void)
 	      log ("(f) shrinking stack frame from %d to %d\n", regs_seen, regs.size ());
 	      if (regs.size () <= 2)
 		{
+		  int x = 0;
+		  for (unsigned k = 0; k < regs.size (); ++k)
+		    x -= REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
 		  changed = 1;
 		  for (unsigned k = 0; k < regs.size (); ++k)
 		    {
@@ -3920,11 +3923,23 @@ opt_shrink_stack_frame (void)
 			}
 		      else
 			{
-			  /* pop */
-			  rtx dec = gen_rtx_POST_INC(REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
-			  rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, dec);
-			  rtx set = gen_rtx_SET(reg, mem);
-			  emit_insn_before (set, insn);
+			  if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
+			    {
+			      /* pop via a5 + offset*/
+			      x += REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;
+			      rtx plus = gen_rtx_PLUS(SImode, a5, gen_rtx_CONST_INT (SImode, a5offset + x));
+			      rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, plus);
+			      rtx set = gen_rtx_SET(reg, mem);
+			      emit_insn_before (set, insn);
+			    }
+			  else
+			    {
+			      /* pop */
+			      rtx dec = gen_rtx_POST_INC(REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, a7);
+			      rtx mem = gen_rtx_MEM (REGNO(regs[k]) > STACK_POINTER_REGNUM ? XFmode : SImode, dec);
+			      rtx set = gen_rtx_SET(reg, mem);
+			      emit_insn_before (set, insn);
+			    }
 			}
 		    }
 		}

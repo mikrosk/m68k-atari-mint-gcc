@@ -106,6 +106,10 @@ a register with any other reload.  */
 #include "addresses.h"
 #include "params.h"
 
+rtx current_outer_address;
+extern void m68k_set_outer_address(rtx current_outer_address);
+extern void m68k_clear_outer_address();
+
 /* True if X is a constant that can be forced into the constant pool.
    MODE is the mode of the operand, or VOIDmode if not known.  */
 #define CONST_POOL_OK_P(MODE, X)		\
@@ -5261,8 +5265,17 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       return ! removed_and;
     }
 
-  return find_reloads_address_1 (mode, as, ad, 0, MEM, SCRATCH, loc,
+#ifdef TARGET_AMIGA
+  if (ind_levels)
+    current_outer_address = ad;
+#endif
+  int ret = find_reloads_address_1 (mode, as, ad, 0, MEM, SCRATCH, loc,
 				 opnum, type, ind_levels, insn);
+#ifdef TARGET_AMIGA
+  if (ind_levels)
+    current_outer_address = 0;
+#endif
+  return ret;
 }
 
 /* Find all pseudo regs appearing in AD
@@ -5904,21 +5917,25 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 	 an equivalent address for a pseudo that was not allocated to a hard
 	 register.  Verify that the specified address is valid and reload it
 	 into a register.
-
-	 Since we know we are going to reload this item, don't decrement for
-	 the indirection level.
+SBF: NO
+	-- Since we know we are going to reload this item, don't decrement for
+	-- the indirection level.
 
 	 Note that this is actually conservative:  it would be slightly more
 	 efficient to use the value of SPILL_INDIRECT_LEVELS from
 	 reload1.c here.  */
-
+#ifdef TARGET_AMIGA
+      m68k_set_outer_address(current_outer_address);
+#endif
       find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
-			    opnum, ADDR_TYPE (type), ind_levels, insn);
+			    opnum, ADDR_TYPE (type), ind_levels ? ind_levels - 1 : 0, insn);
       push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
 		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+#ifdef TARGET_AMIGA
+      m68k_clear_outer_address();
+#endif
       return 1;
-
     case REG:
       {
 	int regno = REGNO (x);

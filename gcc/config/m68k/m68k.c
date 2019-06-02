@@ -136,6 +136,8 @@ struct m68k_address {
   rtx index;
   rtx offset;
   int scale;
+  rtx outer_index;
+  rtx outer_offset;
 };
 
 static int m68k_sched_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
@@ -2043,6 +2045,158 @@ m68k_jump_table_ref_p (rtx x)
   return insn && JUMP_TABLE_DATA_P (insn);
 }
 
+/**
+ * Return true, if x is a valid offset for a decomposed address.
+ */
+static bool is_valid_offset(rtx x)
+{
+  if (GET_CODE(x) == CONST)
+    x = XEXP(x, 0);
+  if (GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == CONST_INT)
+    return true;
+  if (GET_CODE(x) != PLUS)
+    return false;
+  return is_valid_offset(XEXP(x, 0)) && is_valid_offset(XEXP(x, 1));
+}
+
+extern void m68k_set_outer_address(rtx current_outer_address);
+extern void m68k_clear_outer_address();
+static bool decompose_one(rtx x, struct m68k_address *address, bool strict_p);
+
+static bool has_outer_index;
+
+void m68k_set_outer_address(rtx current_outer_address)
+{
+  struct m68k_address address;
+  memset(&address, 0, sizeof(address));
+  if (decompose_one(current_outer_address, &address, false))
+    has_outer_index = address.outer_index != 0;
+}
+void m68k_clear_outer_address()
+{
+  has_outer_index = false;
+}
+
+static bool decompose_one(rtx x, struct m68k_address *address, bool strict_p)
+{
+  if (REG_P(x))
+    {
+      // try to use the base slot
+      if (m68k_legitimate_base_reg_p(x, strict_p))
+	{
+	  if (!address->base)
+	    {
+	      address->base = x;
+	      return true;
+	    }
+	}
+
+      if (address->index || address->outer_index || has_outer_index)
+	return false;
+
+      // try to use the index slot
+      if (m68k_legitimate_index_reg_p(x, strict_p))
+	    {
+	      address->index = x;
+	      address->scale = 1;
+	      return true;
+	}
+      // can't handle that register - wrong type or slot is used.
+      return false;
+    }
+
+  if (GET_CODE(x) == CONST)
+    return decompose_one(XEXP(x,0), address, strict_p);
+
+  /** index register with scale */
+  if (GET_CODE(x) == MULT)
+    {
+      // try to used address->base instead of iaddress->ndex, if address->index is occupied.
+      if (address->index)
+	{
+	  if (address->base || address->scale > 1)
+	    return false;
+	  if (!m68k_legitimate_base_reg_p(x, strict_p))
+	    return false;
+	  address->base = address->index;
+	}
+
+      rtx r = XEXP(x, 0);
+      rtx n = XEXP(x, 1);
+      if (!REG_P(r) && GET_CODE(r) != CONST_INT)
+	return false;
+      if (!m68k_legitimate_index_reg_p(x, strict_p))
+	return false;
+
+      int i = INTVAL(n);
+      if (i != 1 && i != 2 && i != 4 && i != 8)
+	return false;
+
+      if (address->code == MEM)
+	address->outer_index = r;
+      else
+	address->index = r;
+      address->scale = i;
+      return true;
+    }
+
+  // add const_int / symbol_refs...
+  if (is_valid_offset(x))
+    {
+      if (address->code == MEM)
+        address->outer_offset = x;
+      else
+        address->offset = x;
+      return true;
+    }
+
+  if (GET_CODE(x) == PLUS)
+    {
+      rtx a = XEXP(x, 0);
+      rtx b = XEXP(x, 1);
+      if (MEM_P(a))
+	return decompose_one(b, address, strict_p) && decompose_one(a, address, strict_p);
+      return decompose_one(a, address, strict_p) && decompose_one(b, address, strict_p);
+    }
+
+  if (MEM_P(x))
+    {
+      if (address->code)
+	return false;
+
+      // mark to prevent to many nested MEMs - gcc is testing: how many levels are supported.
+      address->code = NOTE;
+
+      // can't use outer base try to use index instead.
+      if (address->base)
+	{
+	  if (address->index)
+	    return false;
+	  address->index = address->base;
+	  address->scale = 1;
+	  address->base = 0;
+	}
+
+      // the index is an outer index
+      address->outer_index = address->index;
+      address->index = 0;
+
+      address->outer_offset = address->offset;
+      address->offset = 0;
+
+      if (!decompose_one(XEXP(x, 0), address, strict_p))
+	return false;
+
+      // only one index is possible
+      if (address->outer_index && address->index)
+	return false;
+
+      address->code = MEM;
+      return true;
+    }
+  return false;
+}
+
 /* Return true if X is a legitimate address for values of mode MODE.
    STRICT_P says whether strict checking is needed.  If the address
    is valid, describe its components in *ADDRESS.  */
@@ -2133,81 +2287,28 @@ m68k_decompose_address (machine_mode mode, rtx x,
 
   /* Everything hereafter deals with (d8,An,Xn.SIZE*SCALE) or
      (bd,An,Xn.SIZE*SCALE) addresses.  */
+  /* SBF: or with all other addresses which can be handled by 68020+ ^^ */
 
-  if (TARGET_68020)
+  if (!decompose_one(x, address, strict_p))
     {
-      /* Check for a nonzero base displacement.  */
-      if (GET_CODE (x) == PLUS
-	  && m68k_legitimate_constant_address_p (XEXP (x, 1), reach, strict_p))
-	{
-	  address->offset = XEXP (x, 1);
-	  x = XEXP (x, 0);
-
-	  if (GET_CODE(address->offset) == CONST)
-	    {
-	      rtx y = XEXP(address->offset, 0);
-	      if (GET_CODE(y) == PLUS && REG_P(XEXP(y, 0)))
-		{
-		  address->index = XEXP(y, 0);
-		  address->offset = XEXP (y, 1);
-		  address->scale = 1;
-		}
-	    }
-	}
-
-      // dx as address register is ok
-      if (REG_P(x) && REGNO(x) <= 15)
-	{
-	  address->base = x;
-	  return true;
-	}
-
-      /* Check for a suppressed index register.  */
-      if (m68k_legitimate_base_reg_p (x, strict_p))
-	{
-	  address->base = x;
-	  return true;
-	}
-
-      /* Check for a suppressed base register.  Do not allow this case
-	 for non-symbolic offsets as it effectively gives gcc freedom
-	 to treat data registers as base registers, which can generate
-	 worse code.  */
-      if (address->offset
-	  && symbolic_operand (address->offset, VOIDmode)
-	  && m68k_decompose_index (x, strict_p, address))
-	return true;
-    }
-  else
-    {
-      /* Check for a nonzero base displacement.  */
-      if (GET_CODE (x) == PLUS
-	  && GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && IN_RANGE (INTVAL (XEXP (x, 1)), -0x80, 0x80 - reach))
-	{
-	  address->offset = XEXP (x, 1);
-	  x = XEXP (x, 0);
-	}
+//      debug_rtx(x);
+      return false;
     }
 
-  /* We now expect the sum of a base and an index.  */
-  if (GET_CODE (x) == PLUS)
+  if (!TARGET_68020)
     {
-      if (m68k_legitimate_base_reg_p (XEXP (x, 0), strict_p)
-	  && m68k_decompose_index (XEXP (x, 1), strict_p, address))
-	{
-	  address->base = XEXP (x, 0);
-	  return true;
-	}
+      if (!address->offset)
+	address->offset = CONST0_RTX(SImode);
 
-      if (m68k_legitimate_base_reg_p (XEXP (x, 1), strict_p)
-	  && m68k_decompose_index (XEXP (x, 0), strict_p, address))
-	{
-	  address->base = XEXP (x, 1);
-	  return true;
-	}
+      // 68k has only support for one kind
+      if (address->outer_index || address->outer_offset || !address->base || !address->index)
+	return false;
+
+      if (!IN_RANGE (INTVAL (address->offset), -0x80, 0x80 - reach))
+	return false;
     }
-  return false;
+
+  return true;
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.
@@ -2219,18 +2320,22 @@ m68k_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   struct m68k_address address;
 
 #ifdef TARGET_AMIGA
-  if (MEM_P(x))
-    return false;
+  if (!MEM_P(x))
+    {
   /* SBF: the baserel(32) const plus pic_ref, symbol is an address. */
-  if (amiga_is_const_pic_ref(x))
-    return true;
+      if (amiga_is_const_pic_ref(x))
+	return true;
 
-  if (!amigaos_legitimate_src(x))
-    return false;
-
+//      if (!amigaos_legitimate_src(x))
+//	return false;
+    }
 #endif
 
-  return m68k_decompose_address (mode, x, strict_p, &address);
+//  short * rr = reg_renumber;
+//  reg_renumber = 0;
+  bool res = m68k_decompose_address (mode, x, strict_p, &address);
+//  reg_renumber = rr;
+  return res;
 }
 
 /* Return true if X is a memory, describing its address in ADDRESS if so.
@@ -4735,20 +4840,34 @@ print_operand_address (FILE *file, rtx addr)
 {
   print_operand_address2(file, addr, 0);
 }
+
+static void
+append_outer_address(FILE * file, struct m68k_address address)
+{
+  putc (']', file);
+
+  /* Print the ",index" component, if any.  */
+  if (address.outer_index)
+    {
+      putc (',', file);
+      fprintf (file, "%s.%c",
+  	       M68K_REGNAME (REGNO (address.outer_index)),
+  	       GET_MODE (address.outer_index) == HImode ? 'w' : 'l');
+    if (address.scale != 1)
+  	fprintf (file, "*%d", address.scale);
+  }
+
+  if (address.outer_offset)
+    {
+      putc (',', file);
+      output_addr_const (file, address.outer_offset);
+    }
+}
+
 static void
 print_operand_address2 (FILE *file, rtx addr, int offset)
 {
   struct m68k_address address;
-
-  bool ket;
-
-  if (MEM_P(addr))
-    {
-      addr = XEXP(addr, 0);
-      ket = true;
-    } else
-      ket = false;
-
 
 #ifdef TARGET_AMIGA
   /*
@@ -4800,8 +4919,11 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
   if (!m68k_decompose_address (QImode, addr, true, &address))
     {
       debug_rtx(addr);
+      m68k_decompose_address (QImode, addr, true, &address);
       gcc_unreachable ();
     }
+
+  bool ket = address.code == MEM;
 
   if (address.code == PRE_DEC)
     fprintf (file, MOTOROLA ? "-(%s)" : "%s@-",
@@ -4834,7 +4956,9 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 #else
 	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc");
 #endif
-	  if (ket) putc (']', file);
+	  if (ket)
+	    append_outer_address(file, address);
+
 	  putc (')', file);
 	}
       else
@@ -4857,7 +4981,9 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 		asm_fprintf(file, ":w,pc");
 	    }
 #endif
-	      if (ket) putc (']', file);
+	    if (ket)
+	      append_outer_address(file, address);
+
 	      putc (')', file);
 	    }
 	  else {
@@ -4909,7 +5035,9 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	      if (address.scale != 1)
 		fprintf (file, "*%d", address.scale);
 	    }
-	  if (ket) putc (']', file);
+	  if (ket)
+	    append_outer_address(file, address);
+
 	  putc (')', file);
 	}
       else /* !MOTOROLA */

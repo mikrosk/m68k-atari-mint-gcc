@@ -5515,6 +5515,14 @@ namespace
 	    /* copy_rtx can't unshare, so do it by hand. */
 	    rtx c = gen_rtx_CONST(GET_MODE(*x), gen_rtx_PLUS(GET_MODE(XEXP(*x, 0)), XEXP(XEXP(*x, 0), 0), XEXP(XEXP(*x, 0), 1)));
 	    *x = c;
+
+	    if (!make_pic_ref(insn, &XEXP(*x, 0), use_tmp))
+	      return 0;
+
+	    // remove CONST
+	    *x = XEXP(*x, 0);
+
+	    return 1;
 	  }
 	break;
 	/*

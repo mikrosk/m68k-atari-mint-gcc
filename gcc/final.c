@@ -2935,7 +2935,11 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  }
 
 	if (! constrain_operands_cached (insn, 1))
-	  fatal_insn_not_found (insn);
+	  {
+	    debug_rtx(insn);
+	    constrain_operands_cached (insn, 1);
+	    fatal_insn_not_found (insn);
+	  }
 
 	/* Some target machines need to prescan each insn before
 	   it is output.  */
@@ -3979,8 +3983,7 @@ output_addr_const (FILE *file, rtx x)
 	{
 #ifdef TARGET_AMIGA
 	  output_addr_const (file, XEXP (x, 0));
-	  if (INTVAL (XEXP (x, 0)) >= 0)
-	    fprintf (file, "+");
+	  fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 1));
 #else
 	  output_addr_const (file, XEXP (x, 1));
@@ -3993,9 +3996,7 @@ output_addr_const (FILE *file, rtx x)
 	{
 #ifdef TARGET_AMIGA
 	  output_addr_const (file, XEXP (x, 1));
-	  if (!CONST_INT_P (XEXP (x, 1))
-	      || INTVAL (XEXP (x, 1)) >= 0)
-	    fprintf (file, "+");
+	  fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 0));
 #else
 	  output_addr_const (file, XEXP (x, 0));

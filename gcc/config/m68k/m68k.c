@@ -2143,6 +2143,11 @@ static bool decompose_one(rtx x, struct m68k_address *address, bool strict_p)
   // add const_int / symbol_refs...
   if (is_valid_offset(x))
     {
+      rtx da = address->code == MEM ? address->outer_offset : address->offset;
+
+      if (da)
+	x = gen_rtx_PLUS(SImode, da, x);
+
       if (address->code == MEM)
         address->outer_offset = x;
       else
@@ -4931,7 +4936,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
   else if (address.code == POST_INC)
     fprintf (file, MOTOROLA ? "(%s)+" : "%s@+",
 	     M68K_REGNAME (REGNO (address.base)));
-  else if (!address.base && !address.index)
+  else if (!address.base && !address.index && !address.code)
     {
       /* A constant address.  */
       gcc_assert (address.offset == addr);

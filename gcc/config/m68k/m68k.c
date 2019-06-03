@@ -4936,7 +4936,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
   else if (address.code == POST_INC)
     fprintf (file, MOTOROLA ? "(%s)+" : "%s@+",
 	     M68K_REGNAME (REGNO (address.base)));
-  else if (!address.base && !address.index)
+  else if (!address.base && !address.index && !address.code)
     {
       /* A constant address.  */
       gcc_assert (address.offset == addr);

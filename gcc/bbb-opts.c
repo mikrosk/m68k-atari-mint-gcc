@@ -4344,7 +4344,7 @@ track_regs ()
 		}
 	      else if (ii.get_src_op() == ZERO_EXTRACT) {
 		  unsigned mask = (1 << INTVAL(XEXP(SET_SRC(set), 1))) - 1;
-		  track->setMask(dregno, mask & dmask, ii.get_mode());
+		  track->setMask(dregno, mask, ii.get_mode());
 	      }
 	      else if (ii.get_src_op() == LSHIFTRT || ii.get_src_op() == ASHIFT)
 		{

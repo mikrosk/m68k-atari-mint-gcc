@@ -2302,12 +2302,12 @@ m68k_decompose_address (machine_mode mode, rtx x,
 
   if (!TARGET_68020)
     {
+      // 68k has no support for indirect or missing registers
+      if (address->code || !address->base || !address->index)
+	return false;
+
       if (!address->offset)
 	address->offset = CONST0_RTX(SImode);
-
-      // 68k has only support for one kind
-      if (address->outer_index || address->outer_offset || !address->base || !address->index || !address->code)
-	return false;
 
       if (!IN_RANGE (INTVAL (address->offset), -0x80, 0x80 - reach))
 	return false;

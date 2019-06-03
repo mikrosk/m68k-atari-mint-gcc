@@ -4017,6 +4017,8 @@ opt_shrink_stack_frame (void)
 	}
       else
 	{
+	  // shrink from 2/1 to 1/0
+
 	  rtx set = PATTERN (insn);
 
 	  if (i < prologueend)
@@ -4047,6 +4049,19 @@ opt_shrink_stack_frame (void)
 		  log ("(f) remove pop for %s\n", reg_names[REGNO(dst)]);
 		  SET_INSN_DELETED(insn);
 		  ++changed;
+
+		  if ((ii.get_myuse () & (1 << FRAME_POINTER_REGNUM)))
+		    {
+		      rtx x;
+		      // the previous offset needs a fix if it's also a a5 pop
+		      insn_info & pp = infos[i - 1];
+		      if (pp.is_stack() && (set = single_set(pp.get_insn())) && MEM_P(x = SET_SRC(set))
+			  && GET_CODE(x = XEXP(x, 0)) == PLUS && REG_P(XEXP(x, 0)) && REGNO(XEXP(x, 0)) == FRAME_POINTER_REGNUM)
+			{
+			  XEXP(x, 1) = GEN_INT(INTVAL(XEXP(x, 1)) + GET_MODE_SIZE(GET_MODE(SET_SRC(set))));
+			}
+		    }
+
 		}
 	    }
 	}

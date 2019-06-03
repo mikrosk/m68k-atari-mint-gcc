@@ -2052,7 +2052,7 @@ static bool is_valid_offset(rtx x)
 {
   if (GET_CODE(x) == CONST)
     x = XEXP(x, 0);
-  if (GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == CONST_INT)
+  if (GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC)
     return true;
   if (GET_CODE(x) != PLUS)
     return false;

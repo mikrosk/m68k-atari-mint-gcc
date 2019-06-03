@@ -2306,7 +2306,7 @@ m68k_decompose_address (machine_mode mode, rtx x,
 	address->offset = CONST0_RTX(SImode);
 
       // 68k has only support for one kind
-      if (address->outer_index || address->outer_offset || !address->base || !address->index)
+      if (address->outer_index || address->outer_offset || !address->base || !address->index || !address->code)
 	return false;
 
       if (!IN_RANGE (INTVAL (address->offset), -0x80, 0x80 - reach))

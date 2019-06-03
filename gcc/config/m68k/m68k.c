@@ -2143,6 +2143,11 @@ static bool decompose_one(rtx x, struct m68k_address *address, bool strict_p)
   // add const_int / symbol_refs...
   if (is_valid_offset(x))
     {
+      rtx da = address->code == MEM ? address->outer_offset : address->offset;
+
+      if (da)
+	x = gen_rtx_PLUS(SImode, da, x);
+
       if (address->code == MEM)
         address->outer_offset = x;
       else

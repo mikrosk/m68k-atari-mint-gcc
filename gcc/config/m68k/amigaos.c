@@ -753,39 +753,36 @@ amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_U
 static int
 _amiga_is_const_pic_ref (const_rtx x)
 {
-  if (GET_CODE(x) == PLUS || GET_CODE(x) == MINUS)
-    {
-      if (GET_CODE(XEXP(x, 1)) == CONST_INT)
-	return _amiga_is_const_pic_ref(XEXP(x, 0));
-      return false;
-    }
-
   while (GET_CODE(x) == CONST)
     x = XEXP(x, 0);
+
   if (GET_CODE(x) != PLUS)
     return false;
 
-  const_rtx reg = XEXP(x, 0);
+  if (GET_CODE(XEXP(x, 0)) == CONST_INT)
+    return _amiga_is_const_pic_ref(XEXP(x, 1));
+  if (GET_CODE(XEXP(x, 1)) == CONST_INT)
+    return _amiga_is_const_pic_ref(XEXP(x, 0));
 
-  if (GET_CODE(reg) == CONST)
+  rtx r = XEXP(x,0);
+  rtx u = XEXP(x,1);
+
+  if (!REG_P(r) || REGNO(r) != PIC_OFFSET_TABLE_REGNUM )
+    return false;
+
+  for (;;)
     {
-      x = XEXP(reg, 0);
-      if (GET_CODE(x) != PLUS)
-        return false;
-      reg = XEXP(x, 0);
+      while (GET_CODE(u) == CONST)
+	u = XEXP(u, 0);
+      if (GET_CODE(u) != PLUS)
+	break;
+
+      if (GET_CODE(XEXP(u, 1)) != CONST_INT)
+	return false;
+      u = XEXP(u, 0);
     }
 
-  if (!REG_P(reg) && REGNO(reg) != PIC_REG)
-    return false;
-
-  const_rtx unspec = XEXP(x, 1);
-  while (GET_CODE(unspec) == PLUS || GET_CODE(unspec) == CONST)
-    unspec = XEXP(unspec, 0);
-
-  if (GET_CODE(unspec) != UNSPEC)
-    return false;
-
-  return true;
+  return GET_CODE(u) == UNSPEC;
 }
 
 int

@@ -5027,8 +5027,9 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
   if (GET_CODE(ad) == PLUS)
     {
       extern rtx * m68k_get_invalid_base(rtx ad);
+      extern bool  m68k_legitimate_index_reg_p (rtx x, bool strict_p);
       rtx * base_loc = m68k_get_invalid_base(ad);
-      if (base_loc)
+      if (base_loc && m68k_legitimate_index_reg_p(*base_loc, true))
 	{
 	  push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
 	  		   base_reg_class (mode, as, MEM, SCRATCH),

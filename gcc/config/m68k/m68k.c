@@ -2333,7 +2333,7 @@ m68k_decompose_address (machine_mode mode, rtx x,
 
       // only const_int offsets
       if (address->offset && !(
-	    GET_CODE(address->offset) == CONST_INT
+	    (GET_CODE(address->offset) == CONST_INT && INTVAL(address->offset) + 32768 < 65536 - reach)
 	 || GET_CODE(address->offset) == UNSPEC
 	 || (GET_CODE(address->offset) == PLUS && GET_CODE(XEXP(address->offset,0)) == UNSPEC)
 	  ))

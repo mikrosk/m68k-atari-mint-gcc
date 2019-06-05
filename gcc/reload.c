@@ -5017,6 +5017,28 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
   /* The address is not valid.  We have to figure out why.  First see if
      we have an outer AND and remove it if so.  Then analyze what's inside.  */
+#ifdef TARGET_AMIGA
+  /**
+   * SBF: check the base register here, 
+   * since later no information exists, which reg is the base reg
+   * and a data reg could end up in the base reg slot.
+   * => reload the data reg
+   */
+  if (GET_CODE(ad) == PLUS)
+    {
+      extern rtx * m68k_get_invalid_base(rtx ad);
+      rtx * base_loc = m68k_get_invalid_base(ad);
+      if (base_loc)
+	{
+	  push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
+	  		   base_reg_class (mode, as, MEM, SCRATCH),
+	  		   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
+	  return 0;
+	}
+    }
+#endif
+
+
 
   if (GET_CODE (ad) == AND)
     {

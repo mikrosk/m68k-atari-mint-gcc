@@ -2328,7 +2328,11 @@ m68k_decompose_address (machine_mode mode, rtx x,
   if (!TARGET_68020)
     {
       // 68k has no support for indirect or a missing base register
-      if (address->code || !address->base)
+      if (address->code || !address->base || has_outer_index)
+	return false;
+
+      // only const_int offsets
+      if (address->offset && GET_CODE(address->offset) != CONST_INT)
 	return false;
 
       // also only scale 1 is supported.

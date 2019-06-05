@@ -2332,7 +2332,11 @@ m68k_decompose_address (machine_mode mode, rtx x,
 	return false;
 
       // only const_int offsets
-      if (address->offset && GET_CODE(address->offset) != CONST_INT)
+      if (address->offset && !(
+	    GET_CODE(address->offset) == CONST_INT
+	 || GET_CODE(address->offset) == UNSPEC
+	 || (GET_CODE(address->offset) == PLUS && GET_CODE(XEXP(address->offset,0)) == UNSPEC)
+	  ))
 	return false;
 
       // also only scale 1 is supported.

@@ -5029,12 +5029,24 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       extern rtx * m68k_get_invalid_base(rtx ad);
       extern bool  m68k_legitimate_index_reg_p (rtx x, bool strict_p);
       rtx * base_loc = m68k_get_invalid_base(ad);
-      if (base_loc && m68k_legitimate_index_reg_p(*base_loc, true))
+
+      if (base_loc)
 	{
-	  push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
-	  		   base_reg_class (mode, as, MEM, SCRATCH),
-	  		   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
-	  return 0;
+	  if (m68k_legitimate_index_reg_p(*base_loc, true))
+	    {
+	      push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
+			       base_reg_class (mode, as, MEM, SCRATCH),
+			       GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
+	      return 0;
+	    }
+	  regno = REGNO(*base_loc);
+	  if (reg_equiv_constant (regno) != 0)
+	    {
+	      find_reloads_address_part (reg_equiv_constant (regno), base_loc,
+					 ADDR_REGS,
+					 GET_MODE (ad), opnum, type, ind_levels);
+	      return 1;
+	    }
 	}
     }
 #endif

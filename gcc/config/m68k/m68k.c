@@ -2325,6 +2325,10 @@ m68k_decompose_address (machine_mode mode, rtx x,
       return false;
     }
 
+  // disallow indirect mem addresses for too large stuff - handling overlaps is too tough.
+  if (reach > 4 && address->code == MEM)
+    return false;
+
   if (!TARGET_68020)
     {
       // 68k has no support for indirect or a missing base register

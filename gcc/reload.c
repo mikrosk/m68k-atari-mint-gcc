@@ -5026,28 +5026,60 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
    */
   if (GET_CODE(ad) == PLUS)
     {
-      extern rtx * m68k_get_invalid_base(rtx ad);
-      extern bool  m68k_legitimate_index_reg_p (rtx x, bool strict_p);
-      rtx * base_loc = m68k_get_invalid_base(ad);
+      extern void m68k_get_base_and_index(rtx ad, rtx ** regs);
+      extern bool m68k_legitimate_index_reg_p (rtx x, bool strict_p);
+      extern bool m68k_legitimate_base_reg_p (rtx x, bool strict_p);
 
-      if (base_loc)
+      rtx *regs[2] = {0, 0};
+      m68k_get_base_and_index(ad, regs);
+
+      bool done = false;
+      if (regs[0] && !m68k_legitimate_base_reg_p(*regs[0], true))
 	{
-	  if (m68k_legitimate_index_reg_p(*base_loc, true))
+	  rtx * base_loc = regs[0];
+	  regno = REGNO(*base_loc);
+	  if (regno < FIRST_PSEUDO_REGISTER
+		  || reg_renumber[regno] >= 0
+		  || reg_equiv_constant (regno) == NULL_RTX)
 	    {
 	      push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
-			       base_reg_class (mode, as, MEM, SCRATCH),
-			       GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
-	      return 0;
+			       ADDR_REGS,
+			       GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+	      done = true;
 	    }
-	  regno = REGNO(*base_loc);
+	  else
 	  if (reg_equiv_constant (regno) != 0)
 	    {
 	      find_reloads_address_part (reg_equiv_constant (regno), base_loc,
 					 ADDR_REGS,
 					 GET_MODE (ad), opnum, type, ind_levels);
-	      return 1;
+	      done = true;
 	    }
 	}
+      if (regs[1] && !m68k_legitimate_index_reg_p(*regs[1], true))
+	{
+	  rtx * index_loc = regs[1];
+	  regno = REGNO(*index_loc);
+	  if (regno < FIRST_PSEUDO_REGISTER
+		  || reg_renumber[regno] >= 0
+		  || reg_equiv_constant (regno) == NULL_RTX)
+	    {
+	      push_reload (*index_loc, NULL_RTX, index_loc, (rtx*) 0,
+			       GENERAL_REGS,
+			       GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+	      done = true;
+	    }
+	  else
+	  if (reg_equiv_constant (regno) != 0)
+	    {
+	      find_reloads_address_part (reg_equiv_constant (regno), index_loc,
+					 GENERAL_REGS,
+					 GET_MODE (ad), opnum, type, ind_levels);
+	      done = true;
+	    }
+	}
+      if (done)
+	return 1;
     }
 #endif
 

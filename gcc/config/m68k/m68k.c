@@ -133,7 +133,9 @@ static struct m68k_frame current_frame;
 struct m68k_address {
   enum rtx_code code;
   rtx base;
+  rtx * base_loc;
   rtx index;
+  rtx * index_loc;
   rtx offset;
   int scale;
   rtx outer_index;
@@ -2069,12 +2071,6 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 static bool has_outer_index;
 
 /**
- * Address of the last invalid base register.
- * Used by reload - see reload.c
- */
-static rtx * invalid_base_loc;
-
-/**
  * new implementation to parse an address into it's address attributes.
  */
 void m68k_set_outer_address(rtx current_outer_address)
@@ -2099,6 +2095,7 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 	  if (!address->base)
 	    {
 	      address->base = x;
+	      address->base_loc = loc;
 	      return true;
 	    }
 	}
@@ -2108,12 +2105,12 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
        && m68k_legitimate_index_reg_p(x, strict_p))
 	{
 	  address->index = x;
+	  address->index_loc = loc;
 	  address->scale = 1;
 	  return true;
 	}
 
       // can't handle that register - wrong type or slot is used.
-      invalid_base_loc = loc;
       return false;
     }
 
@@ -2197,14 +2194,16 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
       // mark to prevent to many nested MEMs - gcc is testing: how many levels are supported.
       address->code = NOTE;
 
-      // can't use outer base try to use index instead.
+      // can't use base try to use index instead.
       if (address->base)
 	{
 	  if (address->index)
 	    return false;
 	  address->index = address->base;
+	  address->index_loc = address->base_loc;
 	  address->scale = 1;
 	  address->base = 0;
+	  address->base_loc = 0;
 	}
 
       // the index is an outer index
@@ -2361,14 +2360,17 @@ m68k_decompose_address (machine_mode mode, rtx x,
   return true;
 }
 /**
- * SBF: return the address of the base register, if it needs a reload.
+ * SBF: return the addresses of the base and index registers.
  */
-rtx * m68k_get_invalid_base(rtx addr)
+void m68k_get_base_and_index(rtx ad, rtx ** regs)
 {
-  invalid_base_loc = 0;
-  if (m68k_legitimate_address_p(GET_MODE(addr), addr, true))
-    return 0;
-  return invalid_base_loc;
+  struct m68k_address address;
+
+  if (m68k_decompose_address (GET_MODE(ad), ad, false, &address))
+    {
+      regs[0] = address.base_loc;
+      regs[1] = address.index_loc;
+    }
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.

@@ -2369,13 +2369,14 @@ m68k_decompose_address (machine_mode mode, rtx x,
 /**
  * SBF: return the addresses of the base and index registers.
  */
-void m68k_get_base_and_index(rtx ad, rtx ** regs)
+rtx m68k_get_base_and_index(rtx ad, rtx ** regs)
 {
   struct m68k_address address;
 
   m68k_decompose_address (GET_MODE(ad), ad, false, &address);
   regs[0] = address.base_loc;
   regs[1] = address.index_loc;
+  return address.offset;
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.

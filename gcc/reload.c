@@ -5026,12 +5026,12 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
    */
   if (GET_CODE(ad) == PLUS)
     {
-      extern void m68k_get_base_and_index(rtx ad, rtx ** regs);
+      extern rtx m68k_get_base_and_index(rtx ad, rtx ** regs);
       extern bool m68k_legitimate_index_reg_p (rtx x, bool strict_p);
       extern bool m68k_legitimate_base_reg_p (rtx x, bool strict_p);
 
       rtx *regs[2] = {0, 0};
-      m68k_get_base_and_index(ad, regs);
+      rtx offset = m68k_get_base_and_index(ad, regs);
 
       bool done = false;
       if (regs[0] && !m68k_legitimate_base_reg_p(*regs[0], true))
@@ -5078,6 +5078,15 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	      done = true;
 	    }
 	}
+      // 68000 has only support for small offsets if base and index are used.
+      if (!TARGET_68020 && offset && regs[0] && regs[1] && (GET_CODE(offset) != CONST_INT || !IN_RANGE (INTVAL (offset), -0x80, 0x80 - GET_MODE_SIZE(GET_MODE(ad)))))
+	{
+	  push_reload (XEXP(ad, 0), NULL_RTX, &XEXP(ad, 0), (rtx*) 0,
+			   ADDR_REGS,
+			   GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+	  done = true;
+	}
+
       if (done)
 	return 1;
     }

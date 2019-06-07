@@ -5362,7 +5362,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		}
 #ifdef TARGET_AMIGA
 	      /** do not subst pic_refs into minus */
-	      else if (GET_CODE(x) == MINUS && amiga_is_const_pic_ref(to))
+	      else if (i == 1 && GET_CODE(x) == MINUS && amiga_is_const_pic_ref(to))
 		{
 		  // intentionally empty
 		}

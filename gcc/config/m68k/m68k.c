@@ -2111,6 +2111,7 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 	}
 
       // can't handle that register - wrong type or slot is used.
+      address->base_loc = loc;
       return false;
     }
 
@@ -2372,11 +2373,9 @@ void m68k_get_base_and_index(rtx ad, rtx ** regs)
 {
   struct m68k_address address;
 
-  if (m68k_decompose_address (GET_MODE(ad), ad, false, &address))
-    {
-      regs[0] = address.base_loc;
-      regs[1] = address.index_loc;
-    }
+  m68k_decompose_address (GET_MODE(ad), ad, false, &address);
+  regs[0] = address.base_loc;
+  regs[1] = address.index_loc;
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.

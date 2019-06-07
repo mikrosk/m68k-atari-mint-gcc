@@ -4922,11 +4922,16 @@ opt_autoinc ()
       if (GET_CODE(PATTERN(ii.get_insn())) == PARALLEL)
 	continue;
 
-      if (ii.is_src_mem () && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
+      rtx set = single_set(ii.get_insn());
+      if (!set)
+	continue;
+
+
+      if (MEM_P(SET_SRC(set)) && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
 
-      if (ii.is_dst_mem () && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+      if (MEM_P(SET_DEST(set)) && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg ());
 

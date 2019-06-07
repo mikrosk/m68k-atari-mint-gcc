@@ -2131,9 +2131,13 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 	  address->base = address->index;
 	}
 
-      rtx r = XEXP(x, 0);
+      loc = &XEXP(x, 0);
+      rtx r = *loc;
       if (GET_CODE(r) == SIGN_EXTEND)
-	r = XEXP(r, 0);
+	{
+          loc = &XEXP(x, 0);
+	  r = *loc;
+	}
 
       if (!m68k_legitimate_index_reg_p(r, strict_p))
 	return false;
@@ -2158,6 +2162,8 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 	address->outer_index = r;
       else
 	address->index = r;
+      address->index_loc = loc;
+
       address->scale = i;
       return true;
     }

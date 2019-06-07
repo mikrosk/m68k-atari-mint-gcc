@@ -5037,7 +5037,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (regs[0] && !m68k_legitimate_base_reg_p(*regs[0], true))
 	{
 	  rtx * base_loc = regs[0];
-	  regno = REGNO(*base_loc);
+	  regno = SUBREG_P(*base_loc) ? REGNO(SUBREG_REG(*base_loc)) : REGNO(*base_loc);
 	  if (regno < FIRST_PSEUDO_REGISTER
 		  || reg_renumber[regno] >= 0
 		  || reg_equiv_constant (regno) == NULL_RTX)
@@ -5059,7 +5059,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (regs[1] && !m68k_legitimate_index_reg_p(*regs[1], true))
 	{
 	  rtx * index_loc = regs[1];
-	  regno = REGNO(*index_loc);
+	  regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);
 	  if (regno < FIRST_PSEUDO_REGISTER
 		  || reg_renumber[regno] >= 0
 		  || reg_equiv_constant (regno) == NULL_RTX)

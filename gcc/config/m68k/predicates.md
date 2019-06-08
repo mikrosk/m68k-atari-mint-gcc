@@ -154,9 +154,10 @@
 
     case CONST:
       op = XEXP (op, 0);
-      return ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
-	       || GET_CODE (XEXP (op, 0)) == LABEL_REF)
-	      && GET_CODE (XEXP (op, 1)) == CONST_INT);
+      return (GET_CODE(op) == PLUS &&
+               (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+	         || GET_CODE (XEXP (op, 0)) == LABEL_REF)
+	       && GET_CODE (XEXP (op, 1)) == CONST_INT);
 
 #if 0 /* Deleted, with corresponding change in m68k.h,
 	 so as to fit the specs.  No CONST_DOUBLE is ever symbolic.  */

@@ -5360,13 +5360,6 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		{
 		  // intentionally empty
 		}
-#ifdef TARGET_AMIGA
-	      /** do not subst pic_refs into minus */
-	      else if (i == 1 && GET_CODE(x) == MINUS && amiga_is_const_pic_ref(to))
-		{
-		  // intentionally empty
-		}
-#endif
 	      else if (COMBINE_RTX_EQUAL_P (XEXP (x, i), from))
 		{
 		  /* In general, don't install a subreg involving two

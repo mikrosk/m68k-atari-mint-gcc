@@ -3923,7 +3923,8 @@ opt_shrink_stack_frame (void)
 			}
 		      else
 			{
-			  if (ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
+			  if ((ii.get_myuse () & (1 << FRAME_POINTER_REGNUM))
+			      && (a5offset != -4 || a5_touched)) // no conversion to sp)
 			    {
 			      /* pop via a5 + offset*/
 			      x += REGNO(regs[k]) > STACK_POINTER_REGNUM ? 12 : 4;

@@ -7983,9 +7983,19 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
       /* The insn might have already some references to stackslots
 	 replaced by MEMs, while reload_out_reg still names the
 	 original pseudo.  */
-      && (dead_or_set_p (insn, spill_reg_stored_to[REGNO (reg_rtx)])
-	  || rtx_equal_p (spill_reg_stored_to[REGNO (reg_rtx)], rl->out_reg)))
-    delete_output_reload (insn, j, REGNO (reg_rtx), reg_rtx);
+      && (
+/**
+ * SBF: a later reload might rely on this reload which is marked dead for now...
+ * ... then this reload is missing.
+ */
+#if 0
+	  dead_or_set_p (insn, spill_reg_stored_to[REGNO (reg_rtx)])
+	  ||
+#endif	  
+	  rtx_equal_p (spill_reg_stored_to[REGNO (reg_rtx)], rl->out_reg)))
+    {
+      delete_output_reload (insn, j, REGNO (reg_rtx), reg_rtx);
+    }
 }
 
 /* Do output reloading for reload RL, which is for the insn described by

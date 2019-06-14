@@ -388,12 +388,14 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
     "%{ramiga-libr:libinitr.o%s}" \
     "%{ramiga-dev:devinit.o%s}}" \
   "%{!ramiga-*:" \
+    "%{resident32:nlrcrt0.o%s}" \
+    "%{!resident32:%{fbaserel32:nlbcrt0.o%s}" \
+    "%{!fbaserel32:" \
+    "%{!mcpu=68000:%{!mcpu=68010:-u___cpucheck }} "\
     "%{resident:nrcrt0.o%s}" \
-    "%{!resident:" \
-      "%{fbaserel:nbcrt0.o%s}" \
-      "%{!fbaserel:" \
-    "%{fbaserel32:nlbcrt0.o%s}" \
-    "%{!fbaserel32:ncrt0.o%s}}}}"
+    "%{!resident:%{fbaserel:nbcrt0.o%s}" \
+    "%{!fbaserel:ncrt0.o%s}}}}}"
+
 
 #define STARTFILE_CLIB2_SPEC \
   "%{resident32:nr32crt0.o%s}" \

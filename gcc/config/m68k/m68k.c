@@ -2233,6 +2233,117 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
   return false;
 }
 
+static bool decompose_mem(int reach, rtx x, struct m68k_address * address, bool strict_p)
+{
+
+  if (!decompose_one(0, x, address, strict_p))
+    {
+//      debug_rtx(x);
+      return false;
+    }
+
+  // disallow indirect mem addresses for too large stuff - handling overlaps is too tough.
+  if (reach > 4 && address->code == MEM)
+    return false;
+
+  // double indirect is slower...
+  if (address->code == MEM && optimize_function_for_speed_p(cfun))
+	return false;
+
+  if (!TARGET_68020)
+    {
+      // 68k has no support for indirect or a missing base register
+      if (address->code || !address->base || has_outer_index)
+	return false;
+
+      // only const_int offsets
+      if (address->offset && !(
+	    (GET_CODE(address->offset) == CONST_INT && IN_RANGE (INTVAL (address->offset), -0x8000, 0x8000 - reach))
+	 || GET_CODE(address->offset) == UNSPEC
+	 || (GET_CODE(address->offset) == PLUS && GET_CODE(XEXP(address->offset,0)) == UNSPEC)
+	  ))
+	return false;
+
+      // also only scale 1 is supported.
+      if (address->index && address->scale > 1)
+	return false;
+
+      if (address->index)
+	{
+	  // index requires an offset.
+	  if (!address->offset)
+	    address->offset = CONST0_RTX(SImode);
+	  // with a small offset.
+	  if (GET_CODE(address->offset) != CONST_INT || !IN_RANGE (INTVAL (address->offset), -0x80, 0x80 - reach))
+	    return false;
+	}
+    }
+
+  return true;
+}
+
+extern bool m68k_is_SI_memory_operand_to_HI_allowed(rtx x)
+{
+  struct m68k_address address;
+  memset (&address, 0, sizeof (address));
+  return decompose_mem(4, x, &address, true);
+
+}
+
+static rtx address_to_rtx(struct m68k_address * address)
+{
+  rtx x = address->index;
+  if (address->base)
+    {
+      if (x)
+	x = gen_rtx_PLUS(SImode, x, address->base);
+      else
+	x = address->base;
+    }
+  if (address->offset)
+    {
+      if (x)
+	x = gen_rtx_PLUS(SImode, x, address->offset);
+      else
+	x = address->offset;
+    }
+  if (address->code == MEM)
+    {
+      x = gen_rtx_MEM(SImode, x);
+
+      if (address->outer_index)
+	x = gen_rtx_PLUS(SImode, x, address->outer_index);
+
+      if (address->outer_offset)
+	x = gen_rtx_PLUS(SImode, x, address->outer_offset);
+    }
+  return x;
+}
+
+extern rtx m68k_SI_memory_operand_to_HI(rtx x)
+{
+  struct m68k_address address;
+  memset (&address, 0, sizeof (address));
+  if (!decompose_mem(4, x, &address, true))
+    return 0;
+
+  rtx * p = address.code == MEM ? &address.outer_index : &address.index;
+
+  if (address.offset)
+    {
+      if (GET_CODE(*p) == CONST_INT)
+	*p = GEN_INT(INTVAL(*p) + 2);
+      else
+	*p = gen_rtx_PLUS(SImode, *p, GEN_INT(2));
+    }
+  else
+    *p = GEN_INT(2);
+
+  return gen_rtx_MEM(HImode, address_to_rtx(&address));
+}
+
+
+
 /* Return true if X is a legitimate address for values of mode MODE.
    STRICT_P says whether strict checking is needed.  If the address
    is valid, describe its components in *ADDRESS.  */
@@ -2325,46 +2436,7 @@ m68k_decompose_address (machine_mode mode, rtx x,
      (bd,An,Xn.SIZE*SCALE) addresses.  */
   /* SBF: or with all other addresses which can be handled by 68020+ ^^ */
 
-  if (!decompose_one(0, x, address, strict_p))
-    {
-//      debug_rtx(x);
-      return false;
-    }
-
-  // disallow indirect mem addresses for too large stuff - handling overlaps is too tough.
-  if (reach > 4 && address->code == MEM)
-    return false;
-
-  if (!TARGET_68020)
-    {
-      // 68k has no support for indirect or a missing base register
-      if (address->code || !address->base || has_outer_index)
-	return false;
-
-      // only const_int offsets
-      if (address->offset && !(
-	    (GET_CODE(address->offset) == CONST_INT && IN_RANGE (INTVAL (address->offset), -0x8000, 0x8000 - reach))
-	 || GET_CODE(address->offset) == UNSPEC
-	 || (GET_CODE(address->offset) == PLUS && GET_CODE(XEXP(address->offset,0)) == UNSPEC)
-	  ))
-	return false;
-
-      // also only scale 1 is supported.
-      if (address->index && address->scale > 1)
-	return false;
-
-      if (address->index)
-	{
-	  // index requires an offset.
-	  if (!address->offset)
-	    address->offset = CONST0_RTX(SImode);
-	  // with a small offset.
-	  if (GET_CODE(address->offset) != CONST_INT || !IN_RANGE (INTVAL (address->offset), -0x80, 0x80 - reach))
-	    return false;
-	}
-    }
-
-  return true;
+  return decompose_mem(reach, x, address, strict_p);
 }
 /**
  * SBF: return the addresses of the base and index registers.
@@ -5539,7 +5611,8 @@ m68k_preferred_reload_class (rtx x, enum reg_class rclass)
   /* Prefer to use moveq for in-range constants.  */
   if (GET_CODE (x) == CONST_INT
       && reg_class_subset_p (DATA_REGS, rclass)
-      && IN_RANGE (INTVAL (x), -0x80, 0x7f))
+      && IN_RANGE (INTVAL (x), -0x80, 0x7f)
+      && !TUNE_68080)
     return DATA_REGS;
 
   /* ??? Do we really need this now?  */

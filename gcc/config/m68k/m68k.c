@@ -2246,9 +2246,9 @@ static bool decompose_mem(int reach, rtx x, struct m68k_address * address, bool 
   if (reach > 4 && address->code == MEM)
     return false;
 
-  // double indirect is slower...
-  if (address->code == MEM && optimize_function_for_speed_p(cfun))
-	return false;
+//  // double indirect is slower...
+//  if (address->code == MEM && optimize_function_for_speed_p(cfun))
+//	return false;
 
   if (!TARGET_68020)
     {

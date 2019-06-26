@@ -5100,6 +5100,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	    {
 	      rtx dst = SET_DEST(PATTERN(insn));
 	      if (REG_P(dst) && reg_equiv_init (ORIGINAL_REGNO(dst))
+		  && !reg_equiv_mem (ORIGINAL_REGNO(dst))
 		  && (base_regno == -1 || base_regno != ORIGINAL_REGNO(dst))
 		  && (index_regno == -1 || index_regno != ORIGINAL_REGNO(dst))
 		  )

@@ -3167,13 +3167,13 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
   if (m68k_tune == u68030)
     return m68k_68030_costs(x, mode, outer_code, opno, total, speed);
 
-  if (m68k_tune == u68040 || m68k_tune == u68020_40)
+//  if (m68k_tune == u68040 || m68k_tune == u68020_40)
     return m68k_68040_costs(x, mode, outer_code, opno, total, speed);
 
 // if (m68k_tune == u68060 || m68k_tune == u68020_60)
 // if (m68k_tune == u68080 || m68k_tune == u68020_80 || !speed)
-  *total = 1;
-  return true;
+//  *total = 1;
+//  return true;
 }
 
 /* Return an instruction to move CONST_INT OPERANDS[1] into data register

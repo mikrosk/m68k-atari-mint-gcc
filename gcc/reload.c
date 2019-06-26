@@ -5033,24 +5033,26 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       rtx *regs[2] = {0, 0};
       rtx offset = m68k_get_base_and_index(ad, regs);
 
+      int base_regno = -1;
+      int index_regno = -1;
       bool done = false;
       if (regs[0] && !m68k_legitimate_base_reg_p(*regs[0], true))
 	{
 	  rtx * base_loc = regs[0];
-	  regno = SUBREG_P(*base_loc) ? REGNO(SUBREG_REG(*base_loc)) : REGNO(*base_loc);
-	  if (regno < FIRST_PSEUDO_REGISTER
-		  || reg_renumber[regno] >= 0
-		  || reg_equiv_constant (regno) == NULL_RTX)
+	  base_regno = SUBREG_P(*base_loc) ? REGNO(SUBREG_REG(*base_loc)) : REGNO(*base_loc);
+	  if (base_regno < FIRST_PSEUDO_REGISTER
+		  || reg_renumber[base_regno] >= 0
+		  || reg_equiv_constant (base_regno) == NULL_RTX)
 	    {
 	      push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
 			       ADDR_REGS,
-			       GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+			       GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 	      done = true;
 	    }
 	  else
-	  if (reg_equiv_constant (regno) != 0)
+	  if (reg_equiv_constant (base_regno) != 0)
 	    {
-	      find_reloads_address_part (reg_equiv_constant (regno), base_loc,
+	      find_reloads_address_part (reg_equiv_constant (base_regno), base_loc,
 					 ADDR_REGS,
 					 GET_MODE (ad), opnum, type, ind_levels);
 	      done = true;
@@ -5059,20 +5061,20 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (regs[1] && !m68k_legitimate_index_reg_p(*regs[1], true))
 	{
 	  rtx * index_loc = regs[1];
-	  regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);
-	  if (regno < FIRST_PSEUDO_REGISTER
-		  || reg_renumber[regno] >= 0
-		  || reg_equiv_constant (regno) == NULL_RTX)
+	  index_regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);
+	  if (index_regno < FIRST_PSEUDO_REGISTER
+		  || reg_renumber[index_regno] >= 0
+		  || reg_equiv_constant (index_regno) == NULL_RTX)
 	    {
 	      push_reload (*index_loc, NULL_RTX, index_loc, (rtx*) 0,
 			       GENERAL_REGS,
-			       GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+			       GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 	      done = true;
 	    }
 	  else
-	  if (reg_equiv_constant (regno) != 0)
+	  if (reg_equiv_constant (index_regno) != 0)
 	    {
-	      find_reloads_address_part (reg_equiv_constant (regno), index_loc,
+	      find_reloads_address_part (reg_equiv_constant (index_regno), index_loc,
 					 GENERAL_REGS,
 					 GET_MODE (ad), opnum, type, ind_levels);
 	      done = true;
@@ -5083,12 +5085,28 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	{
 	  push_reload (XEXP(ad, 0), NULL_RTX, &XEXP(ad, 0), (rtx*) 0,
 			   ADDR_REGS,
-			   GET_MODE (ad), VOIDmode, 0, 0, opnum, opnum ? RELOAD_FOR_INPUT_ADDRESS : RELOAD_FOR_OUTPUT_ADDRESS);
+			   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 	  done = true;
 	}
 
       if (done)
-	return 1;
+	{
+	  /**
+	   * if this is an INPUT reload for an init insn setting a register,
+	   * clear the reg_equivs memory_loc, since that memory_loc has no reload yet.
+	   * This will hopefully trigger a new reload later...
+	   */
+	  if (opnum == 1 && GET_CODE(PATTERN(insn)) == SET)
+	    {
+	      rtx dst = SET_DEST(PATTERN(insn));
+	      if (REG_P(dst) && reg_equiv_init (ORIGINAL_REGNO(dst))
+		  && (base_regno == -1 || base_regno != ORIGINAL_REGNO(dst))
+		  && (index_regno == -1 || index_regno != ORIGINAL_REGNO(dst))
+		  )
+		reg_equiv_memory_loc(ORIGINAL_REGNO(dst)) = NULL;
+	    }
+	return 0;
+	}
     }
 #endif
 

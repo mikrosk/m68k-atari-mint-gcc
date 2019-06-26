@@ -2341,8 +2341,9 @@ reorder_basic_blocks_simple (void)
 
   /* Sort the edges, the most desirable first.  When optimizing for size
      all edges are equally desirable.  */
-
+#ifndef TARGET_AMIGA
   if (optimize_function_for_speed_p (cfun))
+#endif
     std::stable_sort (edges, edges + n, edge_order);
 
   /* Now decide which of those edges to make fallthrough edges.  We set

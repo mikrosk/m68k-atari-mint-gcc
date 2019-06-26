@@ -2252,6 +2252,17 @@ static bool decompose_mem(int reach, rtx x, struct m68k_address * address, bool 
 
   if (!TARGET_68020)
     {
+      if (!address->base && address->index)
+	{
+	  // necessary to support reload.
+	  address->base = address->index;
+	  address->base_loc = address->index_loc;
+	  address->index = 0;
+	  address->index_loc = 0;
+	  return false;
+	}
+
+
       // 68k has no support for indirect or a missing base register
       if (address->code || !address->base || has_outer_index)
 	return false;

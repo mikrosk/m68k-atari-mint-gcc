@@ -295,7 +295,7 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		  int *total, bool speed) {
   bool r = __m68k_68040_costs(x, mode, outer_code, opno, total, speed);
 
-  if (r) *total *= COSTS_N_INSNS(1);
+  if (r) *total = (1 + *total) * COSTS_N_INSNS(1);
 
   return r;
 }

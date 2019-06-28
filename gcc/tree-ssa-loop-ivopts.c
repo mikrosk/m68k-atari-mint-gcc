@@ -4308,6 +4308,7 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
 
 /* Estimates cost of forcing expression EXPR into a variable.  */
 
+static unsigned ivopts_small_integer_cost [2];
 static unsigned ivopts_integer_cost [2];
 static unsigned ivopts_symbol_cost [2];
 static unsigned ivopts_address_cost [2];
@@ -4337,19 +4338,24 @@ force_expr_to_var_cost (tree expr, bool speed)
 
       for (i = 0; i < 2; i++)
 	{
+	  ivopts_small_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
+							     2), i);
+	  if (!ivopts_small_integer_cost[i])
+	    ivopts_small_integer_cost[i] = 1;
+
 	  ivopts_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
 							     2000), i);
+	  if (!ivopts_integer_cost[i])
+	    ivopts_integer_cost[i] = 1;
 
 	  ivopts_symbol_cost[i] = computation_cost (addr, i) + 1;
 
 	  ivopts_address_cost[i]
 	    = computation_cost (fold_build_pointer_plus_hwi (addr, 2000), i) + 1;
-#ifdef TARGET_AMIGA
-ivopts_address_cost[i] += ivopts_integer_cost[i];
-#endif	    
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
+	      fprintf (dump_file, "  small integer %d\n", (int) ivopts_small_integer_cost[i]);
 	      fprintf (dump_file, "  integer %d\n", (int) ivopts_integer_cost[i]);
 	      fprintf (dump_file, "  symbol %d\n", (int) ivopts_symbol_cost[i]);
 	      fprintf (dump_file, "  address %d\n", (int) ivopts_address_cost[i]);
@@ -4369,7 +4375,12 @@ ivopts_address_cost[i] += ivopts_integer_cost[i];
   if (is_gimple_min_invariant (expr))
     {
       if (TREE_CODE (expr) == INTEGER_CST)
-	return new_cost (ivopts_integer_cost [speed], 0);
+	{
+	  if (-0x80 <= expr->int_cst.val[0]
+	      && expr->int_cst.val[0] <= 0x7f)
+	    return new_cost (ivopts_small_integer_cost [speed], 0);
+	  return new_cost (ivopts_integer_cost [speed], 0);
+	}
 
       if (TREE_CODE (expr) == ADDR_EXPR)
 	{
@@ -5103,7 +5114,7 @@ determine_use_iv_cost_address (struct ivopts_data *data,
   if (cand->ainc_use == use)
     {
       if (can_autoinc)
-	cost.cost -= cand->cost_step;
+	cost.cost -= cand->cost_step ? cand->cost_step : ivopts_integer_cost[1];
       /* If we generated the candidate solely for exploiting autoincrement
 	 opportunities, and it turns out it can't be used, set the cost to
 	 infinity to make sure we ignore it.  */
@@ -5627,9 +5638,8 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    // assume the omitted comparison saves ivopts_integer_cost[0] - better than 1
-    elim_cost.cost -= ivopts_integer_cost[0] > COSTS_N_INSNS(2) ? ivopts_integer_cost[0] : COSTS_N_INSNS(2);
-    //elim_cost.cost -= 1;
+//    elim_cost.cost -= 1;
+    elim_cost.cost -= cand->cost_step ? cand->cost_step : ivopts_integer_cost[1];
     
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,

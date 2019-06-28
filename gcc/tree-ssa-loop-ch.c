@@ -61,10 +61,25 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
      threading handles these cases now.  */
   if (flag_loop_size_optimize == 1 || (flag_loop_size_optimize && optimize_loop_for_size_p (loop)))
     {
+#ifdef TARGET_AMIGA
       // copy at least a tiny header
-      if (*limit != 20)
+      if (*limit != 20 || !flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
 	return false;
+
+      // if there is a comparison: only as last expression!
+      basic_block next = EDGE_SUCC (header, 0)->dest;
+      for (bsi = gsi_start_bb (next); !gsi_end_p (bsi); gsi_next (&bsi))
+	{
+	  last = gsi_stmt (bsi);
+	  enum gimple_code code = gimple_code (last);
+	  if (code != GIMPLE_ASSIGN && bsi.ptr->next)
+	    return false;
+	}
+
       *limit = 2;
+#else
+      return false;
+#endif
     }
 
   gcc_assert (EDGE_COUNT (header->succs) > 0);

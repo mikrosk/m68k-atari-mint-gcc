@@ -5114,7 +5114,7 @@ determine_use_iv_cost_address (struct ivopts_data *data,
   if (cand->ainc_use == use)
     {
       if (can_autoinc)
-	cost.cost -= cand->cost_step ? cand->cost_step : ivopts_integer_cost[1];
+	cost.cost -= cand->cost_step + ivopts_integer_cost[data->speed];
       /* If we generated the candidate solely for exploiting autoincrement
 	 opportunities, and it turns out it can't be used, set the cost to
 	 infinity to make sure we ignore it.  */
@@ -5639,7 +5639,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
 //    elim_cost.cost -= 1;
-    elim_cost.cost -= cand->cost_step ? cand->cost_step : ivopts_integer_cost[1];
+    elim_cost.cost -= cand->cost_step + data->speed ? ivopts_integer_cost[1] : COSTS_N_INSNS(2);
     
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,
@@ -5895,7 +5895,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
      the proper value at no cost.  In general, there will at least be a regcopy
      or a const set.  */
   if (cost_base.cost == 0)
-    cost_base.cost = COSTS_N_INSNS (1);
+    cost_base.cost = COSTS_N_INSNS(1);
   cost_step = add_cost (data->speed, TYPE_MODE (TREE_TYPE (base)));
 
   cost = cost_step + adjust_setup_cost (data, cost_base.cost);

@@ -115,7 +115,7 @@ struct m68k_frame
 };
 
 /* Current frame information calculated by m68k_compute_frame_layout().  */
-static struct m68k_frame current_frame;
+struct m68k_frame current_frame;
 
 /* Structure describing an m68k address.
 

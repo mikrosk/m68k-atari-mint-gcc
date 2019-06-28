@@ -1401,7 +1401,13 @@ flow_find_cross_jump (basic_block bb1, basic_block bb2, rtx_insn **f1,
 	  afterlast_dir = last_dir;
 	  last_dir = dir;
 	  if (active_insn_p (i1))
-	    ninsns++;
+	    if (!single_set(i1)
+		|| GET_CODE(PATTERN(i1)) != SET
+		|| GET_CODE(SET_DEST(PATTERN(i1))) != CC0
+		)
+	      ++ninsns;
+	    else
+	      --ninsns;
 	}
 
       i1 = PREV_INSN (i1);
@@ -1657,8 +1663,9 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
       if (match
-	  && optimize_bb_for_speed_p (bb1)
-	  && optimize_bb_for_speed_p (bb2))
+//	  && optimize_bb_for_speed_p (bb1)
+//	  && optimize_bb_for_speed_p (bb2)
+	  )
 	{
 	  int prob2;
 
@@ -2006,7 +2013,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
 	   * we need replicated labels, if the labels are too far away,
 	   * since on 68000 there are only 8 bits for the offset.
 	   */
-	  if (!TARGET_68020 && !TARGET_68040)
+	  if (!TARGET_68020 && !TARGET_68040 && !TARGET_68080)
 	    return false;
 #endif
 

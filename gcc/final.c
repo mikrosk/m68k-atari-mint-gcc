@@ -2907,6 +2907,8 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		SET_PREV_INSN (insn) = PREV_INSN (next);
 		SET_NEXT_INSN (insn) = next;
 		SET_PREV_INSN (next) = insn;
+
+		current_insn = insn;
 	      }
 
 	    /* PEEPHOLE might have changed this.  */

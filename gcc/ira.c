@@ -5129,12 +5129,12 @@ static void fix_one(rtx_insn * insn, rtx * mem_loc, int opno, int size, int offs
       int add = size + offset - n + m;
       if (add > 0)
 	{
-	  fprintf(stderr, "add=%d, size=%d, offset=%d, n=%d, m=%d\n", add, size, offset, n, -m);
-	  debug_rtx (insn);
+//	  fprintf(stderr, "add=%d, size=%d, offset=%d, n=%d, m=%d\n", add, size, offset, n, -m);
+//	  debug_rtx (insn);
 	  mem = copy_rtx_if_shared(mem);
 	  XEXP(XEXP(mem, 0), 1) = GEN_INT(n + add);
 	  *mem_loc = mem;
-	  debug_rtx (insn);
+//	  debug_rtx (insn);
 	}
     }
 }

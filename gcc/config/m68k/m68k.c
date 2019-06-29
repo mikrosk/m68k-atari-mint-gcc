@@ -572,9 +572,12 @@ m68k_option_override (void)
     }
 
   /* Set the type of FPU.  */
+  if (m68k_cpu_flags & (FL_ISA_68040 | FL_ISA_68080))
+    target_flags |= MASK_HARD_FLOAT;
+
   m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE
 	      : (m68k_cpu_flags & FL_COLDFIRE) != 0 ? FPUTYPE_COLDFIRE
-	      : FPUTYPE_68881);
+		  : FPUTYPE_68881);
 
   /* Sanity check to ensure that msep-data and mid-shared-library are not
    * both specified together.  Doing so simply doesn't make sense.
@@ -687,6 +690,8 @@ m68k_option_override (void)
     m68k_sched_cpu = CPU_CFV3;
   else if (TUNE_CFV4)
     m68k_sched_cpu = CPU_CFV4;
+  else if (TUNE_68080)
+    m68k_sched_cpu = CPU_M68080;
   else
     {
       m68k_sched_cpu = CPU_UNKNOWN;
@@ -696,7 +701,7 @@ m68k_option_override (void)
       flag_live_range_shrinkage = 0;
     }
 
-  if (m68k_sched_cpu != CPU_UNKNOWN)
+  if (m68k_sched_cpu != CPU_UNKNOWN && m68k_sched_cpu != CPU_M68080)
     {
       if ((m68k_cpu_flags & (FL_CF_EMAC | FL_CF_EMAC_B)) != 0)
 	m68k_sched_mac = MAC_CF_EMAC;
@@ -4316,9 +4321,9 @@ m68k_output_movem (rtx *operands, rtx pattern,
   if (FP_REGNO_P (REGNO (XEXP (XVECEXP (pattern, 0, first), store_p))))
     {
       if (store_p)
-	return "fmovem %1,%a0";
+	return "fmovem %P1,%a0";
       else
-	return "fmovem %a0,%1";
+	return "fmovem %a0,%O1";
     }
   else
     {
@@ -4749,6 +4754,34 @@ print_operand (FILE *file, rtx op, int letter)
 	  if (regbits & 1)
 	    {
 	      fprintf (file, reg_names[regno]);
+	      if (regbits > 1)
+		fprintf (file, "/");
+	    }
+	}
+    }
+  else if (letter == 'O')
+    { // movem regs,ax
+      unsigned regbits = INTVAL (op);
+      unsigned regno;
+      for (regno = 0; regbits; ++regno, regbits >>= 1)
+	{
+	  if (regbits & 1)
+	    {
+	      fprintf (file, reg_names[regno + FP0_REG]);
+	      if (regbits > 1)
+		fprintf (file, "/");
+	    }
+	}
+    }
+  else if (letter == 'P')
+    { // fmovem regs,ax
+      unsigned regbits = INTVAL (op);
+      unsigned regno;
+      for (regno = 7; regbits; --regno, regbits >>= 1)
+	{
+	  if (regbits & 1)
+	    {
+	      fprintf (file, reg_names[regno + FP0_REG]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -6430,6 +6463,7 @@ m68k_sched_issue_rate (void)
       return 1;
 
     case CPU_CFV4:
+    case CPU_M68080:
       return 2;
 
     default:
@@ -6530,6 +6564,7 @@ m68k_sched_variable_issue (FILE *sched_dump ATTRIBUTE_UNUSED,
 
 	  break;
 
+	case CPU_M68080:
 	case CPU_CFV4:
 	  gcc_assert (!sched_ib.enabled_p);
 	  insn_size = 0;
@@ -6603,10 +6638,11 @@ m68k_sched_md_init_global (FILE *sched_dump ATTRIBUTE_UNUSED,
   /* ColdFire V4 has a set of features to keep its instruction buffer full
      (e.g., a separate memory bus for instructions) and, hence, we do not model
      buffer for this CPU.  */
-  sched_ib.enabled_p = (m68k_sched_cpu != CPU_CFV4);
+  sched_ib.enabled_p = (m68k_sched_cpu != CPU_CFV4) &&  (m68k_sched_cpu != CPU_M68080);
 
   switch (m68k_sched_cpu)
     {
+    case CPU_M68080:
     case CPU_CFV4:
       sched_ib.filled = 0;
 
@@ -6681,7 +6717,8 @@ m68k_sched_md_init (FILE *sched_dump ATTRIBUTE_UNUSED,
       sched_ib.records.adjust_index = 0;
       break;
 
-    case CPU_CFV4:
+      case CPU_M68080:
+      case CPU_CFV4:
       gcc_assert (!sched_ib.enabled_p);
       sched_ib.size = 0;
       break;

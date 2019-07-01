@@ -392,6 +392,11 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
     "%{!resident32:%{fbaserel32:nlbcrt0.o%s}" \
     "%{!fbaserel32:" \
     "%{!mcpu=68000:%{!mcpu=68010:-u___cpucheck }} "\
+    "%{mcpu=68881:-u___fpucheck } "\
+    "%{mcpu=68040:-u___fpucheck } "\
+    "%{mcpu=68060:-u___fpucheck } "\
+    "%{mcpu=68080:-u___fpucheck } "\
+    "%{mhard-float:-u___fpucheck } "\
     "%{resident:nrcrt0.o%s}" \
     "%{!resident:%{fbaserel:nbcrt0.o%s}" \
     "%{!fbaserel:ncrt0.o%s}}}}}"
@@ -484,6 +489,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=clib2:%(lib_clib2)} " \
   "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} " \
   "-lamiga -lgcc "\
+  "%{lpthread:-lpthread } "\
   "%{lm:-lm -l__m__ } "\
   "-) "
 #endif

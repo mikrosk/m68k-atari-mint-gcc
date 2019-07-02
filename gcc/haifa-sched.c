@@ -2552,7 +2552,7 @@ enum rfs_decision {
   RFS_SCHED_GROUP, RFS_PRESSURE_DELAY, RFS_PRESSURE_TICK,
   RFS_FEEDS_BACKTRACK_INSN, RFS_PRIORITY, RFS_SPECULATION,
   RFS_SCHED_RANK, RFS_LAST_INSN, RFS_PRESSURE_INDEX,
-  RFS_DEP_COUNT, RFS_TIE, RFS_FUSION, RFS_N };
+  RFS_DEP_COUNT, RFS_TIE, RFS_FUSION, RFS_COST, RFS_N };
 
 /* Corresponding strings for print outs.  */
 static const char *rfs_str[RFS_N] = {
@@ -2560,7 +2560,7 @@ static const char *rfs_str[RFS_N] = {
   "RFS_SCHED_GROUP", "RFS_PRESSURE_DELAY", "RFS_PRESSURE_TICK",
   "RFS_FEEDS_BACKTRACK_INSN", "RFS_PRIORITY", "RFS_SPECULATION",
   "RFS_SCHED_RANK", "RFS_LAST_INSN", "RFS_PRESSURE_INDEX",
-  "RFS_DEP_COUNT", "RFS_TIE", "RFS_FUSION" };
+  "RFS_DEP_COUNT", "RFS_TIE", "RFS_FUSION" , "RFS_COST"};
 
 /* Statistical breakdown of rank_for_schedule decisions.  */
 struct rank_for_schedule_stats_t { unsigned stats[RFS_N]; };
@@ -2722,6 +2722,11 @@ rank_for_schedule (const void *x, const void *y)
 
   if (flag_sched_critical_path_heuristic && priority_val)
     return rfs_result (RFS_PRIORITY, priority_val, tmp, tmp2);
+
+  /* Prefer instructions with higher costs. */
+  val = insn_default_latency (tmp2) - insn_default_latency (tmp);
+  if (val)
+    return rfs_result (RFS_COST, val, tmp, tmp2);
 
   if (PARAM_VALUE (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH) >= 0)
     {

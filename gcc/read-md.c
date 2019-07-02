@@ -171,7 +171,7 @@ fprint_md_ptr_loc (FILE *outf, const void *ptr)
 {
   const struct ptr_loc *loc = get_md_ptr_loc (ptr);
   if (loc != 0)
-    fprintf (outf, "#line %d \"%s\"\n", loc->lineno, loc->filename);
+    fprintf (outf, "//line %d \"%s\"\n", loc->lineno, loc->filename);
 }
 
 /* Special fprint_md_ptr_loc for writing to STDOUT.  */

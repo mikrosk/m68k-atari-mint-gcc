@@ -129,18 +129,18 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  {
 	    rtx b = XEXP(a, 0);
 	    rtx c = XEXP(a, 1);
-	    if (REG_P(b) && GET_CODE(c) == CONST_INT)
+	    if (REG_P(b) && (GET_CODE(c) == CONST_INT || GET_CODE(c) == SYMBOL_REF))
 	      {
-		*total = 1;
+		*total = 2 + ((GET_CODE(c) == CONST_INT && IN_RANGE(INTVAL(c), -32786, 32767)) ? 0 : 1);
 		return true;
 	      }
 	    if (REG_P(b) && REG_P(c))
 	      {
-		*total = 1;
+		*total = 3;
 		return true;
 	      }
 	  }
-	*total = 2;
+	*total = 4;
 	return true;
       }
       break;
@@ -295,7 +295,7 @@ m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		  int *total, bool speed) {
   bool r = __m68k_68040_costs(x, mode, outer_code, opno, total, speed);
 
-  if (r) *total = (1 + *total) * COSTS_N_INSNS(1);
+  if (r) *total = 1 + *total * COSTS_N_INSNS(1);
 
   return r;
 }

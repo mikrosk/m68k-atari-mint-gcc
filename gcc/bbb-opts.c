@@ -4756,7 +4756,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
   int size = GET_MODE_SIZE(ii.get_mode());
   if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
     size /= 2;
-  if (size > 4)
+  if (size > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
     return 0;
 
 //      log ("starting auto_inc search for %s at %d\n", reg_names[regno], index);
@@ -4927,12 +4927,46 @@ opt_autoinc ()
       if (!set)
 	continue;
 
+      rtx src = SET_SRC(set);
+      rtx dst = SET_DEST(set);
+      // check if this is  lea n(ax),ax
+      if (ADDRESS_REG_P(dst) && GET_CODE(src) == PLUS && XEXP(src, 0) == dst && CONST_INT_P(XEXP(src, 1)))
+	{
+	  int val = INTVAL(XEXP(src, 1));
+	  if (val < 0)
+	    continue;
 
-      if (MEM_P(SET_SRC(set)) && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
+	  unsigned regno = ii.get_dst_regno();
+	  for (unsigned jndex = index + 1; jndex < infos.size(); ++jndex)
+	    {
+	      insn_info & jj = infos[jndex];
+	      unsigned size = GET_MODE_SIZE(jj.get_mode());
+	      if (jj.is_use(regno) && size <= val)
+		{
+		  if ((jj.is_src_mem() && jj.get_src_mem_regno () >= 8 && !jj.get_src_mem_addr () && !jj.get_src_autoinc ()
+		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_mem_regno () != jj.get_dst_regno ())
+		  || (jj.is_dst_mem() && jj.get_dst_mem_regno () >= 8 && !jj.get_dst_intval () && !jj.get_dst_autoinc ()
+		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_regno () != jj.get_dst_mem_regno ()))
+		    {
+		      jj.auto_inc_fixup (regno, size);
+		      val -= size;
+		      rtx pat = size ? gen_rtx_PLUS(SImode, dst, GEN_INT(val - size)) : dst;
+		      validate_change(ii.get_insn(), &SET_SRC(set), pat, 0);
+		    }
+		  break;
+		}
+	    }
+	  continue;
+	}
+
+
+      // check if src is a mem which can be converted into an auto inc
+      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
 
-      if (MEM_P(SET_DEST(set)) && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+      // check if dst is a mem which can be converted into an auto inc
+      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
 	change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg ());
 

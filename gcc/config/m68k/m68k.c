@@ -171,6 +171,7 @@ static bool m68k_ok_for_sibcall_p (tree, tree);
 static bool m68k_tls_symbol_p (rtx);
 static rtx m68k_legitimize_address (rtx, rtx, machine_mode);
 static bool m68k_rtx_costs (rtx, machine_mode, int, int, int *, bool);
+static int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed);
 #if M68K_HONOR_TARGET_STRICT_ALIGNMENT
 static bool m68k_return_in_memory (const_tree, const_tree);
 #endif
@@ -269,6 +270,9 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m68k_rtx_costs
+
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST m68k_address_cost
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE m68k_attribute_table
@@ -3243,6 +3247,15 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 //  return true;
 }
 
+int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed)
+{
+  static class rtx_def mem = { MEM};
+  mem.u.fld[0].rt_rtx = x;
+  int total = 0;
+  m68k_rtx_costs(&mem, mode, SET, 0, &total, speed);
+  return total;
+}
+
 /* Return an instruction to move CONST_INT OPERANDS[1] into data register
    OPERANDS[0].  */
 
@@ -4767,7 +4780,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[regno + FP0_REG]);
+	      fprintf (file, reg_names[FP0_REG + 7 - regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -4781,7 +4794,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[regno + FP0_REG]);
+	      fprintf (file, reg_names[FP0_REG + 7 - regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }

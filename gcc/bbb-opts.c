@@ -4935,7 +4935,7 @@ opt_autoinc ()
 	  int val = INTVAL(XEXP(src, 1));
 	  if (val < 0)
 	    continue;
-
+#if 0
 	  unsigned regno = ii.get_dst_regno();
 	  for (unsigned jndex = index + 1; jndex < infos.size(); ++jndex)
 	    {
@@ -4956,6 +4956,7 @@ opt_autoinc ()
 		  break;
 		}
 	    }
+#endif
 	  continue;
 	}
 

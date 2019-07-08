@@ -4943,9 +4943,9 @@ opt_autoinc ()
 	      unsigned size = GET_MODE_SIZE(jj.get_mode());
 	      if (jj.is_use(regno) && size <= val)
 		{
-		  if ((jj.is_src_mem() && jj.get_src_mem_regno () >= 8 && !jj.get_src_mem_addr () && !jj.get_src_autoinc ()
+		  if ((jj.is_src_mem() && jj.get_src_mem_regno () == regno && !jj.get_src_mem_addr () && !jj.get_src_autoinc ()
 		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_mem_regno () != jj.get_dst_regno ())
-		  || (jj.is_dst_mem() && jj.get_dst_mem_regno () >= 8 && !jj.get_dst_intval () && !jj.get_dst_autoinc ()
+		  || (jj.is_dst_mem() && jj.get_dst_mem_regno () == regno && !jj.get_dst_intval () && !jj.get_dst_autoinc ()
 		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_regno () != jj.get_dst_mem_regno ()))
 		    {
 		      jj.auto_inc_fixup (regno, size);

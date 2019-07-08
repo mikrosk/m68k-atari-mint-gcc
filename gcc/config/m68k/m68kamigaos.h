@@ -512,6 +512,10 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LINK_SPEC \
+  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} " \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} " \
+  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
+  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{mcpu=68020:-fl libm020} " \
   "%{m68020:-fl libm020} " \
   "%{mc68020:-fl libm020} " \
@@ -524,15 +528,10 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=nix*:%(link_libnix)} " \
   "%{mcrt=ixemul:%(link_ixemul)} " \
   "%{mcrt=clib2:%(link_clib2)} " \
-  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} " \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} " \
-  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
-  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{m68881:-fl libm881}"
 #else
 #define LINK_SPEC \
   "-L%:sdk_root(../lib) " \
-  "%(link_cpu) " \
   "%{noixemul:%(link_libnix)} " \
   "%{mcrt=nix*:%(link_libnix)} " \
   "%{mcrt=ixemul:%(link_ixemul)} " \
@@ -542,6 +541,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{g:-amiga-debug-hunk} " \
+  "%(link_cpu) " \
   "%{m68881:-fl libm881}"
 #endif
 

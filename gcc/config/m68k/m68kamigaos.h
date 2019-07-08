@@ -541,8 +541,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{g:-amiga-debug-hunk} " \
-  "%(link_cpu) " \
-  "%{m68881:-fl libm881}"
+  "%(link_cpu) "
 #endif
 
 /* Translate '-resident' to '-fbaserel' (they differ in linking stage only).

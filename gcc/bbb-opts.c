@@ -1128,7 +1128,7 @@ public:
   scan_rtx (rtx);
 
   bool
-  make_post_inc (int regno);
+  make_post_inc (int regno, int addend);
 
   void
   auto_inc_fixup (int regno, int size, int addend);
@@ -1174,7 +1174,7 @@ public:
 };
 
 bool
-insn_info::make_post_inc (int regno)
+insn_info::make_post_inc (int regno, int addend)
 {
   rtx pattern = PATTERN (insn);
   rtx_insn * new_insn = make_insn_raw (pattern);
@@ -1201,8 +1201,15 @@ insn_info::make_post_inc (int regno)
     }
 
   rtx reg = XEXP(mem, 0);
-  if (GET_CODE(reg) == PLUS)
-    reg = XEXP(reg, 0);
+  if (addend < 0)
+    {
+      if (GET_CODE(reg) != PLUS)
+	return 0;
+      reg = XEXP(reg, 0);
+    }
+
+  if (!REG_P(reg))
+    return 0;
 
   XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
 
@@ -1261,13 +1268,14 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
     set = SET_SRC(set);
 
   // add to register
-  if (get_src_regno () == regno)
+  if (get_src_op () == PLUS && !is_src_mem() && !is_dst_mem())
     {
       rtx src = SET_SRC(set);
       if (get_src_intval () == size)
 	{
 	  src_intval = 0;
 	  src_plus = false;
+	  src_op = (rtx_code)0;
 	  SET_SRC(set) = XEXP(src, 0);
 	}
       else
@@ -1291,6 +1299,7 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  src_mem_addr = 0;
 	  src_plus = false;
+	  src_op = (rtx_code)0;
 	}
       else
 	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size * addend);
@@ -4766,6 +4775,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
   todo.push_back (index + addend);
 
   std::set<unsigned> visited;
+
+  bool last_is_add = false;
   while (todo.size () > 0)
     {
       unsigned pos = todo[todo.size () - 1];
@@ -4778,7 +4789,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	continue;
       visited.insert (pos);
 
-      for (; pos >= 0 && pos < infos.size (); pos = pos + addend)
+      for (; (int)pos >= 0 && pos < infos.size (); pos = pos + addend)
 	{
 	  insn_info & jj = infos[pos];
 
@@ -4865,14 +4876,20 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 
 	  // done if this is an add
 	  if (jj.is_def (regno))
-	    break;
+	    {
+	      last_is_add = true;
+	      break;
+	    }
 	}
     }
-//  if (!match_size || !fixups.size ())
+
+  if (!last_is_add && addend < 0)
+    return 0;
+
   if (!fixups.size ())
     return 0;
 
-  if (!ii.make_post_inc (regno))
+  if (!ii.make_post_inc (regno, addend))
     return 0;
 
   log ("(i) auto_inc for %s at %d - %d fixups\n", reg_names[regno], index, fixups.size ());
@@ -4922,8 +4939,6 @@ opt_autoinc ()
       if (!set)
 	continue;
 
-      rtx iiset = single_set(ii.get_insn());
-
       // move.w (a0)+,a1 reads a word but writes a long...
       int size = GET_MODE_SIZE(ii.get_mode());
       if (size > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
@@ -4931,37 +4946,6 @@ opt_autoinc ()
 
       rtx src = SET_SRC(set);
       rtx dst = SET_DEST(set);
-      // check if this is  lea n(ax),ax
-      if (ADDRESS_REG_P(dst) && GET_CODE(src) == PLUS && XEXP(src, 0) == dst && CONST_INT_P(XEXP(src, 1)))
-	{
-	  int val = INTVAL(XEXP(src, 1));
-	  if (val < 0)
-	    continue;
-#if 0
-	  unsigned regno = ii.get_dst_regno();
-	  for (unsigned jndex = index + 1; jndex < infos.size(); ++jndex)
-	    {
-	      insn_info & jj = infos[jndex];
-	      unsigned size = GET_MODE_SIZE(jj.get_mode());
-	      if (jj.is_use(regno) && size <= val)
-		{
-		  if ((jj.is_src_mem() && jj.get_src_mem_regno () == regno && !jj.get_src_mem_addr () && !jj.get_src_autoinc ()
-		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_mem_regno () != jj.get_dst_regno ())
-		  || (jj.is_dst_mem() && jj.get_dst_mem_regno () == regno && !jj.get_dst_intval () && !jj.get_dst_autoinc ()
-		      && jj.get_src_mem_regno () != jj.get_dst_mem_regno () && jj.get_src_regno () != jj.get_dst_mem_regno ()))
-		    {
-		      jj.auto_inc_fixup (regno, size);
-		      val -= size;
-		      rtx pat = size ? gen_rtx_PLUS(SImode, dst, GEN_INT(val - size)) : dst;
-		      validate_change(ii.get_insn(), &SET_SRC(set), pat, 0);
-		    }
-		  break;
-		}
-	    }
-#endif
-	  continue;
-	}
-
 
       // check if src is a mem which can be converted into an auto inc
       if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_autoinc ()
@@ -4982,9 +4966,7 @@ opt_autoinc ()
 	  else
 	  if (ii.get_dst_intval () == -size)
 	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), size, -1);
-
 	}
-
     }
 
   return change_count;

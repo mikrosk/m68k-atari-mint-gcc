@@ -554,9 +554,9 @@ class insn_info
   rtx src_reg;
   rtx src_mem_reg;
   rtx src_symbol;
-  long int dst_mem_addr;
-  long int src_intval;
-  long int src_mem_addr;
+  int dst_mem_addr;
+  int src_intval;
+  int src_mem_addr;
 
   bool visited;
 
@@ -699,13 +699,13 @@ public:
     return call;
   }
 
-  inline unsigned
+  inline int
   get_dst_mem_addr () const
   {
     return dst_mem_addr;
   }
 
-  inline unsigned
+  inline int
   get_src_mem_addr () const
   {
     return src_mem_addr;
@@ -1131,7 +1131,7 @@ public:
   make_post_inc (int regno);
 
   void
-  auto_inc_fixup (int regno, int size);
+  auto_inc_fixup (int regno, int size, int addend);
 
   /* return bits for alternate free registers. */
   unsigned
@@ -1201,6 +1201,8 @@ insn_info::make_post_inc (int regno)
     }
 
   rtx reg = XEXP(mem, 0);
+  if (GET_CODE(reg) == PLUS)
+    reg = XEXP(reg, 0);
 
   XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
 
@@ -1250,7 +1252,7 @@ add_clobbers (rtx_insn * oldinsn)
 }
 
 void
-insn_info::auto_inc_fixup (int regno, int size)
+insn_info::auto_inc_fixup (int regno, int size, int addend)
 {
 //  debug_rtx (insn);
   rtx set0 = single_set (insn);
@@ -1284,28 +1286,28 @@ insn_info::auto_inc_fixup (int regno, int size)
 	}
       rtx plus = XEXP(mem, 0);
 
-      if (src_mem_addr == size)
+      if (src_mem_addr == size * addend)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  src_mem_addr = 0;
 	  src_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size * addend);
     }
 
   if (get_dst_mem_regno () == regno)
     {
       rtx mem = SET_DEST(set);
       rtx plus = XEXP(mem, 0);
-      if (dst_mem_addr == size)
+      if (dst_mem_addr == size * addend)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  dst_mem_addr = 0;
 	  dst_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size * addend);
     }
 
   rtx pattern = add_clobbers (insn);
@@ -4745,19 +4747,13 @@ opt_absolute (void)
 }
 
 static int
-try_auto_inc (unsigned index, insn_info & ii, rtx reg)
+try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 {
-  int const regno = REGNO(reg);
-  rtx iiset = single_set(ii.get_insn());
-  if (!iiset)
-    return 0;
 
-  // move.w (a0)+,a1 reads a word but writes a long...
-  int size = GET_MODE_SIZE(ii.get_mode());
+  int const regno = REGNO(reg);
+  rtx iiset = PATTERN(ii.get_insn());
   if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
     size /= 2;
-  if (size > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
-    return 0;
 
 //      log ("starting auto_inc search for %s at %d\n", reg_names[regno], index);
 
@@ -4766,9 +4762,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 
   // all paths to check
   std::vector<unsigned> todo;
-  todo.push_back (index + 1);
 
-  bool match_size = false;
+  todo.push_back (index + addend);
+
   std::set<unsigned> visited;
   while (todo.size () > 0)
     {
@@ -4782,7 +4778,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	continue;
       visited.insert (pos);
 
-      for (; pos < infos.size (); ++pos)
+      for (; pos >= 0 && pos < infos.size (); pos = pos + addend)
 	{
 	  insn_info & jj = infos[pos];
 
@@ -4793,6 +4789,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  // check all jumps labels for register usage
 	  if (jj.is_label ())
 	    {
+	      if (addend < 0)
+		return 0; // no labels backwards
+
 	      for (l2j_iterator j = label2jump.find (jj.get_insn ()->u2.insn_uid), k = j;
 		  j != label2jump.end () && j->first == k->first; ++j)
 		{
@@ -4817,6 +4816,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  // add all labels
 	  if (jj.is_jump ())
 	    {
+	      if (addend < 0)
+		return 0; // no jumps backwards
+
 	      for (j2l_iterator j = jump2label.find (pos), k = j; j != jump2label.end () && j->first == k->first; ++j)
 		todo.push_back (j->second);
 	      continue;
@@ -4837,11 +4839,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	      if (jj.get_dst_regno () == regno)
 		return 0;
 
-	      if (jj.get_src_mem_addr () < size)
+	      if (jj.get_src_mem_addr () * addend < size)
 		return 0;
-
-	      if (jj.get_src_mem_addr () == size)
-		match_size = true;
 
 	      fix = true;
 	    }
@@ -4850,11 +4849,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	      if (jj.get_src_regno () == regno)
 		return 0;
 
-	      if (jj.get_dst_mem_addr () < size)
+	      if (jj.get_dst_mem_addr () * addend < size)
 		return 0;
-
-	      if (jj.get_dst_mem_addr () == size)
-		match_size = true;
 
 	      fix = true;
 	    }
@@ -4872,7 +4868,6 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	    break;
 	}
     }
-
 //  if (!match_size || !fixups.size ())
   if (!fixups.size ())
     return 0;
@@ -4887,7 +4882,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
     {
 //	  log ("(i) fixup at %d\n", *k);
       insn_info & kk = infos[*k];
-      kk.auto_inc_fixup (regno, size);
+      kk.auto_inc_fixup (regno, size, addend);
     }
   return 1;
 }
@@ -4927,6 +4922,13 @@ opt_autoinc ()
       if (!set)
 	continue;
 
+      rtx iiset = single_set(ii.get_insn());
+
+      // move.w (a0)+,a1 reads a word but writes a long...
+      int size = GET_MODE_SIZE(ii.get_mode());
+      if (size > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
+        return 0;
+
       rtx src = SET_SRC(set);
       rtx dst = SET_DEST(set);
       // check if this is  lea n(ax),ax
@@ -4962,14 +4964,26 @@ opt_autoinc ()
 
 
       // check if src is a mem which can be converted into an auto inc
-      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
+      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
-	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
-
+	{
+	  if (!ii.get_src_mem_addr ())
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), size, 1);
+	  else
+	  if (ii.get_src_mem_addr () == -size)
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), size, -1);
+	}
       // check if dst is a mem which can be converted into an auto inc
-      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
-	change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg ());
+	{
+	  if (!ii.get_dst_intval ())
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), size, 1);
+	  else
+	  if (ii.get_dst_intval () == -size)
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), size, -1);
+
+	}
 
     }
 

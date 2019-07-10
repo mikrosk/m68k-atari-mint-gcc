@@ -4758,11 +4758,7 @@ opt_absolute (void)
 static int
 try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 {
-
   int const regno = REGNO(reg);
-  rtx iiset = PATTERN(ii.get_insn());
-  if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
-    size /= 2;
 
 //      log ("starting auto_inc search for %s at %d\n", reg_names[regno], index);
 
@@ -4940,9 +4936,13 @@ opt_autoinc ()
 	continue;
 
       // move.w (a0)+,a1 reads a word but writes a long...
-      int size = GET_MODE_SIZE(ii.get_mode());
-      if (size > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
+      int dsize = GET_MODE_SIZE(ii.get_mode());
+      if (dsize > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
         return 0;
+
+      int ssize = dsize;
+      if (ii.is_src_mem() && GET_CODE(SET_SRC(set)) == SIGN_EXTEND)
+        ssize /= 2;
 
       rtx src = SET_SRC(set);
       rtx dst = SET_DEST(set);
@@ -4952,20 +4952,20 @@ opt_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
 	{
 	  if (!ii.get_src_mem_addr ())
-	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), size, 1);
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, 1);
 	  else
-	  if (ii.get_src_mem_addr () == -size)
-	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), size, -1);
+	  if (ii.get_src_mem_addr () == -ssize)
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, -1);
 	}
       // check if dst is a mem which can be converted into an auto inc
       if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
 	{
 	  if (!ii.get_dst_intval ())
-	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), size, 1);
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, 1);
 	  else
-	  if (ii.get_dst_intval () == -size)
-	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), size, -1);
+	  if (ii.get_dst_intval () == -dsize)
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, -1);
 	}
     }
 

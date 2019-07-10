@@ -172,7 +172,7 @@ amiga_named_section (const char *name, unsigned int flags, tree decl);
 //#define DEFAULT_MAIN_RETURN c_expand_return (integer_zero_node)
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "unsigned short"
+#define WCHAR_TYPE "unsigned int"
 
 /* XXX: section support */
 #if 0
@@ -442,10 +442,9 @@ while (0)
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "entrypoint", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "saveallregs", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
-  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
-    true }, \
-  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute,\
-    true },
+  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute, true }, \
+  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute, true } ,\
+  { "retfp0", 0, 0, false,  true, true, amigaos_handle_type_attribute, true },
 
 #define GOT_SYMBOL_NAME ""
 

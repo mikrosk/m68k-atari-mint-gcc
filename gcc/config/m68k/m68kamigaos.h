@@ -267,6 +267,7 @@ amiga_declare_object = 0
       builtin_define ("__stackext=__attribute__((__stackext__))"); \
       builtin_define ("__regargs=__attribute__((__regparm__(2)))"); \
       builtin_define ("__stdargs=__attribute__((__stkparm__))"); \
+      builtin_define ("__retfp0=__attribute__((__retfp0__))"); \
       builtin_define ("__aligned=__attribute__((__aligned__(4)))"); \
       builtin_define_std ("amiga"); \
       builtin_define_std ("amigaos"); \
@@ -724,8 +725,21 @@ extern int amiga_is_far_symbol(const_rtx x);
 #undef FUNCTION_ARG_REGNO_P
 #define FUNCTION_ARG_REGNO_P(N)    amigaos_function_arg_reg(N)
 
+/* On the Amiga the return value defaults to D0 but __retfp0 will use fp0 for DFmode and SFmode */
+#undef FUNCTION_VALUE
+#define FUNCTION_VALUE(VALTYPE, FUNC)  amigaos_function_value(VALTYPE, FUNC)
+
+/* On the m68k, D0 is usually the only register used. But fp0 is also possible - see above */
+#undef FUNCTION_VALUE_REGNO_P
+#define FUNCTION_VALUE_REGNO_P(N) amigaos_function_value_regno_p(N)
+
 extern int
 amigaos_function_arg_reg(unsigned regno);
+extern rtx
+amigaos_function_value(const_tree type, const_tree func);
+extern bool
+amigaos_function_value_regno_p(unsigned regno);
+
 
 //extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands);
 

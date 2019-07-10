@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>gcc-6</name>
+	<name>gcc</name>
 	<comment></comment>
 	<projects>
 	</projects>
 	<buildSpec>
 		<buildCommand>
 			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
-			<triggers>full,incremental,</triggers>
+			<triggers>clean,full,incremental,</triggers>
 			<arguments>
 			</arguments>
 		</buildCommand>
@@ -28,7 +28,7 @@
 		<link>
 			<name>build-gcc</name>
 			<type>2</type>
-			<locationURI>PARENT-2-PROJECT_LOC/build-Linux/gcc</locationURI>
+			<location>/home/stefan/amiga-gcc/build-Linux/gcc/gcc</location>
 		</link>
 	</linkedResources>
 </projectDescription>

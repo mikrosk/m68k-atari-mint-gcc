@@ -737,7 +737,7 @@ extern int
 amigaos_function_arg_reg(unsigned regno);
 extern rtx
 amigaos_function_value(const_tree type, const_tree func);
-extern bool
+extern int
 amigaos_function_value_regno_p(unsigned regno);
 
 

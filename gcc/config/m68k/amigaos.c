@@ -287,7 +287,7 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type)
   return gen_rtx_REG (mode, D0_REG);
 }
 
-bool
+int
 amigaos_function_value_regno_p(unsigned regno) {
   if (TARGET_68881 && mycum.fntype)
     {

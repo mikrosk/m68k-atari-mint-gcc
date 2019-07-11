@@ -4646,8 +4646,8 @@ standard_68881_constant_p (rtx x)
   int i;
 
   /* fmovecr must be emulated on the 68040 and 68060, so it shouldn't be
-     used at all on those chips.  */
-  if (TUNE_68040_60)
+     used at all on those chips.  Also 68080 is faster with the real constants. */
+  if (TUNE_68040_60 || TUNE_68080)
     return 0;
 
   if (! inited_68881_table)

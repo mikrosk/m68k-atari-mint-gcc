@@ -76,7 +76,7 @@
    constants.  This is so 68881 constants get reloaded and the fpmovecr
    is used."
   (and (match_code "const_double")
-       (match_test "TARGET_68080 || !(TARGET_68881 && standard_68881_constant_p (op))")))
+       (match_test "!(TARGET_68881 && standard_68881_constant_p (op))")))
 
 (define_constraint "H"
   "Defines a real zero constant."

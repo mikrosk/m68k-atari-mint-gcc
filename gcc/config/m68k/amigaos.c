@@ -282,6 +282,9 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type)
 	  tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
 	  if (attrs && lookup_attribute ("retfp0", attrs))
 	    return gen_rtx_REG (mode, FP0_REG);
+
+	  if (amigaos_retfp0 && !(attrs && lookup_attribute("stkparm", attrs)))
+	    return gen_rtx_REG (mode, FP0_REG);
 	}
     }
   return gen_rtx_REG (mode, D0_REG);
@@ -293,6 +296,9 @@ amigaos_function_value_regno_p(unsigned regno) {
     {
       tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
       if (attrs && lookup_attribute ("retfp0", attrs))
+	return regno == FP0_REG;
+
+      if (amigaos_retfp0 && (!attrs || !lookup_attribute("stkparm", attrs)))
 	return regno == FP0_REG;
     }
   return regno == D0_REG;
@@ -549,7 +555,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 
 	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
 		{
-		  error ("`regparm' and `stkparm' are mutually exclusive");
+		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
 		  break;
 		}
 	      if (args && TREE_CODE (args) == TREE_LIST)
@@ -577,7 +583,12 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	    {
 	      if (lookup_attribute ("regparm", TYPE_ATTRIBUTES(nnn)))
 		{
-		  error ("`regparm' and `stkparm' are mutually exclusive");
+		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
+		  break;
+		}
+	      if (lookup_attribute ("retfp0", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
 		  break;
 		}
 	    }
@@ -619,7 +630,11 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	    }
 	  else if (is_attribute_p ("retfp0", name))
 	    {
-	      // ok
+	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
+		  break;
+		}
 	    }
 	  else
 	    {

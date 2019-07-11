@@ -428,6 +428,8 @@ do									\
       error ("-fbaserel32 is not supported on the 68000 or 68010\n");	\
     if (amigaos_regparm > 0 && amigaos_regparm > AMIGAOS_MAX_REGPARM)   \
       error ("-mregparm=x with 1 <= x <= %d\n", AMIGAOS_MAX_REGPARM);   \
+    if (amigaos_retfp0 && !TARGET_68881)                           \
+      error ("-mreturnfp0 requires -m68881, -m68040, -m68060, -m68080 or -mhard-float\n"); \
   }									\
 while (0)
 

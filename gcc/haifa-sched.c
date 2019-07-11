@@ -2724,7 +2724,7 @@ rank_for_schedule (const void *x, const void *y)
     return rfs_result (RFS_PRIORITY, priority_val, tmp, tmp2);
 
   /* Sort by INSN_COST rather than INSN_LUID.  This means that instructions
-     which take longer to execute are prioritised and it leads to more
+     which take longer to execute are prioritized and it leads to more
      dual-issue opportunities on in-order cores which have this feature.  */
 
   int delta = insn_cost(tmp2) - insn_cost(tmp);

@@ -1277,8 +1277,10 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
 	  src_plus = false;
 	  src_op = (rtx_code)0;
 	  SET_SRC(set) = XEXP(src, 0);
+	  SET_INSN_DELETED(insn);
+	  return;
 	}
-      else
+
 	XEXP(src, 1) = gen_rtx_CONST_INT (VOIDmode, src_intval -= size);
     }
   else if (get_src_mem_regno () == regno)
@@ -1304,8 +1306,7 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
       else
 	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size * addend);
     }
-
-  if (get_dst_mem_regno () == regno)
+  else if (get_dst_mem_regno () == regno)
     {
       rtx mem = SET_DEST(set);
       rtx plus = XEXP(mem, 0);

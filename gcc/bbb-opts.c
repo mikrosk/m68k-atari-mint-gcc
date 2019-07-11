@@ -1306,7 +1306,7 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
       else
 	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size * addend);
     }
-  else if (get_dst_mem_regno () == regno)
+  if (get_dst_mem_regno () == regno)
     {
       rtx mem = SET_DEST(set);
       rtx plus = XEXP(mem, 0);

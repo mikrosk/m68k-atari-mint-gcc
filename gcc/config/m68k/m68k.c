@@ -152,6 +152,9 @@ static void m68k_sched_dfa_pre_advance_cycle (void);
 static void m68k_sched_dfa_post_advance_cycle (void);
 static int m68k_sched_first_cycle_multipass_dfa_lookahead (void);
 
+static bool m68k_sched_macro_fusion_p(void);
+static bool m68k_sched_macro_fusion_pair_p(rtx_insn *prev, rtx_insn *curr);
+
 static bool m68k_can_eliminate (const int, const int);
 static void m68k_conditional_register_usage (void);
 static bool m68k_legitimate_address_p (machine_mode, rtx, bool);
@@ -257,6 +260,12 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 #undef TARGET_SCHED_DFA_POST_ADVANCE_CYCLE
 #define TARGET_SCHED_DFA_POST_ADVANCE_CYCLE m68k_sched_dfa_post_advance_cycle
+
+#undef TARGET_SCHED_MACRO_FUSION_P
+#define TARGET_SCHED_MACRO_FUSION_P m68k_sched_macro_fusion_p
+
+#undef TARGET_SCHED_MACRO_FUSION_PAIR_P
+#define TARGET_SCHED_MACRO_FUSION_PAIR_P m68k_sched_macro_fusion_pair_p
 
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD	\
@@ -1659,98 +1668,98 @@ output_dbcc_and_branch (rtx *operands)
 	break;
     }
 
-if (label_follows)
-  switch (GET_CODE (operands[3]))
-    {
-      case EQ:
-	output_asm_insn ("dbeq %0,%l1\n|\tjeq %l2", operands);
-	break;
+  if (label_follows)
+    switch (GET_CODE (operands[3]))
+      {
+	case EQ:
+	  output_asm_insn ("dbeq %0,%l1\n|\tjeq %l2", operands);
+	  break;
 
-      case NE:
-	output_asm_insn ("dbne %0,%l1\n|\tjne %l2", operands);
-	break;
+	case NE:
+	  output_asm_insn ("dbne %0,%l1\n|\tjne %l2", operands);
+	  break;
 
-      case GT:
-	output_asm_insn ("dbgt %0,%l1\n|\tjgt %l2", operands);
-	break;
+	case GT:
+	  output_asm_insn ("dbgt %0,%l1\n|\tjgt %l2", operands);
+	  break;
 
-      case GTU:
-	output_asm_insn ("dbhi %0,%l1\n|\tjhi %l2", operands);
-	break;
+	case GTU:
+	  output_asm_insn ("dbhi %0,%l1\n|\tjhi %l2", operands);
+	  break;
 
-      case LT:
-	output_asm_insn ("dblt %0,%l1\n|\tjlt %l2", operands);
-	break;
+	case LT:
+	  output_asm_insn ("dblt %0,%l1\n|\tjlt %l2", operands);
+	  break;
 
-      case LTU:
-	output_asm_insn ("dbcs %0,%l1\n|\tjcs %l2", operands);
-	break;
+	case LTU:
+	  output_asm_insn ("dbcs %0,%l1\n|\tjcs %l2", operands);
+	  break;
 
-      case GE:
-	output_asm_insn ("dbge %0,%l1\n|\tjge %l2", operands);
-	break;
+	case GE:
+	  output_asm_insn ("dbge %0,%l1\n|\tjge %l2", operands);
+	  break;
 
-      case GEU:
-	output_asm_insn ("dbcc %0,%l1\n|\tjcc %l2", operands);
-	break;
+	case GEU:
+	  output_asm_insn ("dbcc %0,%l1\n|\tjcc %l2", operands);
+	  break;
 
-      case LE:
-	output_asm_insn ("dble %0,%l1\n|\tjle %l2", operands);
-	break;
+	case LE:
+	  output_asm_insn ("dble %0,%l1\n|\tjle %l2", operands);
+	  break;
 
-      case LEU:
-	output_asm_insn ("dbls %0,%l1\n|\tjls %l2", operands);
-	break;
+	case LEU:
+	  output_asm_insn ("dbls %0,%l1\n|\tjls %l2", operands);
+	  break;
 
-      default:
-	gcc_unreachable ();
-    }
-else
-  switch (GET_CODE (operands[3]))
-    {
-      case EQ:
-	output_asm_insn ("dbeq %0,%l1\n\tjeq %l2", operands);
-	break;
+	default:
+	  gcc_unreachable ();
+      }
+  else
+    switch (GET_CODE (operands[3]))
+      {
+	case EQ:
+	  output_asm_insn ("dbeq %0,%l1\n\tjeq %l2", operands);
+	  break;
 
-      case NE:
-	output_asm_insn ("dbne %0,%l1\n\tjne %l2", operands);
-	break;
+	case NE:
+	  output_asm_insn ("dbne %0,%l1\n\tjne %l2", operands);
+	  break;
 
-      case GT:
-	output_asm_insn ("dbgt %0,%l1\n\tjgt %l2", operands);
-	break;
+	case GT:
+	  output_asm_insn ("dbgt %0,%l1\n\tjgt %l2", operands);
+	  break;
 
-      case GTU:
-	output_asm_insn ("dbhi %0,%l1\n\tjhi %l2", operands);
-	break;
+	case GTU:
+	  output_asm_insn ("dbhi %0,%l1\n\tjhi %l2", operands);
+	  break;
 
-      case LT:
-	output_asm_insn ("dblt %0,%l1\n\tjlt %l2", operands);
-	break;
+	case LT:
+	  output_asm_insn ("dblt %0,%l1\n\tjlt %l2", operands);
+	  break;
 
-      case LTU:
-	output_asm_insn ("dbcs %0,%l1\n\tjcs %l2", operands);
-	break;
+	case LTU:
+	  output_asm_insn ("dbcs %0,%l1\n\tjcs %l2", operands);
+	  break;
 
-      case GE:
-	output_asm_insn ("dbge %0,%l1\n\tjge %l2", operands);
-	break;
+	case GE:
+	  output_asm_insn ("dbge %0,%l1\n\tjge %l2", operands);
+	  break;
 
-      case GEU:
-	output_asm_insn ("dbcc %0,%l1\n\tjcc %l2", operands);
-	break;
+	case GEU:
+	  output_asm_insn ("dbcc %0,%l1\n\tjcc %l2", operands);
+	  break;
 
-      case LE:
-	output_asm_insn ("dble %0,%l1\n\tjle %l2", operands);
-	break;
+	case LE:
+	  output_asm_insn ("dble %0,%l1\n\tjle %l2", operands);
+	  break;
 
-      case LEU:
-	output_asm_insn ("dbls %0,%l1\n\tjls %l2", operands);
-	break;
+	case LEU:
+	  output_asm_insn ("dbls %0,%l1\n\tjls %l2", operands);
+	  break;
 
-      default:
-	gcc_unreachable ();
-    }
+	default:
+	  gcc_unreachable ();
+      }
 
   /* If the decrement is to be done in SImode, then we have
      to compensate for the fact that dbcc decrements in HImode.  */
@@ -5180,14 +5189,14 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	      if (offset) fprintf(file, "%d+", offset);
 	      output_addr_const (file, addr);
 #ifdef TARGET_AMIGA
-	  if (SYMBOL_REF_FUNCTION_P(addr))
-	    {
-	      if (flag_smallcode)
-		asm_fprintf(file, ":w,pc");
-	    }
+	      if (SYMBOL_REF_FUNCTION_P(addr))
+		{
+		  if (flag_smallcode)
+		    asm_fprintf(file, ":w,pc");
+		}
 #endif
-	    if (ket)
-	      append_outer_address(file, address);
+	      if (ket)
+		append_outer_address(file, address);
 
 	      putc (')', file);
 	    }
@@ -6949,6 +6958,35 @@ m68k_sched_indexed_address_bypass_p (rtx_insn *pro, rtx_insn *con)
       return 0;
     }
 }
+
+static bool m68k_sched_macro_fusion_p(void) {
+  return 1;
+}
+
+/*
+ * if current insn is a compare
+ * check prev for same register usage.
+ */
+static bool m68k_sched_macro_fusion_pair_p(rtx_insn *prev, rtx_insn *curr)
+{
+  if (!NONJUMP_INSN_P(prev) || !NONJUMP_INSN_P(curr))
+    return 0;
+
+  rtx cset = single_set(curr);
+  if (!cset || GET_CODE(SET_DEST(cset)) != CC0)
+    return 0;
+
+  rtx csrc = SET_SRC(cset);
+  if (GET_CODE(csrc) != COMPARE)
+    return 0;
+
+  rtx pset = single_set(prev);
+  if (!pset)
+    return 0;
+
+  return reg_overlap_mentioned_p(csrc, pset);
+}
+
 
 /* We generate a two-instructions program at M_TRAMP :
 	movea.l &CHAIN_VALUE,%a0

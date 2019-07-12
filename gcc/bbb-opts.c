@@ -3429,19 +3429,19 @@ opt_merge_add (void)
       insn_info & ii1 = infos[index + 1];
       insn_info & ii2 = infos[index + 2];
 
-      if (!ii2.is_dst_reg () || ii2.is_src_mem())
+      if (!ii2.is_dst_reg () || ii2.is_src_mem() || ii2.get_src_op () != PLUS)
 	{
 	  index += 2;
 	  continue;
 	}
 
-      if (!ii1.is_dst_reg () || ii1.is_src_mem())
+      if (!ii1.is_dst_reg () || ii1.is_src_mem() || ii1.get_src_op () != PLUS || ii1.get_dst_reg() != ii2.get_src_reg())
 	{
 	  ++index;
 	  continue;
 	}
 
-      if (!ii0.is_dst_reg () || ii0.is_src_mem() || ii0.get_src_op () != PLUS || ii1.get_src_op () != PLUS || ii2.get_src_op () != PLUS)
+      if (!ii0.is_dst_reg () || ii0.is_src_mem() || ii0.get_src_op () != PLUS)
 	continue;
 
       if (!ii0.is_src_const () || !ii2.is_src_const () || ii0.get_src_intval () != ii2.get_src_intval ())
@@ -3458,6 +3458,9 @@ opt_merge_add (void)
 	continue;
 
       log ("(m) %d: merge_add applied\n", index);
+//      debug_rtx(ii0.get_insn());
+//      debug_rtx(ii1.get_insn());
+//      debug_rtx(ii2.get_insn());
 
       rtx_insn * insn0 = ii0.get_insn ();
       rtx set = PATTERN (insn0);

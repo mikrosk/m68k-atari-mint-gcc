@@ -191,6 +191,8 @@ static rtx m68k_function_arg (cumulative_args_t, machine_mode,
 static bool m68k_cannot_force_const_mem (machine_mode mode, rtx x);
 static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
+
+static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l);
 
 /* Initialize the GCC target structure.  */
 
@@ -344,6 +346,9 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 /* The value stored by TAS.  */
 #undef TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 #define TARGET_ATOMIC_TEST_AND_SET_TRUEVAL 128
+
+#undef TARGET_LOOP_UNROLL_ADJUST
+#define TARGET_LOOP_UNROLL_ADJUST m68k_loop_unroll_adjust
 
 #ifdef TARGET_AMIGA
 #include "amigaos.h"
@@ -7069,5 +7074,12 @@ m68k_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 	  && (m68k_get_function_kind (current_function_decl)
 	      == m68k_fk_interrupt_handler));
 }
+
+static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
+  if (n > 4)
+    return 4;
+  return n;
+}
+
 
 #include "gt-m68k.h"

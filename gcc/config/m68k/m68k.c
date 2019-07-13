@@ -32,9 +32,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "regs.h"
 #include "insn-config.h"
+#include "insn-modes.h"
+#include "machmode.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
+#include "insn-attr-common.h"
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "flags.h"
@@ -53,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
+#include "cfgloop.h"
 /* ??? Need to add a dependency between m68k.o and sched-int.h.  */
 #include "sched-int.h"
 #include "insn-codes.h"
@@ -7076,8 +7080,29 @@ m68k_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 }
 
 static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
-  if (n > 4)
-    return 4;
+
+  /* count float mul/div operations, since these have a delay */
+  rtx_insn * insn;
+  unsigned fop_count = 0;
+  for (insn = l->header->il.x.head_; insn; insn = NEXT_INSN(insn))
+    {
+      if (!NONJUMP_INSN_P(insn))
+	continue;
+
+      rtx set = single_set(insn);
+      if (!set)
+	continue;
+
+      rtx src = SET_SRC(set);
+      if (GET_MODE(src) != DFmode && GET_MODE(src) != SFmode)
+	continue;
+
+      if (GET_CODE(src) == DIV || GET_CODE(src) == MULT)
+	++fop_count;
+    }
+
+  if (fop_count)
+    return 4 / fop_count;
   return n;
 }
 

@@ -2110,14 +2110,8 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
    * Maybe that's also better for other targets. */
 
   const char *fmt = GET_RTX_FORMAT(GET_CODE(src));
-  if (fmt[0] == 'e' && MEM_P(XEXP(src, 0)))
+  if (fmt[0] == 'e' && (MEM_P(XEXP(src, 0)) || (fmt[1] == 'e' && MEM_P(XEXP(src, 1)))))
     {
-      if (fmt[1] == 'e' && REG_P(XEXP(src, 1)))
-        {
-          rtx t = XEXP(src, 0);
-          XEXP(src, 0) = XEXP(src, 1);
-          XEXP(src, 1) = t;
-        }
       rtx dset = single_set(i3);
       if (dset && MEM_P(SET_DEST(dset)))
 	return 0;

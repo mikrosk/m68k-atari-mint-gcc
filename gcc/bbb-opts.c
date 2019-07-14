@@ -438,7 +438,7 @@ public:
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
-    setMask(regno, 0xffffffff, mode);
+    setMask(regno, 0xffffffff, SImode);
   }
 
   void

@@ -3711,42 +3711,6 @@ rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
 
-#ifdef TARGET_AMIGA
-  rtx_insn * insn, * next;
-  for (insn = get_insns (); insn; insn = next) {
-      next = NEXT_INSN (insn);
-
-      if (!NONJUMP_INSN_P(insn))
-	continue;
-
-      rtx set = PATTERN(insn);
-      if (GET_CODE(set) != SET)
-	continue;
-
-      rtx dst = SET_DEST(set);
-      machine_mode  mode = GET_MODE(dst);
-      if (mode != DFmode && mode != SFmode)
-	continue;
-
-      if (!MEM_P(dst))
-	continue;
-
-      rtx src = SET_SRC(set);
-      if (GET_CODE(src) != MULT && GET_CODE(src) != DIV)
-	continue;
-
-      if (!MEM_P(XEXP(src, 0)) && !MEM_P(XEXP(src, 1)))
-	continue;
-
-      // there we are: a fmul rx,(ax),(ay)
-      // split that insn into:  fmul rx,(ax),fpz ... fmov fpz,(ay)
-      rtx tmp = gen_reg_rtx(mode);
-
-      if (validate_change(insn, &SET_DEST(set), tmp, 0))
-	emit_insn_after(gen_rtx_SET(dst, tmp) , insn);
-  }
-#endif
-
   if (flag_selective_scheduling
       && ! maybe_skip_selective_scheduling ())
     run_selective_scheduling ();

@@ -1133,6 +1133,9 @@ public:
   void
   auto_inc_fixup (int regno, int size, int addend);
 
+  void
+  patch_mem_offsets(rtx x, int size);
+
   /* return bits for alternate free registers. */
   unsigned
   get_free_mask () const
@@ -1258,6 +1261,27 @@ add_clobbers (rtx_insn * oldinsn)
   return newpat;
 }
 
+void insn_info::patch_mem_offsets(rtx x, int size)
+{
+  if (MEM_P(x))
+    {
+      rtx plus = XEXP(x, 0);
+
+      if (size == 0)
+	XEXP(x, 0) = XEXP(plus, 0);
+      else
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, size);
+
+      return;
+    }
+
+  const char * format = GET_RTX_FORMAT(GET_CODE(x));
+  if (format[0] == 'e')
+    patch_mem_offsets(XEXP(x, 0), size);
+  if (format[1] == 'e')
+    patch_mem_offsets(XEXP(x, 1), size);
+}
+
 void
 insn_info::auto_inc_fixup (int regno, int size, int addend)
 {
@@ -1285,26 +1309,14 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
     }
   else if (get_src_mem_regno () == regno)
     {
-      // src mem used ?
-      rtx mem = SET_SRC(set);
-      if (src_op)
+      src_mem_addr -= size * addend;
+      patch_mem_offsets(SET_SRC(set), src_mem_addr);
+      if (src_mem_addr == 0)
 	{
-	  if (MEM_P(XEXP(mem, 0)))
-	    mem = XEXP(mem, 0);
-	  else
-	    mem = XEXP(mem, 1);
-	}
-      rtx plus = XEXP(mem, 0);
-
-      if (src_mem_addr == size * addend)
-	{
-	  XEXP(mem, 0) = XEXP(plus, 0);
 	  src_mem_addr = 0;
 	  src_plus = false;
 	  src_op = (rtx_code)0;
 	}
-      else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size * addend);
     }
   if (get_dst_mem_regno () == regno)
     {

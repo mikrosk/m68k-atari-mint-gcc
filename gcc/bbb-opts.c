@@ -3030,13 +3030,16 @@ opt_propagate_moves ()
 				    {
 				      if ((REGNO(dsti) < 8 || REGNO(dstj) < 8) && REGNO(dsti) != REGNO(dstj))
 					{
-					  rtx neu = gen_rtx_SET(
-					      dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
-					  emit_insn_after (neu, jump_out[k]);
+					  if (fixups[k])
+					    {
+					      rtx neu = gen_rtx_SET(
+						  dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
+					      emit_insn_after (neu, jump_out[k]);
+					    }
 					  rtx move = gen_rtx_SET(dstj, dsti);
 					  emit_insn_after (move, jump_out[k]);
 					}
-				      else
+				      else if (fixups[k])
 					{
 					  rtx neu = gen_rtx_SET(
 					      dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));

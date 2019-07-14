@@ -6491,10 +6491,10 @@ m68k_sched_issue_rate (void)
     case CPU_CFV1:
     case CPU_CFV2:
     case CPU_CFV3:
+    case CPU_M68080:
       return 1;
 
     case CPU_CFV4:
-    case CPU_M68080:
       return 2;
 
     default:

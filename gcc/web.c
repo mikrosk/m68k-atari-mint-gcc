@@ -99,6 +99,7 @@ union_match_dups (rtx_insn *insn, web_entry *def_entry, web_entry *use_entry,
   df_ref use_link = DF_INSN_INFO_USES (insn_info);
   df_ref def_link = DF_INSN_INFO_DEFS (insn_info);
   struct web_entry *dup_entry;
+
   int i;
 
   extract_insn (insn);
@@ -272,13 +273,27 @@ entry_register (web_entry *entry, df_ref ref, unsigned int *used)
     newreg = reg, used[REGNO (reg)] = 1;
   else
     {
-      newreg = gen_reg_rtx (GET_MODE (reg));
-      REG_USERVAR_P (newreg) = REG_USERVAR_P (reg);
-      REG_POINTER (newreg) = REG_POINTER (reg);
-      REG_ATTRS (newreg) = REG_ATTRS (reg);
-      if (dump_file)
-	fprintf (dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
-		 REGNO (newreg));
+      rtx_insn * last = 0;
+      df_ref d;
+      rtx set;
+      for (d = ref; d; d = DF_REF_PREV_REG (d))
+        last = DF_REF_INSN(d);
+      if (last && DF_REF_INSN(ref) != last && (set = single_set(last)) && REG_P(SET_DEST(set)) && SET_DEST(set) == reg)
+	{
+	  newreg = reg, used[REGNO (reg)] = 1;
+	  if (dump_file)
+	    fprintf (dump_file, "Web keep reg=%i\n", REGNO (reg));
+	}
+      else
+	{
+	  newreg = gen_reg_rtx (GET_MODE (reg));
+	  REG_USERVAR_P (newreg) = REG_USERVAR_P (reg);
+	  REG_POINTER (newreg) = REG_POINTER (reg);
+	  REG_ATTRS (newreg) = REG_ATTRS (reg);
+	  if (dump_file)
+	    fprintf (dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
+		     REGNO (newreg));
+	}
     }
 
   root->set_reg (newreg);
@@ -404,6 +419,7 @@ pass_web::execute (function *fun)
 	{
 	  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
 	  df_ref def, use;
+
 	  FOR_EACH_INSN_INFO_USE (use, insn_info)
 	    if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 	      replace_ref (use, entry_register (use_entry + DF_REF_ID (use),

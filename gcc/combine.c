@@ -2106,15 +2106,19 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
 	return 0;
     }
 #ifdef TARGET_AMIGA
-  /* If the insn performs an operation from MEM and i3 stores it into MEM, do not combine.
+  /* If the insn performs an operation from MEM and i3 stores it into MEM, do not combine
+   * since the scheduler needs it separated.
    * Maybe that's also better for other targets. */
 
-  const char *fmt = GET_RTX_FORMAT(GET_CODE(src));
-  if (fmt[0] == 'e' && (MEM_P(XEXP(src, 0)) || (fmt[1] == 'e' && MEM_P(XEXP(src, 1)))))
+  if (GET_MODE(src) == DFmode || GET_MODE(src) == SFmode)
     {
-      rtx dset = single_set(i3);
-      if (dset && MEM_P(SET_DEST(dset)))
-	return 0;
+      const char *fmt = GET_RTX_FORMAT(GET_CODE(src));
+      if (fmt[0] == 'e' && (MEM_P(XEXP(src, 0)) || (fmt[1] == 'e' && MEM_P(XEXP(src, 1)))))
+	{
+	  rtx dset = single_set(i3);
+	  if (dset && MEM_P(SET_DEST(dset)))
+	    return 0;
+	}
     }
 #endif
   /* If we get here, we have passed all the tests and the combination is

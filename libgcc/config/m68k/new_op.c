@@ -9,3 +9,13 @@ void * _Znwj (unsigned sz)
   perror("std::bad_alloc");
   abort();
 }
+
+void __cxa_pure_virtual() {
+  perror("pure virtual method called");
+  abort();
+}
+
+void __cxa_deleted_virtual() {
+  perror("deletd virtual method called");
+  abort();
+}

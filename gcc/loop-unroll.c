@@ -1455,10 +1455,6 @@ analyze_iv_to_split_insn (rtx_insn *insn)
   struct iv_to_split *ivts;
   bool ok;
 
-/* SBF: this is not a good idea, since auto inc won't work with multiple addresses. */
-  if (TARGET_AMIGA)
-    return NULL;
-
   /* For now we just split the basic induction variables.  Later this may be
      extended for example by selecting also addresses of memory references.  */
   set = single_set (insn);

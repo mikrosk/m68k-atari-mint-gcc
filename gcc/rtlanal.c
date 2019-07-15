@@ -1749,9 +1749,6 @@ reg_overlap_mentioned_p (const_rtx x, const_rtx in)
     {
     case COMPARE:
     case SET:
-      if (reg_overlap_mentioned_p (XEXP(x, 1), in))
-	return 1;
-	/* no break */
     case STRICT_LOW_PART:
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:

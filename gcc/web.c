@@ -276,9 +276,13 @@ entry_register (web_entry *entry, df_ref ref, unsigned int *used)
       rtx_insn * last = 0;
       df_ref d;
       rtx set;
-      for (d = ref; d; d = DF_REF_PREV_REG (d))
-        last = DF_REF_INSN(d);
-      if (last && DF_REF_INSN(ref) != last && (set = single_set(last)) && REG_P(SET_DEST(set)) && SET_DEST(set) == reg)
+      for (d = ref; d; d = DF_REF_NEXT_REG (d))
+	if (DF_REF_FLAGS (d) & DF_REF_READ_WRITE)
+	  {
+	    last = DF_REF_INSN(d);
+	    break;
+	  }
+      if (last)
 	{
 	  newreg = reg, used[REGNO (reg)] = 1;
 	  if (dump_file)

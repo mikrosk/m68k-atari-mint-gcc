@@ -1681,8 +1681,12 @@ priority (rtx_insn *insn, bool force_recompute)
 			  cost = dep_cost (dep1);
 			}
 
+#ifdef TARGET_AMIGA
+		      if (cost <= 1) cost = 1;
+		      next_priority = cost + priority (next) + 1;
+#else
 		      next_priority = cost + priority (next);
-
+#endif
 		      if (next_priority > this_priority)
 			this_priority = next_priority;
 		    }
@@ -2730,6 +2734,12 @@ rank_for_schedule (const void *x, const void *y)
   int delta = insn_cost(tmp2) - insn_cost(tmp);
   if (delta)
     return rfs_result (RFS_COST, delta, tmp, tmp2);
+
+#if 0
+  delta = dep_list_max_cost(tmp2) - dep_list_max_cost(tmp);
+  if (delta)
+    return rfs_result(RFS_COST, val, tmp, tmp2);
+#endif
 
   if (PARAM_VALUE (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH) >= 0)
     {

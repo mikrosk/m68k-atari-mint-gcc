@@ -3711,6 +3711,7 @@ opt_shrink_stack_frame (void)
    * Move prologue to temp.
    * Only register push and parallel insn unless its a link a5 are moved.
    */
+  unsigned num_push = 0;
   for (; pos < infos.size ();)
     {
       insn_info & ii = infos[pos];
@@ -3733,6 +3734,8 @@ opt_shrink_stack_frame (void)
 	      set = XVECEXP(pattern, 0, 2);
 	      a5offset = INTVAL(XEXP(SET_SRC(set), 1));
 	    }
+	  else
+	    ++num_push;
 	  ++pos;
 	  continue;
 	}
@@ -3778,7 +3781,7 @@ opt_shrink_stack_frame (void)
 	}
     }
 
-  if (pos == 0)
+  if (pos == 0 || num_push >= 2)
     return 0;
 
   unsigned prologueend = pos;

@@ -3927,7 +3927,7 @@ driver_handle_option (struct gcc_options *opts,
       /* POSIX allows separation of -l and the lib arg; canonicalize
 	 by concatenating -l with its arg */
       add_infile (concat ("-l", arg, NULL), "*");
-      if (0 == strcmp("-lm", concat ("-l", arg, NULL)))
+      if (0 == strcmp("m", arg)  || 0 == strcmp("pthread", arg))
 	{
 	  save_switch (concat ("-l", arg, NULL), 0, NULL, validated, true);
 	  return true;

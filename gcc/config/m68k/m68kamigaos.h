@@ -484,6 +484,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=clib2:%(lib_clib2)} " \
   "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} " \
   "-lamiga -lgcc "\
+  "%{lpthread:-lpthread } "\
   "%{lm:-lm -l__m__ } "\
   "-) "
 #endif

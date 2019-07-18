@@ -40,6 +40,7 @@
 #include "diagnostic-core.h"
 #include "langhooks.h"
 #include "function.h"
+#include "stor-layout.h"
 #include "config/m68k/amigaos.h"
 
 //#define MYDEBUG 1
@@ -167,7 +168,7 @@ bool amiga_is_ok_for_sibcall(tree decl, tree exp)
 {
   tree fntype = decl ? TREE_TYPE (decl) : TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (exp)));
   if (othercum.fntype == fntype)
-    return (othercum.regs_already_used & ~0x0103) == 0;
+    return (othercum.regs_already_used & ~0x010103) == 0;
   return false;
 }
 
@@ -266,6 +267,43 @@ amigaos_function_arg_reg (unsigned regno)
 {
   return (mycum.regs_already_used & (1 << regno)) != 0;
 }
+
+rtx
+amigaos_function_value(const_tree type, const_tree fn_decl_or_type)
+{
+  machine_mode mode = TYPE_MODE(type);
+  if (!fn_decl_or_type)
+    fn_decl_or_type = mycum.fntype;
+  if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
+    {
+      const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
+      if (fntype)
+	{
+	  tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
+	  if (attrs && lookup_attribute ("retfp0", attrs))
+	    return gen_rtx_REG (mode, FP0_REG);
+
+	  if (amigaos_retfp0 && !(attrs && lookup_attribute("stkparm", attrs)))
+	    return gen_rtx_REG (mode, FP0_REG);
+	}
+    }
+  return gen_rtx_REG (mode, D0_REG);
+}
+
+int
+amigaos_function_value_regno_p(unsigned regno) {
+  if (TARGET_68881 && mycum.fntype)
+    {
+      tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
+      if (attrs && lookup_attribute ("retfp0", attrs))
+	return regno == FP0_REG;
+
+      if (amigaos_retfp0 && (!attrs || !lookup_attribute("stkparm", attrs)))
+	return regno == FP0_REG;
+    }
+  return regno == D0_REG;
+}
+
 
 /* Update the data in CUM to advance over an argument.  */
 
@@ -517,7 +555,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 
 	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
 		{
-		  error ("`regparm' and `stkparm' are mutually exclusive");
+		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
 		  break;
 		}
 	      if (args && TREE_CODE (args) == TREE_LIST)
@@ -545,7 +583,12 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	    {
 	      if (lookup_attribute ("regparm", TYPE_ATTRIBUTES(nnn)))
 		{
-		  error ("`regparm' and `stkparm' are mutually exclusive");
+		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
+		  break;
+		}
+	      if (lookup_attribute ("retfp0", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
 		  break;
 		}
 	    }
@@ -582,6 +625,14 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	      if (lookup_attribute ("entrypoint", TYPE_ATTRIBUTES(nnn)))
 		{
 		  error ("`entrypoint' and `saveallregs' are mutually exclusive");
+		  break;
+		}
+	    }
+	  else if (is_attribute_p ("retfp0", name))
+	    {
+	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
+		{
+		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
 		  break;
 		}
 	    }

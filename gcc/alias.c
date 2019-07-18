@@ -1860,7 +1860,20 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
 }
 
 static rtx
+find_base_term_0(rtx x);
+static int inside;
+static rtx
 find_base_term (rtx x)
+{
+  if (inside > 42)
+    return 0;
+  ++inside;
+  rtx r = find_base_term_0(x);
+  --inside;
+  return r;
+}
+static rtx
+find_base_term_0 (rtx x)
 {
   cselib_val *val;
   struct elt_loc_list *l, *f;

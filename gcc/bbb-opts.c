@@ -438,7 +438,7 @@ public:
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
-    setMask(regno, 0xffffffff, mode);
+    setMask(regno, 0xffffffff, SImode);
   }
 
   void
@@ -554,9 +554,9 @@ class insn_info
   rtx src_reg;
   rtx src_mem_reg;
   rtx src_symbol;
-  long int dst_mem_addr;
-  long int src_intval;
-  long int src_mem_addr;
+  int dst_mem_addr;
+  int src_intval;
+  int src_mem_addr;
 
   bool visited;
 
@@ -699,13 +699,13 @@ public:
     return call;
   }
 
-  inline unsigned
+  inline int
   get_dst_mem_addr () const
   {
     return dst_mem_addr;
   }
 
-  inline unsigned
+  inline int
   get_src_mem_addr () const
   {
     return src_mem_addr;
@@ -1128,10 +1128,13 @@ public:
   scan_rtx (rtx);
 
   bool
-  make_post_inc (int regno);
+  make_post_inc (int regno, int addend);
 
   void
-  auto_inc_fixup (int regno, int size);
+  auto_inc_fixup (int regno, int size, int addend);
+
+  void
+  patch_mem_offsets(rtx x, int size);
 
   /* return bits for alternate free registers. */
   unsigned
@@ -1174,7 +1177,7 @@ public:
 };
 
 bool
-insn_info::make_post_inc (int regno)
+insn_info::make_post_inc (int regno, int addend)
 {
   rtx pattern = PATTERN (insn);
   rtx_insn * new_insn = make_insn_raw (pattern);
@@ -1201,6 +1204,15 @@ insn_info::make_post_inc (int regno)
     }
 
   rtx reg = XEXP(mem, 0);
+  if (addend < 0)
+    {
+      if (GET_CODE(reg) != PLUS)
+	return 0;
+      reg = XEXP(reg, 0);
+    }
+
+  if (!REG_P(reg))
+    return 0;
 
   XEXP(mem, 0) = gen_rtx_POST_INC(SImode, reg);
 
@@ -1249,8 +1261,29 @@ add_clobbers (rtx_insn * oldinsn)
   return newpat;
 }
 
+void insn_info::patch_mem_offsets(rtx x, int size)
+{
+  if (MEM_P(x))
+    {
+      rtx plus = XEXP(x, 0);
+
+      if (size == 0)
+	XEXP(x, 0) = XEXP(plus, 0);
+      else
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, size);
+
+      return;
+    }
+
+  const char * format = GET_RTX_FORMAT(GET_CODE(x));
+  if (format[0] == 'e')
+    patch_mem_offsets(XEXP(x, 0), size);
+  if (format[1] == 'e')
+    patch_mem_offsets(XEXP(x, 1), size);
+}
+
 void
-insn_info::auto_inc_fixup (int regno, int size)
+insn_info::auto_inc_fixup (int regno, int size, int addend)
 {
 //  debug_rtx (insn);
   rtx set0 = single_set (insn);
@@ -1259,53 +1292,44 @@ insn_info::auto_inc_fixup (int regno, int size)
     set = SET_SRC(set);
 
   // add to register
-  if (get_src_regno () == regno)
+  if (get_src_op () == PLUS && !is_src_mem() && !is_dst_mem())
     {
       rtx src = SET_SRC(set);
       if (get_src_intval () == size)
 	{
 	  src_intval = 0;
 	  src_plus = false;
+	  src_op = (rtx_code)0;
 	  SET_SRC(set) = XEXP(src, 0);
+	  SET_INSN_DELETED(insn);
+	  return;
 	}
-      else
+
 	XEXP(src, 1) = gen_rtx_CONST_INT (VOIDmode, src_intval -= size);
     }
   else if (get_src_mem_regno () == regno)
     {
-      // src mem used ?
-      rtx mem = SET_SRC(set);
-      if (src_op)
+      src_mem_addr -= size * addend;
+      patch_mem_offsets(SET_SRC(set), src_mem_addr);
+      if (src_mem_addr == 0)
 	{
-	  if (MEM_P(XEXP(mem, 0)))
-	    mem = XEXP(mem, 0);
-	  else
-	    mem = XEXP(mem, 1);
-	}
-      rtx plus = XEXP(mem, 0);
-
-      if (src_mem_addr == size)
-	{
-	  XEXP(mem, 0) = XEXP(plus, 0);
 	  src_mem_addr = 0;
 	  src_plus = false;
+	  src_op = (rtx_code)0;
 	}
-      else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, src_mem_addr -= size);
     }
-
   if (get_dst_mem_regno () == regno)
     {
       rtx mem = SET_DEST(set);
       rtx plus = XEXP(mem, 0);
-      if (dst_mem_addr == size)
+      if (dst_mem_addr == size * addend)
 	{
 	  XEXP(mem, 0) = XEXP(plus, 0);
 	  dst_mem_addr = 0;
 	  dst_plus = false;
 	}
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size * addend);
     }
 
   rtx pattern = add_clobbers (insn);
@@ -3018,13 +3042,16 @@ opt_propagate_moves ()
 				    {
 				      if ((REGNO(dsti) < 8 || REGNO(dstj) < 8) && REGNO(dsti) != REGNO(dstj))
 					{
-					  rtx neu = gen_rtx_SET(
-					      dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
-					  emit_insn_after (neu, jump_out[k]);
+					  if (fixups[k])
+					    {
+					      rtx neu = gen_rtx_SET(
+						  dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
+					      emit_insn_after (neu, jump_out[k]);
+					    }
 					  rtx move = gen_rtx_SET(dstj, dsti);
 					  emit_insn_after (move, jump_out[k]);
 					}
-				      else
+				      else if (fixups[k])
 					{
 					  rtx neu = gen_rtx_SET(
 					      dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));
@@ -3417,19 +3444,19 @@ opt_merge_add (void)
       insn_info & ii1 = infos[index + 1];
       insn_info & ii2 = infos[index + 2];
 
-      if (!ii2.is_dst_reg () || ii2.is_src_mem())
+      if (!ii2.is_dst_reg () || ii2.is_src_mem() || ii2.get_src_op () != PLUS)
 	{
 	  index += 2;
 	  continue;
 	}
 
-      if (!ii1.is_dst_reg () || ii1.is_src_mem())
+      if (!ii1.is_dst_reg () || ii1.is_src_mem() || ii1.get_src_op () != PLUS || ii1.get_dst_reg() != ii2.get_src_reg())
 	{
 	  ++index;
 	  continue;
 	}
 
-      if (!ii0.is_dst_reg () || ii0.is_src_mem() || ii0.get_src_op () != PLUS || ii1.get_src_op () != PLUS || ii2.get_src_op () != PLUS)
+      if (!ii0.is_dst_reg () || ii0.is_src_mem() || ii0.get_src_op () != PLUS)
 	continue;
 
       if (!ii0.is_src_const () || !ii2.is_src_const () || ii0.get_src_intval () != ii2.get_src_intval ())
@@ -3446,6 +3473,9 @@ opt_merge_add (void)
 	continue;
 
       log ("(m) %d: merge_add applied\n", index);
+//      debug_rtx(ii0.get_insn());
+//      debug_rtx(ii1.get_insn());
+//      debug_rtx(ii2.get_insn());
 
       rtx_insn * insn0 = ii0.get_insn ();
       rtx set = PATTERN (insn0);
@@ -3681,6 +3711,7 @@ opt_shrink_stack_frame (void)
    * Move prologue to temp.
    * Only register push and parallel insn unless its a link a5 are moved.
    */
+  unsigned num_push = 0;
   for (; pos < infos.size ();)
     {
       insn_info & ii = infos[pos];
@@ -3703,6 +3734,8 @@ opt_shrink_stack_frame (void)
 	      set = XVECEXP(pattern, 0, 2);
 	      a5offset = INTVAL(XEXP(SET_SRC(set), 1));
 	    }
+	  else
+	    ++num_push;
 	  ++pos;
 	  continue;
 	}
@@ -3748,7 +3781,7 @@ opt_shrink_stack_frame (void)
 	}
     }
 
-  if (pos == 0)
+  if (pos == 0 || num_push >= 2)
     return 0;
 
   unsigned prologueend = pos;
@@ -4745,19 +4778,9 @@ opt_absolute (void)
 }
 
 static int
-try_auto_inc (unsigned index, insn_info & ii, rtx reg)
+try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 {
   int const regno = REGNO(reg);
-  rtx iiset = single_set(ii.get_insn());
-  if (!iiset)
-    return 0;
-
-  // move.w (a0)+,a1 reads a word but writes a long...
-  int size = GET_MODE_SIZE(ii.get_mode());
-  if (reg == ii.get_src_mem_reg() && GET_CODE(SET_SRC(iiset)) == SIGN_EXTEND)
-    size /= 2;
-  if (size > 4)
-    return 0;
 
 //      log ("starting auto_inc search for %s at %d\n", reg_names[regno], index);
 
@@ -4766,10 +4789,12 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 
   // all paths to check
   std::vector<unsigned> todo;
-  todo.push_back (index + 1);
 
-  bool match_size = false;
+  todo.push_back (index + addend);
+
   std::set<unsigned> visited;
+
+  bool last_is_add = false;
   while (todo.size () > 0)
     {
       unsigned pos = todo[todo.size () - 1];
@@ -4782,7 +4807,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	continue;
       visited.insert (pos);
 
-      for (; pos < infos.size (); ++pos)
+      for (; (int)pos >= 0 && pos < infos.size (); pos = pos + addend)
 	{
 	  insn_info & jj = infos[pos];
 
@@ -4793,6 +4818,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  // check all jumps labels for register usage
 	  if (jj.is_label ())
 	    {
+	      if (addend < 0)
+		return 0; // no labels backwards
+
 	      for (l2j_iterator j = label2jump.find (jj.get_insn ()->u2.insn_uid), k = j;
 		  j != label2jump.end () && j->first == k->first; ++j)
 		{
@@ -4817,6 +4845,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	  // add all labels
 	  if (jj.is_jump ())
 	    {
+	      if (addend < 0)
+		return 0; // no jumps backwards
+
 	      for (j2l_iterator j = jump2label.find (pos), k = j; j != jump2label.end () && j->first == k->first; ++j)
 		todo.push_back (j->second);
 	      continue;
@@ -4837,11 +4868,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	      if (jj.get_dst_regno () == regno)
 		return 0;
 
-	      if (jj.get_src_mem_addr () < size)
+	      if (jj.get_src_mem_addr () * addend < size)
 		return 0;
-
-	      if (jj.get_src_mem_addr () == size)
-		match_size = true;
 
 	      fix = true;
 	    }
@@ -4850,11 +4878,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 	      if (jj.get_src_regno () == regno)
 		return 0;
 
-	      if (jj.get_dst_mem_addr () < size)
+	      if (jj.get_dst_mem_addr () * addend < size)
 		return 0;
-
-	      if (jj.get_dst_mem_addr () == size)
-		match_size = true;
 
 	      fix = true;
 	    }
@@ -4869,15 +4894,20 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
 
 	  // done if this is an add
 	  if (jj.is_def (regno))
-	    break;
+	    {
+	      last_is_add = true;
+	      break;
+	    }
 	}
     }
 
-//  if (!match_size || !fixups.size ())
+  if (!last_is_add && addend < 0)
+    return 0;
+
   if (!fixups.size ())
     return 0;
 
-  if (!ii.make_post_inc (regno))
+  if (!ii.make_post_inc (regno, addend))
     return 0;
 
   log ("(i) auto_inc for %s at %d - %d fixups\n", reg_names[regno], index, fixups.size ());
@@ -4887,7 +4917,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg)
     {
 //	  log ("(i) fixup at %d\n", *k);
       insn_info & kk = infos[*k];
-      kk.auto_inc_fixup (regno, size);
+      kk.auto_inc_fixup (regno, size, addend);
     }
   return 1;
 }
@@ -4927,15 +4957,38 @@ opt_autoinc ()
       if (!set)
 	continue;
 
+      // move.w (a0)+,a1 reads a word but writes a long...
+      int dsize = GET_MODE_SIZE(ii.get_mode());
+      if (dsize > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
+        return 0;
 
-      if (MEM_P(SET_SRC(set)) && ii.get_src_mem_regno () >= 8 && !ii.get_src_mem_addr () && !ii.get_src_autoinc ()
+      int ssize = dsize;
+      if (ii.is_src_mem() && GET_CODE(SET_SRC(set)) == SIGN_EXTEND)
+        ssize /= 2;
+
+      rtx src = SET_SRC(set);
+      rtx dst = SET_DEST(set);
+
+      // check if src is a mem which can be converted into an auto inc
+      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
-	change_count += try_auto_inc (index, ii, ii.get_src_mem_reg ());
-
-      if (MEM_P(SET_DEST(set)) && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_intval () && !ii.get_dst_autoinc ()
+	{
+	  if (!ii.get_src_mem_addr ())
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, 1);
+	  else
+	  if (ii.get_src_mem_addr () == -ssize)
+	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, -1);
+	}
+      // check if dst is a mem which can be converted into an auto inc
+      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_autoinc ()
 	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
-	change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg ());
-
+	{
+	  if (!ii.get_dst_intval ())
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, 1);
+	  else
+	  if (ii.get_dst_intval () == -dsize)
+	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, -1);
+	}
     }
 
   return change_count;

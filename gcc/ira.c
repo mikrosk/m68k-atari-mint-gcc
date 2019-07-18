@@ -5112,6 +5112,7 @@ extern struct m68k_frame {
  */
 static void fix_one(rtx_insn * insn, rtx * mem_loc, int opno, int size, int offset)
 {
+  tree name;
   rtx mem = *mem_loc;
   if (MEM_P(mem) && GET_CODE(XEXP(mem, 0)) == PLUS
       && REG_P(XEXP(XEXP(mem, 0), 0))
@@ -5121,7 +5122,8 @@ static void fix_one(rtx_insn * insn, rtx * mem_loc, int opno, int size, int offs
       && MEM_EXPR (mem)
       && MEM_OFFSET(mem)
       && MEM_EXPR(mem)->base.code == VAR_DECL
-      && 0 == strcmp("%sfp", (char *)MEM_EXPR (mem)->var_decl.common.common.common.common.name->identifier.id.str)
+      && (name = MEM_EXPR (mem)->var_decl.common.common.common.common.name)
+      && 0 == strcmp("%sfp", (char *)name->identifier.id.str)
       )
     {
       int n = INTVAL(XEXP(XEXP(mem, 0), 1));
@@ -5129,12 +5131,12 @@ static void fix_one(rtx_insn * insn, rtx * mem_loc, int opno, int size, int offs
       int add = size + offset - n + m;
       if (add > 0)
 	{
-	  fprintf(stderr, "add=%d, size=%d, offset=%d, n=%d, m=%d\n", add, size, offset, n, -m);
-	  debug_rtx (insn);
+//	  fprintf(stderr, "add=%d, size=%d, offset=%d, n=%d, m=%d\n", add, size, offset, n, -m);
+//	  debug_rtx (insn);
 	  mem = copy_rtx_if_shared(mem);
 	  XEXP(XEXP(mem, 0), 1) = GEN_INT(n + add);
 	  *mem_loc = mem;
-	  debug_rtx (insn);
+//	  debug_rtx (insn);
 	}
     }
 }

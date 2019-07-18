@@ -1,4 +1,8 @@
 
+mretfp0
+Target Report Var(amigaos_retfp0)
+Return floating point values in fp0 instead of d0/d1. Requires -m68881, -m68040, -m68060, -m68080 or -mhard-float.
+
 mregparm=
 Target RejectNegative Var(amigaos_regparm) Joined UInteger Init(-1)
 Pass arguments through registers.

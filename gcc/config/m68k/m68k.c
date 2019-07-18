@@ -4469,16 +4469,22 @@ notice_update_cc (rtx exp, rtx insn)
   if (GET_CODE (exp) == SET)
     {
       if (GET_CODE (SET_SRC (exp)) == CALL)
-	CC_STATUS_INIT; 
+	CC_STATUS_INIT;
       else if (ADDRESS_REG_P (SET_DEST (exp)))
 	{
 	  if (cc_status.value1 && modified_in_p (cc_status.value1, insn))
 	    cc_status.value1 = 0;
 	  if (cc_status.value2 && modified_in_p (cc_status.value2, insn))
-	    cc_status.value2 = 0; 
+	    cc_status.value2 = 0;
 	}
       /* fmoves to memory or data registers do not set the condition
-	 codes.  Normal moves _do_ set the condition codes, but not in
+	 codes.  */
+      else if (FP_REG_P (SET_SRC (exp))
+	  && (MEM_P (SET_DEST (exp)) || FP_REG_P(SET_DEST (exp))))
+	{
+	  // nada
+	}
+      /*Normal moves _do_ set the condition codes, but not in
 	 a way that is appropriate for comparison with 0, because -0.0
 	 would be treated as a negative nonzero number.  Note that it
 	 isn't appropriate to conditionalize this restriction on
@@ -4489,7 +4495,7 @@ notice_update_cc (rtx exp, rtx insn)
 	       && (FP_REG_P (SET_SRC (exp))
 		   || GET_CODE (SET_SRC (exp)) == FIX
 		   || FLOAT_MODE_P (GET_MODE (SET_DEST (exp)))))
-	CC_STATUS_INIT; 
+	CC_STATUS_INIT;
       /* A pair of move insns doesn't produce a useful overall cc.  */
       else if (!FP_REG_P (SET_DEST (exp))
 	       && !FP_REG_P (SET_SRC (exp))
@@ -4497,7 +4503,7 @@ notice_update_cc (rtx exp, rtx insn)
 	       && (GET_CODE (SET_SRC (exp)) == REG
 		   || GET_CODE (SET_SRC (exp)) == MEM
 		   || GET_CODE (SET_SRC (exp)) == CONST_DOUBLE))
-	CC_STATUS_INIT; 
+	CC_STATUS_INIT;
       else if (SET_DEST (exp) != pc_rtx)
 	{
 	  cc_status.flags = 0;
@@ -6993,7 +6999,19 @@ static bool m68k_sched_macro_fusion_pair_p(rtx_insn *prev, rtx_insn *curr)
   if (!pset)
     return 0;
 
-  return reg_overlap_mentioned_p(csrc, pset);
+  rtx pdest = SET_DEST(pset);
+  if (!REG_P(pdest) && !reg_overlap_mentioned_p(pdest, csrc))
+    return 0;
+
+  rtx psrc = SET_SRC(pset);
+  if (GET_CODE(psrc) == MINUS && GET_CODE(XEXP(psrc, 1)) == CONST_INT
+      && INTVAL(XEXP(psrc, 1)) == 1)
+    return 1;
+  if (GET_CODE(psrc) == PLUS && GET_CODE(XEXP(psrc, 1)) == CONST_INT
+      && INTVAL(XEXP(psrc, 1)) == -1)
+    return 1;
+
+  return 0;
 }
 
 
@@ -7080,7 +7098,7 @@ m68k_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 }
 
 static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
-
+#if 0
   /* count float mul/div operations, since these have a delay */
   rtx_insn * insn;
   unsigned fop_count = 0;
@@ -7103,6 +7121,7 @@ static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
 
   if (fop_count)
     return 4 / fop_count;
+#endif
   return n;
 }
 

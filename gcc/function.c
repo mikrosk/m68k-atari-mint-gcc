@@ -3291,6 +3291,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   else
     {
       rtx_insn * i = emit_move_insn (parmreg, validated_mem);
+#if 0      
       if (REG_P(validated_mem))
 	{
 	  add_reg_note (i, REG_DEAD, validated_mem);
@@ -3300,6 +3301,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  for (rclass = (unsigned)NO_REGS + 1; rclass < (unsigned)LIM_REG_CLASSES; ++ rclass);
 	    remove_from_hard_reg_set(&reg_class_contents[rclass], mode, regno);
 	}
+#endif
     }
 
   /* If we were passed a pointer but the actual value can safely live

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>gcc-6</name>
+	<name>gcc</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -28,7 +28,7 @@
 		<link>
 			<name>build-gcc</name>
 			<type>2</type>
-			<locationURI>PARENT-2-PROJECT_LOC/build-CYGWIN_NT-10.0-WOW/gcc</locationURI>
+			<location>/home/stefan/amiga-gcc/build-Linux/gcc/gcc</location>
 		</link>
 	</linkedResources>
 </projectDescription>

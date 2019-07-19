@@ -267,7 +267,6 @@ amiga_declare_object = 0
       builtin_define ("__stackext=__attribute__((__stackext__))"); \
       builtin_define ("__regargs=__attribute__((__regparm__(2)))"); \
       builtin_define ("__stdargs=__attribute__((__stkparm__))"); \
-      builtin_define ("__retfp0=__attribute__((__retfp0__))"); \
       builtin_define ("__aligned=__attribute__((__aligned__(4)))"); \
       builtin_define_std ("amiga"); \
       builtin_define_std ("amigaos"); \
@@ -393,11 +392,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
     "%{!resident32:%{fbaserel32:nlbcrt0.o%s}" \
     "%{!fbaserel32:" \
     "%{!mcpu=68000:%{!mcpu=68010:-u___cpucheck }} "\
-    "%{mcpu=68881:-u___fpucheck } "\
-    "%{mcpu=68040:-u___fpucheck } "\
-    "%{mcpu=68060:-u___fpucheck } "\
-    "%{mcpu=68080:-u___fpucheck } "\
-    "%{mhard-float:-u___fpucheck } "\
     "%{resident:nrcrt0.o%s}" \
     "%{!resident:%{fbaserel:nbcrt0.o%s}" \
     "%{!fbaserel:ncrt0.o%s}}}}}"
@@ -415,9 +409,9 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #define STARTFILE_NEWLIB_SPEC \
     "%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:" \
-        "%{fbaserel32:libb32/libm020/crt0.o%s}" \
+        "%{fbaserel32:libm020/libb32/crt0.o%s}" \
       "%{!fbaserel32:" \
-              "%{fbaserel:libb/libm020/crt0.o%s}" \
+              "%{fbaserel:libm020/libb/crt0.o%s}" \
             "%{!fbaserel:libm020/crt0.o%s}}" \
       "}" \
     "%{m6800*|mc6800*|m6801*|mcpu=6800*|mcpu=6801*:" \
@@ -513,10 +507,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LINK_SPEC \
-  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} " \
-  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} " \
-  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
-  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{mcpu=68020:-fl libm020} " \
   "%{m68020:-fl libm020} " \
   "%{mc68020:-fl libm020} " \
@@ -529,10 +519,15 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=nix*:%(link_libnix)} " \
   "%{mcrt=ixemul:%(link_ixemul)} " \
   "%{mcrt=clib2:%(link_clib2)} " \
+  "%{fbaserel:%{!resident:-m amiga_bss -fl libb}} " \
+  "%{resident:-m amiga_bss -amiga-datadata-reloc -fl libb} " \
+  "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
+  "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{m68881:-fl libm881}"
 #else
 #define LINK_SPEC \
   "-L%:sdk_root(../lib) " \
+  "%(link_cpu) " \
   "%{noixemul:%(link_libnix)} " \
   "%{mcrt=nix*:%(link_libnix)} " \
   "%{mcrt=ixemul:%(link_ixemul)} " \
@@ -542,7 +537,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{fbaserel32:%{!resident32:-m amiga_bss -fl libb32}} " \
   "%{resident32:-m amiga_bss -amiga-datadata-reloc -fl libb32} " \
   "%{g:-amiga-debug-hunk} " \
-  "%(link_cpu) "
+  "%{m68881:-fl libm881}"
 #endif
 
 /* Translate '-resident' to '-fbaserel' (they differ in linking stage only).
@@ -725,21 +720,8 @@ extern int amiga_is_far_symbol(const_rtx x);
 #undef FUNCTION_ARG_REGNO_P
 #define FUNCTION_ARG_REGNO_P(N)    amigaos_function_arg_reg(N)
 
-/* On the Amiga the return value defaults to D0 but __retfp0 will use fp0 for DFmode and SFmode */
-#undef FUNCTION_VALUE
-#define FUNCTION_VALUE(VALTYPE, FUNC)  amigaos_function_value(VALTYPE, FUNC)
-
-/* On the m68k, D0 is usually the only register used. But fp0 is also possible - see above */
-#undef FUNCTION_VALUE_REGNO_P
-#define FUNCTION_VALUE_REGNO_P(N) amigaos_function_value_regno_p(N)
-
 extern int
 amigaos_function_arg_reg(unsigned regno);
-extern rtx
-amigaos_function_value(const_tree type, const_tree func);
-extern int
-amigaos_function_value_regno_p(unsigned regno);
-
 
 //extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands);
 

@@ -62,23 +62,11 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (flag_loop_size_optimize == 1 || (flag_loop_size_optimize && optimize_loop_for_size_p (loop)))
     {
 #ifdef TARGET_AMIGA
-      /**
-       * The idea of copying small headers is to support dbcc.
-       *
-       * x = x - 1
-       * x == 0
-       * jcc
-       *
-       * which yields one dbcc insn.
-       *
-       * Only check this initial - when *limit is 20
-       */
+      // copy at least a tiny header
       if (*limit != 20 || !flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
 	return false;
 
-      /**
-       * we expect a compare before the jmp
-       */
+      // if there is a comparison: only as last expression!
       basic_block next = EDGE_SUCC (header, 0)->dest;
       for (bsi = gsi_start_bb (next); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
@@ -125,7 +113,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (is_gimple_call (last))
 	return false;
 
-#ifdef xTARGET_AMIGA
+#ifdef TARGET_AMIGA
       enum gimple_code code = gimple_code (last);
       if (code == GIMPLE_ASSIGN)
 	{

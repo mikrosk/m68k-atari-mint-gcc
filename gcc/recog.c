@@ -2193,10 +2193,7 @@ extract_constrain_insn (rtx_insn *insn)
 {
   extract_insn (insn);
   if (!constrain_operands (reload_completed, get_enabled_alternatives (insn)))
-    {
-      constrain_operands (reload_completed, get_enabled_alternatives (insn));
-      fatal_insn_not_found (insn);
-    }
+    fatal_insn_not_found (insn);
 }
 
 /* Do cached extract_insn, constrain_operands and complain about failures.
@@ -2293,11 +2290,7 @@ extract_insn (rtx_insn *insn)
 
       icode = recog_memoized (insn);
       if (icode < 0)
-	{
-	  debug_rtx(insn);
-	  icode = recog_memoized (insn);
-	  fatal_insn_not_found (insn);
-	}
+	fatal_insn_not_found (insn);
 
       recog_data.n_operands = noperands = insn_data[icode].n_operands;
       recog_data.n_alternatives = insn_data[icode].n_alternatives;

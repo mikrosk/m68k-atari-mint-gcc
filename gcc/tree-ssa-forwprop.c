@@ -2157,7 +2157,6 @@ pass_forwprop::execute (function *fun)
 	  else if (code == POINTER_PLUS_EXPR)
 	    {
 	      tree off = gimple_assign_rhs2 (stmt);
-#if 0
 	      if (TREE_CODE (off) == INTEGER_CST
 		  && can_propagate_from (stmt)
 		  && !simple_iv_increment_p (stmt)
@@ -2177,9 +2176,7 @@ pass_forwprop::execute (function *fun)
 		  release_defs (stmt);
 		  gsi_remove (&gsi, true);
 		}
-	      else
-#endif
-		if (is_gimple_min_invariant (rhs))
+	      else if (is_gimple_min_invariant (rhs))
 		{
 		  /* Make sure to fold &a[0] + off_1 here.  */
 		  fold_stmt_inplace (&gsi);

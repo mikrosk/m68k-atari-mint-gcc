@@ -493,7 +493,6 @@ static const struct default_options default_options_table[] =
   /* Only run the pre-regalloc scheduling pass if optimizing for speed.  */
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_fschedule_insns, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fschedule_insns2, NULL, 1 },
-//    { OPT_LEVELS_2_PLUS, OPT_fsched_pressure, NULL, 1 },
 #endif
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },

@@ -3710,7 +3710,6 @@ static unsigned int
 rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-
   if (flag_selective_scheduling
       && ! maybe_skip_selective_scheduling ())
     run_selective_scheduling ();

@@ -826,7 +826,7 @@ add_delay_dependencies (rtx_insn *insn)
 
 /* Forward declarations.  */
 
-static int priority (rtx_insn *, bool force_recompute = false);
+static int priority (rtx_insn *);
 static int autopref_rank_for_schedule (const rtx_insn *, const rtx_insn *);
 static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx_insn **, int);
@@ -1601,7 +1601,7 @@ bool sched_fusion;
 
 /* Compute the priority number for INSN.  */
 static int
-priority (rtx_insn *insn, bool force_recompute)
+priority (rtx_insn *insn)
 {
   if (! INSN_P (insn))
     return 0;
@@ -1609,7 +1609,7 @@ priority (rtx_insn *insn, bool force_recompute)
   /* We should not be interested in priority of an already scheduled insn.  */
   gcc_assert (QUEUE_INDEX (insn) != QUEUE_SCHEDULED);
 
-  if (force_recompute || !INSN_PRIORITY_KNOWN (insn))
+  if (!INSN_PRIORITY_KNOWN (insn))
     {
       int this_priority = -1;
 
@@ -1681,12 +1681,8 @@ priority (rtx_insn *insn, bool force_recompute)
 			  cost = dep_cost (dep1);
 			}
 
-#ifdef TARGET_AMIGA
-		      if (cost <= 1) cost = 1;
-		      next_priority = cost + priority (next) + 1;
-#else
 		      next_priority = cost + priority (next);
-#endif
+
 		      if (next_priority > this_priority)
 			this_priority = next_priority;
 		    }
@@ -2556,7 +2552,7 @@ enum rfs_decision {
   RFS_SCHED_GROUP, RFS_PRESSURE_DELAY, RFS_PRESSURE_TICK,
   RFS_FEEDS_BACKTRACK_INSN, RFS_PRIORITY, RFS_SPECULATION,
   RFS_SCHED_RANK, RFS_LAST_INSN, RFS_PRESSURE_INDEX,
-  RFS_DEP_COUNT, RFS_TIE, RFS_FUSION, RFS_COST, RFS_N };
+  RFS_DEP_COUNT, RFS_TIE, RFS_FUSION, RFS_N };
 
 /* Corresponding strings for print outs.  */
 static const char *rfs_str[RFS_N] = {
@@ -2564,7 +2560,7 @@ static const char *rfs_str[RFS_N] = {
   "RFS_SCHED_GROUP", "RFS_PRESSURE_DELAY", "RFS_PRESSURE_TICK",
   "RFS_FEEDS_BACKTRACK_INSN", "RFS_PRIORITY", "RFS_SPECULATION",
   "RFS_SCHED_RANK", "RFS_LAST_INSN", "RFS_PRESSURE_INDEX",
-  "RFS_DEP_COUNT", "RFS_TIE", "RFS_FUSION" , "RFS_COST"};
+  "RFS_DEP_COUNT", "RFS_TIE", "RFS_FUSION" };
 
 /* Statistical breakdown of rank_for_schedule decisions.  */
 struct rank_for_schedule_stats_t { unsigned stats[RFS_N]; };
@@ -2726,20 +2722,6 @@ rank_for_schedule (const void *x, const void *y)
 
   if (flag_sched_critical_path_heuristic && priority_val)
     return rfs_result (RFS_PRIORITY, priority_val, tmp, tmp2);
-
-  /* Sort by INSN_COST rather than INSN_LUID.  This means that instructions
-     which take longer to execute are prioritized and it leads to more
-     dual-issue opportunities on in-order cores which have this feature.  */
-
-  int delta = insn_cost(tmp2) - insn_cost(tmp);
-  if (delta)
-    return rfs_result (RFS_COST, delta, tmp, tmp2);
-
-#if 0
-  delta = dep_list_max_cost(tmp2) - dep_list_max_cost(tmp);
-  if (delta)
-    return rfs_result(RFS_COST, val, tmp, tmp2);
-#endif
 
   if (PARAM_VALUE (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH) >= 0)
     {
@@ -4731,10 +4713,6 @@ apply_replacement (dep_t dep, bool immediately)
       success = validate_change (desc->insn, desc->loc, desc->newval, 0);
       gcc_assert (success);
 
-      rtx_insn *insn = DEP_PRO (dep);
-
-      /* Recompute priority since dependent priorities may have changed.  */
-      priority (insn, true);
       update_insn_after_change (desc->insn);
       if ((TODO_SPEC (desc->insn) & (HARD_DEP | DEP_POSTPONED)) == 0)
 	fix_tick_ready (desc->insn);
@@ -4789,15 +4767,6 @@ restore_pattern (dep_t dep, bool immediately)
 
       success = validate_change (desc->insn, desc->loc, desc->orig, 0);
       gcc_assert (success);
-
-      rtx_insn *insn = DEP_PRO (dep);
-
-      if (QUEUE_INDEX (insn) != QUEUE_SCHEDULED)
-	{
-	  /* Recompute priority since dependent priorities may have changed.  */
-	  priority (insn, true);
-	}
-
       update_insn_after_change (desc->insn);
       if (backtrack_queue != NULL)
 	{

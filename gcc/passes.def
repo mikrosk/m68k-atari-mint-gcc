@@ -421,6 +421,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
+      NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_ud_rtl_dce);
       NEXT_PASS (pass_combine);
@@ -436,7 +437,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_sms);
       NEXT_PASS (pass_live_range_shrinkage);
       NEXT_PASS (pass_sched);
-      NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_ira);
       NEXT_PASS (pass_reload);
       NEXT_PASS (pass_postreload);

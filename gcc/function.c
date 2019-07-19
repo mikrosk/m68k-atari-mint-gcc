@@ -3289,20 +3289,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       did_conversion = true;
     }
   else
-    {
-      rtx_insn * i = emit_move_insn (parmreg, validated_mem);
-#if 0      
-      if (REG_P(validated_mem))
-	{
-	  add_reg_note (i, REG_DEAD, validated_mem);
-	  unsigned regno = REGNO(validated_mem);
-	  machine_mode mode = GET_MODE(validated_mem);
-	  unsigned rclass;
-	  for (rclass = (unsigned)NO_REGS + 1; rclass < (unsigned)LIM_REG_CLASSES; ++ rclass);
-	    remove_from_hard_reg_set(&reg_class_contents[rclass], mode, regno);
-	}
-#endif
-    }
+    emit_move_insn (parmreg, validated_mem);
 
   /* If we were passed a pointer but the actual value can safely live
      in a register, retrieve it and use it directly.  */

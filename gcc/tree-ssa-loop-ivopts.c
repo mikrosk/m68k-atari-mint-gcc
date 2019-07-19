@@ -1273,28 +1273,6 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple *stmt, affine_iv *iv)
   if (stmt_could_throw_p (stmt))
     return false;
 
-  /* Do not introduce iv's for POINTER_PLUS_EXPR
-   * if the increment is the same as in some present iv.
-   */
-  if (iv->base->base.code == POINTER_PLUS_EXPR && iv->step->base.code == INTEGER_CST
-      && iv->base->exp.operands[0]->base.code == SSA_NAME)
-    {
-      tree var = iv->base->exp.operands[0]->ssa_name.var;
-      unsigned i;
-      bitmap_iterator bi;
-      EXECUTE_IF_SET_IN_BITMAP (data->relevant, 0, i, bi)
-	{
-	  if (ver_info (data, i)->iv)
-	    {
-	      struct iv * v = ver_info (data, i)->iv;
-	      if (v->base && v->base->base.code == SSA_NAME
-		  && v->base->ssa_name.var == var
-		  && v->step && v->step->base.code == INTEGER_CST
-		  && iv->step->int_cst.val[0] == v->step->int_cst.val[0])
-		return false;
-	    }
-	}
-    }
   return true;
 }
 
@@ -7537,7 +7515,6 @@ rewrite_uses (struct ivopts_data *data)
 
       rewrite_use (data, use, cand);
     }
-
 }
 
 /* Removes the ivs that are not used after rewriting.  */

@@ -491,3 +491,18 @@ amigaos_alternate_frame_setup (int fsize);
 
 void
 amiga_insert_attribute (tree decl, tree * attr);
+
+
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE amigaos_function_value
+
+#undef TARGET_FUNCTION_VALUE_REGNO_P
+#define TARGET_FUNCTION_VALUE_REGNO_P amigaos_function_value_regno_p
+
+
+rtx
+amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool x);
+
+bool
+amigaos_function_value_regno_p(unsigned regno);
+

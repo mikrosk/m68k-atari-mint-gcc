@@ -269,17 +269,17 @@ amigaos_function_arg_reg (unsigned regno)
 }
 
 rtx
-amigaos_function_value(const_tree type, const_tree fn_decl_or_type)
+amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool outgoing)
 {
   machine_mode mode = TYPE_MODE(type);
   if (!fn_decl_or_type)
-    fn_decl_or_type = mycum.fntype;
+    fn_decl_or_type = outgoing ? mycum.fntype : othercum.fntype;
   if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
     {
       const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
       if (fntype)
 	{
-	  tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
+	  tree attrs = TYPE_ATTRIBUTES(fntype);
 	  if (attrs && lookup_attribute ("retfp0", attrs))
 	    return gen_rtx_REG (mode, FP0_REG);
 
@@ -290,7 +290,7 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type)
   return gen_rtx_REG (mode, D0_REG);
 }
 
-int
+bool
 amigaos_function_value_regno_p(unsigned regno) {
   if (TARGET_68881 && mycum.fntype)
     {

@@ -268,6 +268,7 @@ amiga_declare_object = 0
       builtin_define ("__regargs=__attribute__((__regparm__(2)))"); \
       builtin_define ("__stdargs=__attribute__((__stkparm__))"); \
       builtin_define ("__aligned=__attribute__((__aligned__(4)))"); \
+      builtin_define ("__retfp0=__attribute__((__retfp0__))"); \
       builtin_define_std ("amiga"); \
       builtin_define_std ("amigaos"); \
       builtin_define_std ("AMIGA"); \

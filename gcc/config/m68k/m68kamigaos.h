@@ -408,16 +408,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
         "%{!fbaserel:ncrt0.o%s}}}}"
 
 #define STARTFILE_NEWLIB_SPEC \
-    "%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:" \
-        "%{fbaserel32:libm020/libb32/crt0.o%s}" \
-      "%{!fbaserel32:" \
-              "%{fbaserel:libm020/libb/crt0.o%s}" \
-            "%{!fbaserel:libm020/crt0.o%s}}" \
-      "}" \
-    "%{m6800*|mc6800*|m6801*|mcpu=6800*|mcpu=6801*:" \
-          "%{fbaserel:libb/crt0.o%s}" \
-          "%{!fbaserel:crt0.o%s}" \
-    "}"
+    "crt0.o%s "
 
 #define SELF_SPEC \
  "%{noixemul:-B %:sdk_root(libnix/lib/)} " \

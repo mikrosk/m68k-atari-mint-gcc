@@ -91,12 +91,14 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    Likewise if the operands are reversed.  */
 (simplify
  (plus:c @0 real_zerop@1)
-  (non_lvalue @0))
+ (if (fold_real_zero_addition_p (type, @1, 0))
+  (non_lvalue @0)))
 
 /* See if ARG1 is zero and X - ARG1 reduces to X.  */
 (simplify
  (minus @0 real_zerop@1)
-  (non_lvalue @0))
+ (if (fold_real_zero_addition_p (type, @1, 1))
+  (non_lvalue @0)))
 
 /* Simplify x - x.
    This is unsafe for certain floats even in non-IEEE formats.

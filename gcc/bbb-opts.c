@@ -1192,6 +1192,8 @@ insn_info::make_post_inc (int regno, int addend)
   if (is_compare ())
     set = SET_SRC(set);
   rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
+  if (!MEM_P(mem))
+    return 0;
 
   if (src_op && get_src_mem_regno () == regno)
     {

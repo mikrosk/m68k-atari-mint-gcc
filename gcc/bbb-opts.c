@@ -1191,19 +1191,27 @@ insn_info::make_post_inc (int regno, int addend)
 
   if (is_compare ())
     set = SET_SRC(set);
-  rtx mem = get_dst_mem_regno () == regno ? SET_DEST(set) : SET_SRC(set);
+  rtx mem;
+
+  if (get_dst_mem_regno () == regno)
+    mem = SET_DEST(set);
+  else
+    {
+      mem = SET_SRC(set);
+      if (!MEM_P(mem))
+	{
+	  const char * format = GET_RTX_FORMAT(GET_CODE(mem));
+	  if (format[0] != 'e')
+	    return 0;
+	  if (format[1] == 'e')
+	    mem = XEXP(mem, 1);
+	  else
+	    mem = XEXP(mem, 0);
+	}
+    }
+
   if (!MEM_P(mem))
     return 0;
-
-  if (src_op && get_src_mem_regno () == regno)
-    {
-      if (src_op == NEG || src_op == NOT || (src_op >= SIGN_EXTEND && src_op <= PARITY)
-    		  || src_op == SS_NEG || src_op == US_NEG || src_op == SS_ABS
-			  || src_op == SS_TRUNCATE || src_op == US_TRUNCATE)
-	mem = XEXP(mem, 0);
-      else
-	mem = XEXP(mem, 1);
-    }
 
   rtx reg = XEXP(mem, 0);
   if (addend < 0)

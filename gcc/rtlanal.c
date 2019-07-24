@@ -1747,6 +1747,8 @@ reg_overlap_mentioned_p (const_rtx x, const_rtx in)
  recurse:
   switch (GET_CODE (x))
     {
+    case COMPARE:
+    case SET:
     case STRICT_LOW_PART:
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:

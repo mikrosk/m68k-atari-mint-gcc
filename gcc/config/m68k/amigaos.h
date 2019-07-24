@@ -172,7 +172,7 @@ amiga_named_section (const char *name, unsigned int flags, tree decl);
 //#define DEFAULT_MAIN_RETURN c_expand_return (integer_zero_node)
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "unsigned short"
+#define WCHAR_TYPE "unsigned int"
 
 /* XXX: section support */
 #if 0
@@ -428,6 +428,8 @@ do									\
       error ("-fbaserel32 is not supported on the 68000 or 68010\n");	\
     if (amigaos_regparm > 0 && amigaos_regparm > AMIGAOS_MAX_REGPARM)   \
       error ("-mregparm=x with 1 <= x <= %d\n", AMIGAOS_MAX_REGPARM);   \
+    if (amigaos_retfp0 && !TARGET_68881)                           \
+      error ("-mreturnfp0 requires -m68881, -m68040, -m68060, -m68080 or -mhard-float\n"); \
   }									\
 while (0)
 
@@ -442,10 +444,9 @@ while (0)
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "entrypoint", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "saveallregs", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
-  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute,\
-    true }, \
-  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute,\
-    true },
+  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute, true }, \
+  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute, true } ,\
+  { "retfp0", 0, 0, false,  true, true, amigaos_handle_type_attribute, true },
 
 #define GOT_SYMBOL_NAME ""
 
@@ -490,3 +491,18 @@ amigaos_alternate_frame_setup (int fsize);
 
 void
 amiga_insert_attribute (tree decl, tree * attr);
+
+
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE amigaos_function_value
+
+#undef TARGET_FUNCTION_VALUE_REGNO_P
+#define TARGET_FUNCTION_VALUE_REGNO_P amigaos_function_value_regno_p
+
+
+rtx
+amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool x);
+
+bool
+amigaos_function_value_regno_p(unsigned regno);
+

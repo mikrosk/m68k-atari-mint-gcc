@@ -1273,6 +1273,33 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple *stmt, affine_iv *iv)
   if (stmt_could_throw_p (stmt))
     return false;
 
+#ifdef TARGET_AMIGA
+  if (TUNE_68080)
+  {
+  /* Do not introduce iv's for POINTER_PLUS_EXPR
+   * if the increment is the same as in some present iv.
+   */
+  if (iv->base->base.code == POINTER_PLUS_EXPR && iv->step->base.code == INTEGER_CST
+      && iv->base->exp.operands[0]->base.code == SSA_NAME)
+    {
+      tree var = iv->base->exp.operands[0]->ssa_name.var;
+      unsigned i;
+      bitmap_iterator bi;
+      EXECUTE_IF_SET_IN_BITMAP (data->relevant, 0, i, bi)
+	{
+	  if (ver_info (data, i)->iv)
+	    {
+	      struct iv * v = ver_info (data, i)->iv;
+	      if (v->base && v->base->base.code == SSA_NAME
+		  && v->base->ssa_name.var == var
+		  && v->step && v->step->base.code == INTEGER_CST
+		  && iv->step->int_cst.val[0] == v->step->int_cst.val[0])
+		return false;
+	    }
+	}
+    }
+    }
+#endif
   return true;
 }
 
@@ -5898,6 +5925,20 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
       && empty_block_p (ip_end_pos (data->current_loop)))
     cost++;
 
+#ifdef TARGET_AMIGA
+  if (TUNE_68080 && cand->var_after && cand->var_before && cand->iv->base
+      && cand->var_after->base.code == SSA_NAME
+      && cand->var_before->base.code == SSA_NAME
+      && cand->iv->base->base.code == SSA_NAME
+      && cand->var_after->ssa_name.var == cand->var_before->ssa_name.var
+      && cand->var_after->ssa_name.var == cand->iv->base->ssa_name.var
+      && !cand->iv->base_object && !cand->iv->ssa_name
+      && cand->iv->step && cand->iv->step->base.code == INTEGER_CST
+      && cand->iv->step->int_cst.val[0] < 0
+      )
+    cost -= COSTS_N_INSNS(2);
+#endif
+
   cand->cost = cost;
   cand->cost_step = cost_step;
 }
@@ -7391,6 +7432,45 @@ rewrite_use_compare (struct ivopts_data *data,
       gimple_cond_set_lhs (cond_stmt, var);
       gimple_cond_set_code (cond_stmt, compare);
       gimple_cond_set_rhs (cond_stmt, op);
+
+      /* search the last assignment of the var used in this compare and move it in front of. */
+      gimple_stmt_iterator i = gsi_for_stmt(cond_stmt);
+      gimple_stmt_iterator j = i;
+      gsi_prev(&i);
+      for (;!gsi_end_p(i); gsi_prev(&i))
+	{
+	  gimple * g = i.ptr;
+	  /* only reorder simple expressions */
+	  if (g->code != GIMPLE_ASSIGN || (g->subcode != PLUS_EXPR && g->subcode != MINUS_EXPR))
+	    break;
+
+	  tree lhs = gimple_get_lhs(g);
+	  if (lhs->base.code != SSA_NAME)
+	    break;
+
+	  /* found the assignment to the compare variable. */
+	  if (lhs->ssa_name.var == var->ssa_name.var)
+	    {
+	      gsi_move_before(&i, &j);
+	      break;
+	    }
+
+	  /* ensure the variable is not used in between. */
+	  tree rhs = gimple_assign_rhs1(g);
+	  if (rhs->base.code == SSA_NAME && rhs->ssa_name.var == var->ssa_name.var)
+	    break;
+
+	  if (rhs->base.code != SSA_NAME && rhs->base.code != INTEGER_CST)
+	    break;
+
+	  rhs = gimple_assign_rhs2(g);
+	  if (rhs->base.code == SSA_NAME && rhs->ssa_name.var == var->ssa_name.var)
+	    break;
+
+	  if (rhs->base.code != SSA_NAME && rhs->base.code != INTEGER_CST)
+	    break;
+	}
+
       return;
     }
 

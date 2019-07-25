@@ -1606,7 +1606,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    (-ARG1 + ARG0) reduces to -ARG1.  */
 (simplify
  (minus real_zerop@0 @1)
-  (negate @1))
+ (if (fold_real_zero_addition_p (type, @0, 0))
+  (negate @1)))
 
 /* Transform x * -1 into -x.  */
 (simplify

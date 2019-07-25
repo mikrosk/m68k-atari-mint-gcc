@@ -438,7 +438,7 @@ public:
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
-    setMask(regno, 0xffffffff, SImode);
+    setMask(regno, 0xffffffff, mode);
   }
 
   void
@@ -4419,6 +4419,8 @@ track_regs ()
 			track->setMask(dregno, dmask << INTVAL(op), ii.get_mode());
 		    }
 		}
+	      else
+		track->clear (ii.get_mode (), dregno, index);
 	      continue;
 	    }
 

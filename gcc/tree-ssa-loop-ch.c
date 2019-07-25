@@ -60,7 +60,27 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
      satisfied in the first iteration and therefore to eliminate it.  Jump
      threading handles these cases now.  */
   if (flag_loop_size_optimize == 1 || (flag_loop_size_optimize && optimize_loop_for_size_p (loop)))
-    return false;
+    {
+#ifdef TARGET_AMIGA
+      // copy at least a tiny header
+      if (*limit != 20 || !flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
+	return false;
+
+      // if there is a comparison: only as last expression!
+      basic_block next = EDGE_SUCC (header, 0)->dest;
+      for (bsi = gsi_start_bb (next); !gsi_end_p (bsi); gsi_next (&bsi))
+	{
+	  last = gsi_stmt (bsi);
+	  enum gimple_code code = gimple_code (last);
+	  if (code != GIMPLE_ASSIGN && bsi.ptr->next)
+	    return false;
+	}
+
+      *limit = 2;
+#else
+      return false;
+#endif
+    }
 
   gcc_assert (EDGE_COUNT (header->succs) > 0);
   if (single_succ_p (header))
@@ -92,6 +112,19 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
 
       if (is_gimple_call (last))
 	return false;
+
+#ifdef TARGET_AMIGA
+      enum gimple_code code = gimple_code (last);
+      if (code == GIMPLE_ASSIGN)
+	{
+	  tree rhs = gimple_assign_rhs1 (last);
+	  if (rhs->base.code == MEM_REF)
+	    return false;
+	  tree lhs = gimple_assign_lhs (last);
+	  if (lhs->base.code == MEM_REF)
+	    return false;
+	}
+#endif
 
       *limit -= estimate_num_insns (last, &eni_size_weights);
       if (*limit < 0)

@@ -5352,15 +5352,16 @@ namespace
 	if (do_lea_mem && opt_lea_mem())
 	  update_insns ();
 
-	if (do_opt_final && opt_clear())
-	  update_insns ();
-
 	int pass = 0;
 	for (;;)
 	  {
 	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", ++pass);
+
+	    if (do_opt_final && opt_clear())
+	      update_insns ();
+
 	    if (do_opt_strcpy && opt_strcpy ())
 	      {XUSE('s'); done = 0; update_insns (); }
 
@@ -5390,6 +5391,10 @@ namespace
 		  done = 0;
 		}
 
+	    /* convert back to clear before fixing the stack frame plus before tracking registers! */
+	    if (do_opt_final && opt_final())
+	      update_insns();
+
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      {
 		XUSE('e');
@@ -5400,10 +5405,6 @@ namespace
 	    if (done)
 	      break;
 	  }
-
-	/* convert back to clear befor fixing the stack frame */
-	if (do_opt_final && opt_final())
-	  { XUSE('z'); update_insns(); }
 
 	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
 	  { XUSE('f'); update_insns (); }

@@ -5006,6 +5006,7 @@ opt_autoinc ()
   return change_count;
 }
 
+
 /*
  * A final pass, with these optimizations:
  *
@@ -5050,7 +5051,17 @@ opt_final()
 	    }
 	  continue;
 	}
+    }
+  return change_count;
+}
 
+static unsigned
+opt_declear()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 0; index < infos.size(); ++index)
+    {
+      insn_info &ii = infos[index];
       // search moveq #0,dx
       if (ii.is_dst_reg() && ii.get_dst_regno() < 8 && index + 1 < infos.size())
 	{
@@ -5079,6 +5090,7 @@ opt_final()
     }
   return change_count;
 }
+
 
 /**
  * Convert
@@ -5355,9 +5367,10 @@ namespace
 	int pass = 0;
 	for (;;)
 	  {
+	    ++pass;
 	    done = 1;
 	    if (be_very_verbose)
-	      log ("pass %d\n", ++pass);
+	      log ("pass %d\n", pass);
 
 	    if (do_opt_final && opt_clear())
 	      update_insns ();
@@ -5392,7 +5405,7 @@ namespace
 		}
 
 	    /* convert back to clear before fixing the stack frame plus before tracking registers! */
-	    if (do_opt_final && opt_final())
+	    if (do_opt_final && opt_declear())
 	      update_insns();
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
@@ -5405,6 +5418,10 @@ namespace
 	    if (done)
 	      break;
 	  }
+
+	/* convert back to clear before fixing the stack frame */
+	if (do_opt_final && opt_final())
+	  { XUSE('z'); update_insns(); }
 
 	if (do_shrink_stack_frame && opt_shrink_stack_frame ())
 	  { XUSE('f'); update_insns (); }

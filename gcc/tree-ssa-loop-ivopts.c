@@ -4313,6 +4313,7 @@ static comp_cost
 force_expr_to_var_cost (tree expr, bool speed)
 {
   static bool costs_initialized = false;
+  static unsigned small_integer_cost [2];
   static unsigned integer_cost [2];
   static unsigned symbol_cost [2];
   static unsigned address_cost [2];
@@ -4337,8 +4338,15 @@ force_expr_to_var_cost (tree expr, bool speed)
 
       for (i = 0; i < 2; i++)
 	{
+	  small_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
+							     2), i);
+	  if (!small_integer_cost[i])
+	    small_integer_cost[i] = 1;
+
 	  integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
 							     2000), i);
+	  if (!integer_cost[i])
+	    integer_cost[i] = 1;
 
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
@@ -4347,6 +4355,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
+	      fprintf (dump_file, "  small integer %d\n", (int) small_integer_cost[i]);
 	      fprintf (dump_file, "  integer %d\n", (int) integer_cost[i]);
 	      fprintf (dump_file, "  symbol %d\n", (int) symbol_cost[i]);
 	      fprintf (dump_file, "  address %d\n", (int) address_cost[i]);
@@ -4366,7 +4375,12 @@ force_expr_to_var_cost (tree expr, bool speed)
   if (is_gimple_min_invariant (expr))
     {
       if (TREE_CODE (expr) == INTEGER_CST)
+	{
+	  if (-0x80 <= expr->int_cst.val[0]
+	      && expr->int_cst.val[0] <= 0x7f)
+	    return new_cost (small_integer_cost [speed], 0);
 	  return new_cost (integer_cost [speed], 0);
+	}
 
       if (TREE_CODE (expr) == ADDR_EXPR)
 	{
@@ -5624,7 +5638,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    elim_cost.cost -= 1;
+    elim_cost.cost -= COSTS_N_INSNS(1);
     
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,

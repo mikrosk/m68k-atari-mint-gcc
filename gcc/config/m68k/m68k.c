@@ -3241,6 +3241,9 @@ extern bool
 m68k_68040_costs (rtx x, machine_mode mode, int outer_code,
 		int opno, int *total, bool speed );
 
+extern bool
+m68k_68080_costs (rtx x, machine_mode mode, int outer_code,
+		int opno, int *total, bool speed );
 
 static bool
 m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
@@ -3256,13 +3259,10 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
   if (m68k_tune == u68030)
     return m68k_68030_costs(x, mode, outer_code, opno, total, speed);
 
-//  if (m68k_tune == u68040 || m68k_tune == u68020_40)
+  if (m68k_tune == u68040 || m68k_tune == u68020_40)
     return m68k_68040_costs(x, mode, outer_code, opno, total, speed);
 
-// if (m68k_tune == u68060 || m68k_tune == u68020_60)
-// if (m68k_tune == u68080 || m68k_tune == u68020_80 || !speed)
-//  *total = 1;
-//  return true;
+  return m68k_68080_costs(x, mode, outer_code, opno, total, speed);
 }
 
 int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed)

@@ -214,10 +214,10 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 			if (i & 1)
 			  ++bits;
 			i >>= 1;
-	  }
+		      }
 		    // it's a shift
 		    if (bits == 1 && REG_P(dst))
-	  {
+		      {
 			*total = 3;
 			return true;
 		      }
@@ -234,10 +234,10 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		      i >>= 1;
 		    }
 
-		*total = 12 + (bits>>2);
-	    return true;
+		*total = 4 + bits/2;
+		return true;
+	      }
 	  }
-      }
 
 	*total = GET_MODE_SIZE(mode) > 2 ? 20 : 16;
 	return true;

@@ -4153,8 +4153,8 @@ remove_superfluous_stack_vars ()
 		    {
 		      /* TODO: switch to costs. */
 		      rtx x = XEXP(src, 0);
-		      if ((REG_P(x) && REGNO(x) < 13)
-			  || (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)) && REGNO(XEXP(x, 0)) < 13))
+		      if ((REG_P(x) && REGNO(x) >= FIRST_PSEUDO_REGISTER)
+			  || (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)) && REGNO(XEXP(x, 0)) >= FIRST_PSEUDO_REGISTER))
 			reg_equiv_memory_loc (a->regno) = src;
 		    }
 		  break;

@@ -4126,6 +4126,43 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
   return merged_p;
 }
 
+/*
+ * If there aren't enough registers, mem vars are copied to stack vars, often without gain.
+ * Find these and eliminate them.
+ */
+static void
+remove_superfluous_stack_vars ()
+{
+  int i, n, max_regno;
+
+  max_regno = max_reg_num ();
+  for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    {
+      ira_allocno_t a = ira_regno_allocno_map[i];
+      if (a != NULL && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
+	&& ALLOCNO_HARD_REGNO (a) < 0)
+	{
+	  struct insn_chain *c;
+	  for (c = reload_insn_chain; c ; c = c->next)
+	    {
+	      rtx set = single_set(c->insn);
+	      if (set && REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == a->regno)
+		{
+		  rtx src = SET_SRC(set);
+		  if (MEM_P(src))
+		    {
+		      /* TODO: switch to costs. */
+		      rtx x = XEXP(src, 0);
+		      if (REG_P(x) || (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0))))
+			reg_equiv_memory_loc (a->regno) = src;
+		    }
+		  break;
+		}
+	    }
+	}
+    }
+}
+
 /* Sort pseudo-register numbers in array PSEUDO_REGNOS of length N for
    subsequent assigning stack slots to them in the reload pass.  To do
    this we coalesce spilled allocnos first to decrease the number of
@@ -4142,6 +4179,8 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
   ira_allocno_t *spilled_coalesced_allocnos;
 
   ira_assert (! ira_use_lra_p);
+
+  remove_superfluous_stack_vars ();
 
   /* Set up allocnos can be coalesced.  */
   coloring_allocno_bitmap = ira_allocate_bitmap ();

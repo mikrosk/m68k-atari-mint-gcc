@@ -4139,7 +4139,7 @@ remove_superfluous_stack_vars ()
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
       ira_allocno_t a = ira_regno_allocno_map[i];
-      if (a != NULL && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
+      if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
 	&& ALLOCNO_HARD_REGNO (a) < 0)
 	{
 	  struct insn_chain *c;
@@ -4153,9 +4153,44 @@ remove_superfluous_stack_vars ()
 		    {
 		      /* TODO: switch to costs. */
 		      rtx x = XEXP(src, 0);
-		      if ((REG_P(x) && REGNO(x) >= FIRST_PSEUDO_REGISTER)
-			  || (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)) && REGNO(XEXP(x, 0)) >= FIRST_PSEUDO_REGISTER))
-			reg_equiv_memory_loc (a->regno) = src;
+		      int o_regno;
+		      int o_numreg;
+		      if (REG_P(x))
+			o_regno = REGNO(x), o_numreg = REG_NREGS(x);
+		      else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)))
+			o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
+		      else
+			o_regno = -1;
+		      if (o_regno >= FIRST_PSEUDO_REGISTER)
+			{
+			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
+			  int ok = 1;
+			  if (o->hard_regno >= 0)
+			    {
+			      // check that this hard reg can be used throughout
+			      struct insn_chain *c2;
+			      for (c2 = c->next; c2 ; c2 = c2->next)
+				{
+				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
+				    {
+				      reg_set_iterator rsi;
+				      unsigned int rn;
+				      EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
+				      {
+					ira_allocno_t t = ira_regno_allocno_map[rn];
+					if (t && t != o && t->hard_regno == o->hard_regno)
+					  {
+					    ok = 0;
+					    break;
+					  }
+				      }
+				    }
+				}
+			    }
+			  // perform the change by setting this src as equiv memory_loc
+			  if (ok)
+			    reg_equiv_memory_loc (a->regno) = src;
+			}
 		    }
 		  break;
 		}

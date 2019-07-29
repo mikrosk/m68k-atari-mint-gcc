@@ -4141,8 +4141,7 @@ remove_superfluous_stack_vars ()
       ira_allocno_t a = ira_regno_allocno_map[i];
       if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
 	&& ALLOCNO_HARD_REGNO (a) < 0
-	// && !a->bad_spill_p
-//	&& !a->conflict_vec_p
+	&& a->allocno_copies == NULL
 	&& a->num_objects == 1)
 	{
 	  struct insn_chain *c;
@@ -4164,12 +4163,12 @@ remove_superfluous_stack_vars ()
 			o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
 		      else
 			o_regno = -1;
-		      if (o_regno >= FIRST_PSEUDO_REGISTER)
+		      if (o_regno < FIRST_PSEUDO_REGISTER)
 			{
 			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
-			  int ok =
-			      // !o->conflict_vec_p &&
-			      o->num_objects == 1
+			  int ok = o->hard_regno >= 0
+			      // && !o->conflict_vec_p
+			      && o->num_objects == 1
 			      // && !o->bad_spill_p
 			      ;
 			  if (ok && o->hard_regno >= 0)
@@ -4199,11 +4198,12 @@ remove_superfluous_stack_vars ()
 				    }
 				}
 			    }
+			  rtx note = find_regno_note (c->insn, REG_DEAD, o_regno);
 			  /* perform the change
 			   * update some internal data to avoid register double use
 			   * and finally set this src as equiv memory_loc
 			   */
-			  if (ok)
+			  if (ok && note)
 			    {
 			      // update live range
 			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (a, 0));
@@ -4212,9 +4212,7 @@ remove_superfluous_stack_vars ()
 			      lo = OBJECT_LIVE_RANGES (oo) = ira_merge_live_ranges(lo, ira_copy_live_range_list (la));
 
 			      // remove REG_DEAD note
-			      rtx note = find_regno_note (c->insn, REG_DEAD, o_regno);
-			      if (note)
-				remove_note(c->insn, note);
+			      remove_note(c->insn, note);
 
 			      // clear flag here
 			      for (int k = 0; k < o_numreg; ++k)

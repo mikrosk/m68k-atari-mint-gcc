@@ -4187,9 +4187,43 @@ remove_superfluous_stack_vars ()
 				    }
 				}
 			    }
-			  // perform the change by setting this src as equiv memory_loc
+			  /* perform the change
+			   * update some internal data to avoid register double use
+			   * and finally set this src as equiv memory_loc
+			   */
 			  if (ok)
-			    reg_equiv_memory_loc (a->regno) = src;
+			    {
+			      // update live range
+			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (a, 0));
+			      ira_object_t oo = ALLOCNO_OBJECT (o, 0);
+			      live_range_t lo = OBJECT_LIVE_RANGES (oo);
+			      lo = OBJECT_LIVE_RANGES (oo) = ira_merge_live_ranges(lo, ira_copy_live_range_list (la));
+
+			      // remove REG_DEAD note
+			      rtx note = find_regno_note (c->insn, REG_DEAD, o_regno);
+			      if (note)
+				remove_note(c->insn, note);
+
+			      // clear flag here
+			      for (int k = 0; k < o_numreg; ++k)
+				  CLEAR_REGNO_REG_SET (&c->dead_or_set, o_regno + k);
+
+			      // update live_throughout
+			      struct insn_chain *c2;
+			      for (c2 = c; c2 ; c2 = c2->next)
+				{
+				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
+				    {
+				      SET_REGNO_REG_SET(&c2->live_throughout, o_regno);
+				      if (o->hard_regno >= 0)
+					SET_REGNO_REG_SET(&c2->live_throughout, o->hard_regno);
+				    }
+				  if (REGNO_REG_SET_P(&c2->dead_or_set, i))
+				    SET_REGNO_REG_SET(&c2->dead_or_set, o_regno);
+				}
+
+			      reg_equiv_memory_loc (a->regno) = src;
+			    }
 			}
 		    }
 		  break;

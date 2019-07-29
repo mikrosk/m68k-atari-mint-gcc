@@ -4140,7 +4140,10 @@ remove_superfluous_stack_vars ()
     {
       ira_allocno_t a = ira_regno_allocno_map[i];
       if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
-	&& ALLOCNO_HARD_REGNO (a) < 0)
+	&& ALLOCNO_HARD_REGNO (a) < 0
+	// && !a->bad_spill_p
+//	&& !a->conflict_vec_p
+	&& a->num_objects == 1)
 	{
 	  struct insn_chain *c;
 	  for (c = reload_insn_chain; c ; c = c->next)
@@ -4164,11 +4167,20 @@ remove_superfluous_stack_vars ()
 		      if (o_regno >= FIRST_PSEUDO_REGISTER)
 			{
 			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
-			  int ok = 1;
-			  if (o->hard_regno >= 0)
+			  int ok =
+			      // !o->conflict_vec_p &&
+			      o->num_objects == 1
+			      // && !o->bad_spill_p
+			      ;
+			  if (ok && o->hard_regno >= 0)
 			    {
-			      // check that this hard reg can be used throughout
 			      struct insn_chain *c2;
+
+			      // call used regs must not cross a call!
+			      ok = !call_used_regs[o->hard_regno] || a->calls_crossed_num == 0;
+
+			      // check that this hard reg can be used throughout
+			      if (ok)
 			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
 				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
@@ -4210,7 +4222,7 @@ remove_superfluous_stack_vars ()
 
 			      // update live_throughout
 			      struct insn_chain *c2;
-			      for (c2 = c; c2 ; c2 = c2->next)
+			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
 				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
 				    {

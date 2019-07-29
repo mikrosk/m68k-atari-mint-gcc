@@ -4163,13 +4163,11 @@ remove_superfluous_stack_vars ()
 			o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
 		      else
 			o_regno = -1;
-		      if (o_regno < FIRST_PSEUDO_REGISTER)
+		      if (o_regno >= FIRST_PSEUDO_REGISTER)
 			{
 			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
 			  int ok = o->hard_regno >= 0
-			      // && !o->conflict_vec_p
 			      && o->num_objects == 1
-			      // && !o->bad_spill_p
 			      ;
 			  if (ok && o->hard_regno >= 0)
 			    {

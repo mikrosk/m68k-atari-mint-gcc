@@ -4155,7 +4155,9 @@ remove_superfluous_stack_vars ()
 	      if (set && REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == a->regno)
 		{
 		  rtx src = SET_SRC(set);
-		  if (MEM_P(src) || REG_P(src))
+		  if (MEM_P(src)
+		  // || REG_P(src)
+		  )
 		    {
 		      int o_regno;
 		      int o_numreg;

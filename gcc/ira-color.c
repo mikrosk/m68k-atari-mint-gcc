@@ -4142,7 +4142,7 @@ remove_superfluous_stack_vars ()
     {
       ira_allocno_t a = ira_regno_allocno_map[i];
       if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
-//	&& ALLOCNO_HARD_REGNO (a) < 0
+	&& ALLOCNO_HARD_REGNO (a) < 0
 	&& a->allocno_copies == NULL
 	&& a->num_objects == 1)
 	{

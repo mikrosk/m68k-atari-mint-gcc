@@ -4135,15 +4135,19 @@ remove_superfluous_stack_vars ()
 {
   int i, n, max_regno;
 
+  bool optimize_this_for_speed_p = optimize_function_for_speed_p(cfun);
+
   max_regno = max_reg_num ();
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
       ira_allocno_t a = ira_regno_allocno_map[i];
       if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
-	&& ALLOCNO_HARD_REGNO (a) < 0
+//	&& ALLOCNO_HARD_REGNO (a) < 0
 	&& a->allocno_copies == NULL
 	&& a->num_objects == 1)
 	{
+	  int stack_cost = rtx_cost(gen_rtx_MEM(a->mode, gen_rtx_PLUS(SImode, gen_reg_rtx(SImode), GEN_INT(4))), a->mode, SET, 0, optimize_this_for_speed_p);
+
 	  struct insn_chain *c;
 	  for (c = reload_insn_chain; c ; c = c->next)
 	    {
@@ -4151,19 +4155,26 @@ remove_superfluous_stack_vars ()
 	      if (set && REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == a->regno)
 		{
 		  rtx src = SET_SRC(set);
-		  if (MEM_P(src))
+		  if (MEM_P(src) || REG_P(src))
 		    {
-		      /* TODO: switch to costs. */
-		      rtx x = XEXP(src, 0);
 		      int o_regno;
 		      int o_numreg;
-		      if (REG_P(x))
-			o_regno = REGNO(x), o_numreg = REG_NREGS(x);
-		      else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)))
-			o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
+		      if (REG_P(src))
+			o_regno = REGNO(src), o_numreg = REG_NREGS(src);
 		      else
-			o_regno = -1;
-		      if (o_regno >= FIRST_PSEUDO_REGISTER)
+			{
+			  rtx x = XEXP(src, 0);
+			  if (REG_P(x))
+			    o_regno = REGNO(x), o_numreg = REG_NREGS(x);
+			  else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)))
+			    o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
+			  else
+			    o_regno = -1;
+			}
+		      int cost = rtx_cost(src, GET_MODE(src), SET, 0, optimize_this_for_speed_p);
+		      if (o_regno >= FIRST_PSEUDO_REGISTER
+			  && stack_cost >= cost
+			  )
 			{
 			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
 			  int ok = o->hard_regno >= 0
@@ -4176,10 +4187,10 @@ remove_superfluous_stack_vars ()
 			      // call used regs must not cross a call!
 			      ok = !call_used_regs[o->hard_regno] || a->calls_crossed_num == 0;
 
-			      // check that this hard reg can be used throughout
 			      if (ok)
 			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
+				  // check that this hard reg can be used throughout
 				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
 				    {
 				      reg_set_iterator rsi;
@@ -4187,21 +4198,34 @@ remove_superfluous_stack_vars ()
 				      EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
 				      {
 					ira_allocno_t t = ira_regno_allocno_map[rn];
-					if (t && t != o && t->hard_regno == o->hard_regno)
+					if (t && t->num != 0 && t != o && t->hard_regno == o->hard_regno)
 					  {
 					    ok = 0;
 					    break;
 					  }
 				      }
 				    }
+				  // also check that the set src does not occur again
+				  // this means the stack var is a real copy
+				  rtx oset = single_set(c2->insn);
+				  if (oset)
+				    {
+				      rtx osrc = SET_SRC(oset);
+				      if (GET_CODE(osrc) == COMPARE)
+					osrc = XEXP(osrc, 0);
+				      if (rtx_equal_p(src, osrc))
+					{
+					  ok = 0;
+					  break;
+					}
+				    }
 				}
 			    }
-			  rtx note = find_regno_note (c->insn, REG_DEAD, o_regno);
 			  /* perform the change
 			   * update some internal data to avoid register double use
 			   * and finally set this src as equiv memory_loc
 			   */
-			  if (ok && note)
+			  if (ok)
 			    {
 			      // update live range
 			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (a, 0));
@@ -4210,7 +4234,9 @@ remove_superfluous_stack_vars ()
 			      lo = OBJECT_LIVE_RANGES (oo) = ira_merge_live_ranges(lo, ira_copy_live_range_list (la));
 
 			      // remove REG_DEAD note
-			      remove_note(c->insn, note);
+			      rtx note = find_regno_note (c->insn, REG_DEAD, o_regno);
+			      if (note)
+				remove_note(c->insn, note);
 
 			      // clear flag here
 			      for (int k = 0; k < o_numreg; ++k)

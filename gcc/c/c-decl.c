@@ -1793,6 +1793,30 @@ locate_old_decl (tree decl)
     inform (input_location, "previous declaration of %q+D was here", decl);
 }
 
+#ifdef TARGET_AMIGA
+/**
+ * Filter __stkparm__ storage attributes from type's attributes.
+ */
+static tree strip_amiga_stkparm_attrs(tree t1)
+{
+	tree filtered = NULL;
+
+    for (;t1; t1 = TREE_CHAIN (t1))
+	{
+    	  char const * name = IDENTIFIER_POINTER(TREE_PURPOSE (t1));
+    	  if (0 == strcmp("__stkparm__", name))
+    	    continue;
+
+	  tree a1 = copy_node (t1);
+	  TREE_CHAIN (a1) = filtered;
+	  filtered = a1;
+	}
+
+	return filtered;
+}
+#endif
+
+
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
    Returns true if the caller should proceed to merge the two, false
    if OLDDECL should simply be discarded.  As a side effect, issues
@@ -1860,7 +1884,21 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	     This is for the ffs and fprintf builtins.  */
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
+#ifdef TARGET_AMIGA
+	  bool ok;
+	  if (trytype)
+	    {
+	      tree saved_attrs = TYPE_ATTRIBUTES(newtype);
+	      TYPE_ATTRIBUTES(newtype) = strip_amiga_stkparm_attrs(saved_attrs);
+	      ok = comptypes (newtype, trytype);
+	      TYPE_ATTRIBUTES(newtype) = saved_attrs;
+	    }
+	  else
+	    ok = false;
+	  if (ok)
+#else
 	  if (trytype && comptypes (newtype, trytype))
+#endif
 	    *oldtypep = oldtype = trytype;
 	  else
 	    {

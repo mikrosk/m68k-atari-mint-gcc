@@ -2343,6 +2343,10 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 
   if (MEM_P(x))
     {
+#if 1
+      // disable until reloading for address->offset + address->outer_offset is implemented.
+      return false;
+#else
       if (in_mem)
 	return false;
 
@@ -2377,6 +2381,7 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 	return false;
 
       return true;
+#endif
     }
   return false;
 }
@@ -3326,7 +3331,8 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 
 int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed)
 {
-  static class rtx_def mem = { MEM};
+  static class rtx_def mem;
+  mem.code = MEM;
   mem.u.fld[0].rt_rtx = x;
   int total = 0;
   m68k_rtx_costs(&mem, mode, SET, 0, &total, speed);

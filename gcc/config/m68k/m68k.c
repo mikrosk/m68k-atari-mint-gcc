@@ -2343,7 +2343,7 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 
   if (MEM_P(x))
     {
-#if 1
+#if !DOUBLE_INDIRECT_JUMP
       // disable until reloading for address->offset + address->outer_offset is implemented.
       return false;
 #else

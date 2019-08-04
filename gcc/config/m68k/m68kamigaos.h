@@ -753,3 +753,6 @@ amigaos_function_arg_reg(unsigned regno);
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO) \
   asm_fprintf (FILE, "\tjsr _mcount\n")
+
+
+#define DOUBLE_INDIRECT_JUMP 0

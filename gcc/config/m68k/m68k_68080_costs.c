@@ -36,32 +36,29 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case GTU:
     case LEU:
     case LTU:
-      return m68k_68080_costs (XEXP(x, 0), mode, code, 0, total, speed);
     case CONST:
-		*total = 0;
-		return true;
-	  break;
+      return m68k_68080_costs (XEXP(x, 0), mode, code, 0, total, speed);
     case LABEL_REF:
     case SYMBOL_REF:
-      *total = 0;
       return true;
     case CONST_INT:
-      *total = 0;
+      if (outer_code == SET)
+	{
+	  int iv = INTVAL(x);
+	  if (iv < -0x100 || iv > 0xff)
+	    *total = 1;
+	}
       return true;
     case CONST_DOUBLE:
-      *total = 0;
       return true;
     case POST_INC:
-      *total = 0;
       return true;
     case PRE_DEC:
-      *total = 0;
       return true;
     case REG:
     case SUBREG:
     case STRICT_LOW_PART:
     case PC:
-      *total = 0;
       return true;
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
@@ -132,7 +129,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	else if (m68k_68080_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68080_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2;
+	    *total += 4 + total2;
 	    return true;
 	  }
       }
@@ -148,7 +145,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	if (m68k_68080_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68080_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2;
+	    *total = 4 + total2;
 	    return true;
 	  }
       }

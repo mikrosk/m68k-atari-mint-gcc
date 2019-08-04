@@ -2152,7 +2152,7 @@ static bool is_valid_offset(rtx x)
 
 extern void m68k_set_outer_address(rtx current_outer_address);
 extern void m68k_clear_outer_address();
-static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool strict_p);
+static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool strict_p, bool in_mem);
 
 /**
  * Track presence of an outer index.
@@ -2166,7 +2166,7 @@ void m68k_set_outer_address(rtx current_outer_address)
 {
   struct m68k_address address;
   memset(&address, 0, sizeof(address));
-  if (decompose_one(0, current_outer_address, &address, false))
+  if (decompose_one(0, current_outer_address, &address, false, false))
     has_outer_index = address.outer_index != 0;
 }
 void m68k_clear_outer_address()
@@ -2174,52 +2174,110 @@ void m68k_clear_outer_address()
   has_outer_index = false;
 }
 
-static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool strict_p)
+/**
+ * decode the nested rtx structure into a flat structure.
+ *
+ * As long code is NULL and in_mem is false, these fields are used.
+ *   address->index, address->base, address->offset
+ *
+ * now if a inner MEM occurs, the values are shifted to the outer fields and code = MEM
+ *
+ * If code == MEM and in_mem == true then again the fields
+ *   address->index, address->base, address->offset
+ * are used.
+ *
+ * if code == MEM and in_mem == false then the fields
+ *   address->outer_index and address->outer_offset
+ * are used.
+ */
+static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool strict_p, bool in_mem)
 {
   if (REG_P(x))
     {
-      // try to use the base slot
-      if (m68k_legitimate_base_reg_p(x, strict_p))
+      if (in_mem == (address->code == MEM))
 	{
-	  if (!address->base)
+	  // try to use the base slot
+	  if (m68k_legitimate_base_reg_p(x, strict_p))
 	    {
-	      address->base = x;
-	      address->base_loc = loc;
+	      if (!address->base)
+		{
+		  address->base = x;
+		  address->base_loc = loc;
+		  return true;
+		}
+	    }
+
+	  // try to use the index slot
+	  if (!address->index && !address->index_loc && m68k_legitimate_index_reg_p(x, strict_p))
+	    {
+	      address->index = x;
+	      address->index_loc = loc;
+	      address->scale = 1;
 	      return true;
 	    }
 	}
-
-      if (!address->index && !address->outer_index && !has_outer_index
-	  // try to use the index slot
-       && m68k_legitimate_index_reg_p(x, strict_p))
+      else
+      // try to use the outer_index slot
+      if (!address->outer_index && !address->index_loc && m68k_legitimate_index_reg_p(x, strict_p))
 	{
-	  address->index = x;
+	  address->outer_index = x;
 	  address->index_loc = loc;
 	  address->scale = 1;
 	  return true;
 	}
 
       // can't handle that register - wrong type or slot is used.
-      address->base_loc = loc;
+      // but still provide usable info to reload.
+      if (!address->index_loc)
+	{
+	  address->index_loc = loc;
+	  address->index = x;
+	}
+      else
+	{
+	  if (in_mem == (address->code == MEM))
+	    {
+	      address->base_loc = loc;
+	      address->base = x;
+	    }
+	  else
+	    {
+	      if (!address->base_loc)
+		{
+		  address->base_loc = address->index_loc;
+		  address->base = *address->index_loc;
+		}
+	      address->index_loc = loc;
+	      address->index = x;
+	    }
+	}
       return false;
     }
 
   if (GET_CODE(x) == CONST)
-    return decompose_one(&XEXP(x,0), XEXP(x,0), address, strict_p);
+    return decompose_one(&XEXP(x,0), XEXP(x,0), address, strict_p, in_mem);
 
   /** index register with scale */
   if (GET_CODE(x) == MULT || GET_CODE(x) == ASHIFT
       || (GET_CODE(x) == PLUS && REG_P(XEXP(x,0)) && XEXP(x,0) == XEXP(x,1))) // *2 as x+x
     {
-      // try to move address->index to address->base instead of address->index, if address->index is occupied.
-      if (address->index)
+      if (in_mem == (address->code == MEM))
 	{
-	  if (address->base || address->scale > 1)
-	    return false;
-	  if (!m68k_legitimate_base_reg_p(address->index, strict_p))
-	    return false;
-	  address->base = address->index;
+	  // try to move address->index to address->base instead of address->index, if address->index is occupied.
+	  if (address->index)
+	    {
+	      if (address->base || address->scale > 1 || address->index_loc)
+		return false;
+	      if (!m68k_legitimate_base_reg_p(address->index, strict_p))
+		return false;
+
+	      address->base = address->index;
+	      address->base_loc = address->index_loc;
+	      address->index_loc = NULL;
+	    }
 	}
+      else if (address->index_loc)
+	return false;
 
       loc = &XEXP(x, 0);
       rtx r = *loc;
@@ -2248,10 +2306,11 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
       if (i != 1 && i != 2 && i != 4 && i != 8)
 	return false;
 
-      if (address->code == MEM)
-	address->outer_index = r;
-      else
+      if (in_mem == (address->code == MEM))
 	address->index = r;
+      else
+	address->outer_index = r;
+
       address->index_loc = loc;
 
       address->scale = i;
@@ -2261,30 +2320,30 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
   // add const_int / symbol_refs...
   if (is_valid_offset(x))
     {
-      rtx da = address->code == MEM ? address->outer_offset : address->offset;
+      rtx da = in_mem == (address->code == MEM) ? address->offset : address->outer_offset;
 
       if (da)
 	x = gen_rtx_PLUS(SImode, da, x);
 
-      if (address->code == MEM)
-        address->outer_offset = x;
-      else
+      if (in_mem == (address->code == MEM))
         address->offset = x;
-      return true;
+      else
+        address->outer_offset = x;
+
+      return address->offset == NULL || address->outer_offset == NULL;
     }
 
   if (GET_CODE(x) == PLUS)
     {
       rtx a = XEXP(x, 0);
       rtx b = XEXP(x, 1);
-      if (MEM_P(a))
-	return decompose_one(&XEXP(x,1), b, address, strict_p) && decompose_one(&XEXP(x,0), a, address, strict_p);
-      return decompose_one(&XEXP(x,0), a, address, strict_p) && decompose_one(&XEXP(x,1), b, address, strict_p);
+      return decompose_one(&XEXP(x,0), a, address, strict_p, in_mem)
+	  && decompose_one(&XEXP(x,1), b, address, strict_p, in_mem);
     }
 
   if (MEM_P(x))
     {
-      if (address->code)
+      if (in_mem)
 	return false;
 
       // mark to prevent to many nested MEMs - gcc is testing: how many levels are supported.
@@ -2309,14 +2368,14 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
       address->outer_offset = address->offset;
       address->offset = 0;
 
-      if (!decompose_one(&XEXP(x,0), XEXP(x, 0), address, strict_p))
+      address->code = MEM;
+      if (!decompose_one(&XEXP(x,0), XEXP(x, 0), address, strict_p, true))
 	return false;
 
       // only one index is possible
       if (address->outer_index && address->index)
 	return false;
 
-      address->code = MEM;
       return true;
     }
   return false;
@@ -2325,7 +2384,7 @@ static bool decompose_one(rtx * loc, rtx x, struct m68k_address *address, bool s
 static bool decompose_mem(int reach, rtx x, struct m68k_address * address, bool strict_p)
 {
 
-  if (!decompose_one(0, x, address, strict_p))
+  if (!decompose_one(0, x, address, strict_p, false))
     {
 //      debug_rtx(x);
       return false;

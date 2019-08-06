@@ -5017,7 +5017,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
   /* The address is not valid.  We have to figure out why.  First see if
      we have an outer AND and remove it if so.  Then analyze what's inside.  */
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGA) && DOUBLE_INDIRECT_JUMP
   /**
    * SBF: check the base register here, 
    * since later no information exists, which reg is the base reg
@@ -5360,13 +5360,13 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       return ! removed_and;
     }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGA) && DOUBLE_INDIRECT_JUMP
   if (ind_levels)
     current_outer_address = ad;
 #endif
   int ret = find_reloads_address_1 (mode, as, ad, 0, MEM, SCRATCH, loc,
 				 opnum, type, ind_levels, insn);
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGA) && DOUBLE_INDIRECT_JUMP
   if (ind_levels)
     current_outer_address = 0;
 #endif
@@ -6019,7 +6019,7 @@ SBF: NO
 	 Note that this is actually conservative:  it would be slightly more
 	 efficient to use the value of SPILL_INDIRECT_LEVELS from
 	 reload1.c here.  */
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGA) && DOUBLE_INDIRECT_JUMP
       m68k_set_outer_address(current_outer_address);
 #endif
       find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
@@ -6027,7 +6027,7 @@ SBF: NO
       push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
 		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGA) && DOUBLE_INDIRECT_JUMP
       m68k_clear_outer_address();
 #endif
       return 1;

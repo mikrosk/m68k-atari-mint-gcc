@@ -89,7 +89,8 @@ ssa_is_replaceable_p (gimple *stmt)
 
   /* An assignment with a register variable on the RHS is not
      replaceable.  */
-  if (gimple_assign_rhs_code (stmt) == VAR_DECL
+  tree_code rcode = gimple_assign_rhs_code (stmt);
+  if (rcode == VAR_DECL
       && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt)))
     return false;
 
@@ -100,6 +101,14 @@ ssa_is_replaceable_p (gimple *stmt)
   /* Leave any stmt with volatile operands alone as well.  */
   if (gimple_has_volatile_ops (stmt))
     return false;
+
+#ifdef TARGET_AMIGA
+//  print_gimple_stmt (stderr, stmt, 0, TDF_SLIM | (dump_flags & TDF_LINENO));
+
+  /* keep TARGET_MEM_REF for better scheduling. */
+  if (rcode == TARGET_MEM_REF)
+    return false;
+#endif
 
   return true;
 }

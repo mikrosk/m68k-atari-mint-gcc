@@ -2193,7 +2193,11 @@ extract_constrain_insn (rtx_insn *insn)
 {
   extract_insn (insn);
   if (!constrain_operands (reload_completed, get_enabled_alternatives (insn)))
-    fatal_insn_not_found (insn);
+    {
+      debug_rtx(insn);
+      constrain_operands (reload_completed, get_enabled_alternatives (insn));
+      fatal_insn_not_found (insn);
+    }
 }
 
 /* Do cached extract_insn, constrain_operands and complain about failures.
@@ -3795,6 +3799,7 @@ if_test_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
   return true;
 }
 
+
 static unsigned int
 rest_of_handle_peephole2 (void)
 {
@@ -3833,7 +3838,12 @@ public:
   virtual bool gate (function *) { return (optimize > 0 && flag_peephole2); }
   virtual unsigned int execute (function *)
     {
-      return rest_of_handle_peephole2 ();
+      static unsigned peephole2_pass;
+      unsigned pn = static_pass_number;
+      static_pass_number = peephole2_pass++;
+      unsigned r = rest_of_handle_peephole2 ();
+      static_pass_number = pn;
+      return r;
     }
 
 }; // class pass_peephole2

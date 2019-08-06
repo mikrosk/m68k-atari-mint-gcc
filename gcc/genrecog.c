@@ -4173,6 +4173,7 @@ write_header (void)
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
 #include \"tm-constrs.h\"\n\
+#include \"tree-pass.h\"\n\
 \n");
 
   puts ("\n\

@@ -2841,6 +2841,7 @@ init_block_clear_fn (const char *asmspec)
       TREE_NOTHROW (fn) = 1;
       DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
       DECL_VISIBILITY_SPECIFIED (fn) = 1;
+      fn->decl_common.virtual_flag = 1;
 
       block_clear_fn = fn;
     }

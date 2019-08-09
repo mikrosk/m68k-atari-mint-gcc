@@ -196,8 +196,13 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   if (!fntype && decl)
     fntype = TREE_TYPE(decl);
 // SBF: oh my ... - this caused crafted functions to lose asm parameters....
-//  if (decl && DECL_ARTIFICIAL(decl))
-//    fntype = 0;
+// but it was needed for memset - uh  oh - doh - use virtual instead
+  if (decl && decl->decl_common.virtual_flag)
+    fntype = 0;
+
+  if (decl && DECL_BUILT_IN(decl))
+    fntype = 0;
+
   if (fntype)
     {
       tree attrs = TYPE_ATTRIBUTES(fntype);

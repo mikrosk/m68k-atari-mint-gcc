@@ -1885,16 +1885,16 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
 #ifdef TARGET_AMIGA
-	  bool ok;
+	  bool ok = false;
 	  if (trytype)
 	    {
 	      tree saved_attrs = TYPE_ATTRIBUTES(newtype);
-	      TYPE_ATTRIBUTES(newtype) = strip_amiga_stkparm_attrs(saved_attrs);
+	      tree stkp = lookup_attribute ("stkparm", saved_attrs);
+	      if (stkp)
+		TYPE_ATTRIBUTES(newtype) = strip_amiga_stkparm_attrs(saved_attrs);
 	      ok = comptypes (newtype, trytype);
 	      TYPE_ATTRIBUTES(newtype) = saved_attrs;
 	    }
-	  else
-	    ok = false;
 	  if (ok)
 #else
 	  if (trytype && comptypes (newtype, trytype))

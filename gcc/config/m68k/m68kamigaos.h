@@ -755,4 +755,4 @@ amigaos_function_arg_reg(unsigned regno);
   asm_fprintf (FILE, "\tjsr _mcount\n")
 
 
-#define DOUBLE_INDIRECT_JUMP 0
+#define DOUBLE_INDIRECT_JUMP 1

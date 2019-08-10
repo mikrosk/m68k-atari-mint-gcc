@@ -1052,3 +1052,6 @@ extern int m68k_sched_indexed_address_bypass_p (rtx_insn *, rtx_insn *);
 extern void default_stabs_asm_out_constructor (rtx, int);
 extern void default_stabs_asm_out_destructor (rtx, int);
 #endif
+
+struct m68k_address;
+int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p, int for_printing_p);

@@ -2167,17 +2167,6 @@ static bool is_valid_offset(rtx x)
     x = XEXP(x, 0);
   if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC)
     return true;
-
-  if (GET_CODE(x) == SYMBOL_REF)
-    {
-      tree decl = SYMBOL_REF_DECL (x);
-      if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && !(DECL_SECTION_NAME(decl)))
-	{
-	  section * sec = get_variable_section(decl, false);
-	  return (sec->common.flags & 0x200) && !decl->base.readonly_flag; // SECTION_WRITE;
-	}
-      return false;
-    }
   if (GET_CODE(x) != PLUS)
     return false;
   return is_valid_offset(XEXP(x, 0)) && is_valid_offset(XEXP(x, 1));

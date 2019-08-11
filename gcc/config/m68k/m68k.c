@@ -2325,6 +2325,9 @@ decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing)
       // disable until reloading for address->offset + address->outer_offset is implemented.
       return false;
 #else
+      // plus (mem) (mem)  does not work either
+      if (address->loc)
+	return false;
 
       address->loc = loc;
       return decompose_one(&XEXP(x,0), 1 + address, for_printing);

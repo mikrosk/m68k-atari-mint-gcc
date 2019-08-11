@@ -4982,6 +4982,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       push_reload (ad, NULL_RTX, loc, (rtx*) 0,
 		   base_reg_class (mode, as, MEM, SCRATCH),
 		   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
+
       return 1;
     }
 
@@ -5052,8 +5053,9 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
        * This yields a valid address for the outer part since a outer_index/outer_offset
        * is combinable with an address register.
        */
-      gcc_assert(address.code != POST_MODIFY);
-      if ((address.index && address.outer_index)
+//      gcc_assert(address.code != POST_MODIFY);
+      if (address.code == POST_MODIFY
+	  || (address.index && address.outer_index)
 	  || (address.offset && address.outer_offset)
 	  || (!TARGET_68020 && address.code == MEM))
 	{

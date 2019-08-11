@@ -1549,8 +1549,34 @@ calculate_needs_all_insns (int global)
 	      copy_reloads (chain);
 	      *pprev_reload = chain;
 	      pprev_reload = &chain->next_need_reload;
+
+#ifdef TARGET_AMIGA
+	      rtx set = single_set (insn);
+	      if (set && REG_P(SET_DEST (set)) && MEM_P(SET_SRC(set)) && REG_P(XEXP(SET_SRC(set), 0))
+//		  && REGNO(SET_DEST (set)) == REGNO(XEXP(SET_SRC(set), 0))
+		  )
+		{
+		  unsigned regno = ORIGINAL_REGNO (SET_DEST (set));
+		  rtx_insn_list *init = reg_equiv_init (regno);
+		  if (init)
+		    {
+		      int j;
+		      for (j = 0; j < n_reloads; j++)
+			{
+			  if (rld[j].in && rld[j].rclass == ADDR_REGS)
+			    {
+			      /* prevent deletion of the insn, since it needs a reload. */
+			      reg_equiv_init (regno) = 0;
+			      /* also clear the reg_equiv_memory_loc to avoid an additional toplevel reload. */
+			      reg_equiv_memory_loc (regno) = 0;
+			      break;
+			    }
+			}
+		    }
+		}
 	    }
 	}
+#endif
     }
   *pprev_reload = 0;
 }

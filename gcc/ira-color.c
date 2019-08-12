@@ -4186,6 +4186,7 @@ remove_superfluous_stack_vars ()
 			  ira_allocno_t other_var_a = ira_regno_allocno_map[o_regno];
 			  int ok = other_var_a->hard_regno >= 0
 			      && other_var_a->num_objects == 1
+			      && !other_var_a->conflict_vec_p
 			      ;
 			  if (ok && other_var_a->hard_regno >= 0)
 			    {

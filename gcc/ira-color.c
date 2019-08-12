@@ -4133,28 +4133,32 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 static void
 remove_superfluous_stack_vars ()
 {
-  int i, n, max_regno;
+  int regno, n, max_regno;
 
   bool optimize_this_for_speed_p = optimize_function_for_speed_p(cfun);
 
   max_regno = max_reg_num ();
-  for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (n = 0, regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
     {
-      ira_allocno_t a = ira_regno_allocno_map[i];
-      if (a != NULL && a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (a) == NULL
-	&& ALLOCNO_HARD_REGNO (a) < 0
-	&& a->allocno_copies == NULL
-	&& a->num_objects == 1)
+      // check preconditions of the stack variable
+      ira_allocno_t stack_var_a = ira_regno_allocno_map[regno];
+      if (stack_var_a != NULL && stack_var_a->num != 0 && ALLOCNO_NEXT_REGNO_ALLOCNO (stack_var_a) == NULL
+	&& ALLOCNO_HARD_REGNO (stack_var_a) < 0
+	&& stack_var_a->allocno_copies == NULL
+	&& stack_var_a->num_objects == 1)
 	{
-	  int stack_cost = rtx_cost(gen_rtx_MEM(a->mode, gen_rtx_PLUS(SImode, gen_reg_rtx(SImode), GEN_INT(4))), a->mode, SET, 0, optimize_this_for_speed_p);
-
+	  int stack_cost = rtx_cost(gen_rtx_MEM(stack_var_a->mode, gen_rtx_PLUS(SImode, gen_reg_rtx(SImode), GEN_INT(4))), stack_var_a->mode, SET, 0, optimize_this_for_speed_p);
 	  struct insn_chain *c;
+
+	  // search the insn which sets that stack variable
 	  for (c = reload_insn_chain; c ; c = c->next)
 	    {
 	      rtx set = single_set(c->insn);
-	      if (set && REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == a->regno)
+	      if (set && REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == stack_var_a->regno)
 		{
 		  rtx src = SET_SRC(set);
+
+		  //only handle if the other variable is also mem based (global, param, ...)
 		  if (MEM_P(src)
 		  // || REG_P(src)
 		  )
@@ -4178,35 +4182,38 @@ remove_superfluous_stack_vars ()
 			  && stack_cost >= cost
 			  )
 			{
-			  ira_allocno_t o = ira_regno_allocno_map[o_regno];
-			  int ok = o->hard_regno >= 0
-			      && o->num_objects == 1
+			  // check preconditions for the other variable
+			  ira_allocno_t other_var_a = ira_regno_allocno_map[o_regno];
+			  int ok = other_var_a->hard_regno >= 0
+			      && other_var_a->num_objects == 1
 			      ;
-			  if (ok && o->hard_regno >= 0)
+			  if (ok && other_var_a->hard_regno >= 0)
 			    {
 			      struct insn_chain *c2;
 
 			      // call used regs must not cross a call!
-			      ok = !call_used_regs[o->hard_regno] || a->calls_crossed_num == 0;
+			      ok = !call_used_regs[other_var_a->hard_regno] || stack_var_a->calls_crossed_num == 0;
 
 			      if (ok)
 			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
-				  // check that this hard reg can be used throughout
-				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
-				    {
-				      reg_set_iterator rsi;
-				      unsigned int rn;
-				      EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
+				  // check all insns that this hard reg can be used throughout
+				  reg_set_iterator rsi;
+				  unsigned int rn;
+				  EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
+				  {
+				    ira_allocno_t dead_or_set_a = ira_regno_allocno_map[rn];
+				    if (dead_or_set_a && dead_or_set_a->num != 0 // valid
+					&& dead_or_set_a != other_var_a // skip other_var_a
+					&& ( dead_or_set_a->hard_regno == other_var_a->hard_regno // same hard reg
+					  || dead_or_set_a->regno == other_var_a->regno // same reg
+					    )
+					)
 				      {
-					ira_allocno_t t = ira_regno_allocno_map[rn];
-					if (t && t->num != 0 && t != o && t->hard_regno == o->hard_regno)
-					  {
-					    ok = 0;
-					    break;
-					  }
+					ok = 0;
+					break;
 				      }
-				    }
+				  }
 				  // also check that the set src does not occur again
 				  // this means the stack var is a real copy
 				  rtx oset = single_set(c2->insn);
@@ -4230,8 +4237,8 @@ remove_superfluous_stack_vars ()
 			  if (ok)
 			    {
 			      // update live range
-			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (a, 0));
-			      ira_object_t oo = ALLOCNO_OBJECT (o, 0);
+			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (stack_var_a, 0));
+			      ira_object_t oo = ALLOCNO_OBJECT (other_var_a, 0);
 			      live_range_t lo = OBJECT_LIVE_RANGES (oo);
 			      lo = OBJECT_LIVE_RANGES (oo) = ira_merge_live_ranges(lo, ira_copy_live_range_list (la));
 
@@ -4248,17 +4255,17 @@ remove_superfluous_stack_vars ()
 			      struct insn_chain *c2;
 			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
-				  if (REGNO_REG_SET_P(&c2->live_throughout, i))
+				  if (REGNO_REG_SET_P(&c2->live_throughout, regno))
 				    {
 				      SET_REGNO_REG_SET(&c2->live_throughout, o_regno);
-				      if (o->hard_regno >= 0)
-					SET_REGNO_REG_SET(&c2->live_throughout, o->hard_regno);
+				      if (other_var_a->hard_regno >= 0)
+					SET_REGNO_REG_SET(&c2->live_throughout, other_var_a->hard_regno);
 				    }
-				  if (REGNO_REG_SET_P(&c2->dead_or_set, i))
+				  if (REGNO_REG_SET_P(&c2->dead_or_set, regno))
 				    SET_REGNO_REG_SET(&c2->dead_or_set, o_regno);
 				}
 
-			      reg_equiv_memory_loc (a->regno) = src;
+			      reg_equiv_memory_loc (stack_var_a->regno) = src;
 			    }
 			}
 		    }

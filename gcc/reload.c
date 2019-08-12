@@ -5047,7 +5047,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
       struct m68k_address address;
       memset(&address, 0, sizeof(address));
-      bool r = decompose_mem(GET_MODE_SIZE(mode), ad, &address, true, false);
+      bool r = decompose_mem(GET_MODE_SIZE(mode), ad, &address, true);
 
       /* SBF: if both indexes are in use we reload the inner mem into an address reg.
        * This yields a valid address for the outer part since a outer_index/outer_offset
@@ -5057,12 +5057,11 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (address.code == POST_MODIFY
 	  || (address.index && address.outer_index)
 	  || (address.offset && address.outer_offset)
-	  || (!TARGET_68020 && address.code == MEM))
+	  || (!TARGET_68020 && address.code == MEM)
+	  )
 	{
-	  rtx x = *address.mem_loc;
-//	  find_reloads_address (GET_MODE (x), address.mem_loc, XEXP (x, 0), &XEXP (x, 0),
-//				opnum, opnum ? RELOAD_FOR_INPADDR_ADDRESS : RELOAD_FOR_OUTADDR_ADDRESS,
-//				0, insn);
+	  // last case result into a base_reg replaced with a mem -> use base_loc
+	  rtx x = *address.mem_loc ;
 	  push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
 		       ADDR_REGS,
 		       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -5100,7 +5099,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 		  done = true;
 		}
 	    }
-	  if (address.index && !m68k_legitimate_index_reg_p(address.index, true))
+	  if (address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
 	    {
 	      rtx * index_loc = address.index_loc;
 	      index_regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);

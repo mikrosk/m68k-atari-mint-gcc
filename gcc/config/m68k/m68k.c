@@ -2175,7 +2175,7 @@ static bool is_valid_offset(rtx x)
 extern void m68k_set_outer_address(rtx current_outer_address);
 extern void m68k_clear_outer_address();
 static bool
-decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing);
+decompose_one(rtx * loc, struct m68k_address_part *address);
 
 /**
  * Track presence of an outer index.
@@ -2204,10 +2204,9 @@ void m68k_clear_outer_address()
  * - offset
  * per level
  *
- * Since SUBREG is handled and DImode is converted to SImode, the regno must be adjusted, if printing.
  */
 static bool
-decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing)
+decompose_one(rtx * loc, struct m68k_address_part *address)
 {
   rtx x = *loc;
 
@@ -2282,15 +2281,6 @@ decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing)
 	    return false;
 	}
 
-//      if (GET_CODE(r) == SUBREG)
-      // nada - accept subreg and let reload handle it
-//	{
-//          loc = &XEXP(r, 0);
-//          // if printing use the next register for lower LONG
-//	  if (for_printing && GET_MODE(*loc) == DImode)
-//	    *loc = gen_rtx_REG(SImode, REGNO(*loc) + 1);
-//	}
-
       // only one index allowed
       if (address->index_loc)
 	return false;
@@ -2303,8 +2293,8 @@ decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing)
   if (GET_CODE(x) == PLUS)
     {
       // the single & is mandatory since address must be fully filled
-      return decompose_one(&XEXP(x,0), address, for_printing)
-	  &  decompose_one(&XEXP(x,1), address, for_printing);
+      return decompose_one(&XEXP(x,0), address)
+	  &  decompose_one(&XEXP(x,1), address);
     }
 
   // add const_int / symbol_refs...
@@ -2330,13 +2320,13 @@ decompose_one(rtx * loc, struct m68k_address_part *address, bool for_printing)
 	return false;
 
       address->loc = loc;
-      return decompose_one(&XEXP(x,0), 1 + address, for_printing);
+      return decompose_one(&XEXP(x,0), 1 + address);
 #endif
     }
   return false;
 }
 
-int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p, int for_printing)
+int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 {
   struct m68k_address_part ap_data[5];
   memset(ap_data, 0, sizeof(ap_data));
@@ -2349,14 +2339,14 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p,
   bool r = true;
   if (outer_address)
     {
-      r &= decompose_one(&outer_address, ap, for_printing);
+      r &= decompose_one(&outer_address, ap);
       ++ap;
       memset(ap, 0, sizeof(struct m68k_address_part) * 4);
     }
 
   static int n;
 //  fprintf(stderr, "%d ", n++);
-  r &= decompose_one(&x, ap, for_printing);
+  r &= decompose_one(&x, ap);
   if (!r)
       return false;
 
@@ -2516,7 +2506,7 @@ extern bool m68k_is_SI_memory_operand_to_HI_allowed(rtx x)
 {
   struct m68k_address address;
   memset (&address, 0, sizeof (address));
-  return decompose_mem(4, x, &address, true, false);
+  return decompose_mem(4, x, &address, true);
 
 }
 
@@ -2554,7 +2544,7 @@ extern rtx m68k_SI_memory_operand_to_HI(rtx x)
 {
   struct m68k_address address;
   memset (&address, 0, sizeof (address));
-  if (!decompose_mem(4, x, &address, true, false))
+  if (!decompose_mem(4, x, &address, true))
     return 0;
 
   rtx * p = address.code == MEM ? &address.outer_index : &address.index;
@@ -2580,7 +2570,7 @@ extern rtx m68k_SI_memory_operand_to_HI(rtx x)
 
 static bool
 m68k_decompose_address (machine_mode mode, rtx x,
-			bool strict_p, struct m68k_address *address, bool for_printing)
+			bool strict_p, struct m68k_address *address)
 {
   unsigned int reach;
 
@@ -2666,7 +2656,7 @@ m68k_decompose_address (machine_mode mode, rtx x,
      (bd,An,Xn.SIZE*SCALE) addresses.  */
   /* SBF: or with all other addresses which can be handled by 68020+ ^^ */
 
-  return decompose_mem(reach, x, address, strict_p, for_printing);
+  return decompose_mem(reach, x, address, strict_p);
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.
@@ -2676,7 +2666,7 @@ bool
 m68k_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
 {
   struct m68k_address address;
-  return m68k_decompose_address (mode, x, strict_p, &address, false);
+  return m68k_decompose_address (mode, x, strict_p, &address);
 }
 
 /* Return true if X is a memory, describing its address in ADDRESS if so.
@@ -2688,7 +2678,7 @@ m68k_legitimate_mem_p (rtx x, struct m68k_address *address)
   return (MEM_P (x)
 	  && m68k_decompose_address (GET_MODE (x), XEXP (x, 0),
 				     reload_in_progress || reload_completed,
-				     address, false));
+				     address));
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.  */
@@ -5171,7 +5161,7 @@ m68k_delegitimize_address (rtx orig_x)
   if (GET_CODE (x) != PLUS || GET_MODE (x) != Pmode)
     return orig_x;
 
-  if (!m68k_decompose_address (GET_MODE (x), x, false, &addr, false)
+  if (!m68k_decompose_address (GET_MODE (x), x, false, &addr)
       || addr.offset == NULL_RTX
       || GET_CODE (addr.offset) != CONST)
     return orig_x;
@@ -5272,10 +5262,10 @@ static void
 print_operand_address2 (FILE *file, rtx addr, int offset)
 {
   struct m68k_address address;
-  if (!m68k_decompose_address (QImode, addr, true, &address, true))
+  if (!m68k_decompose_address (QImode, addr, true, &address))
     {
       debug_rtx(addr);
-      m68k_decompose_address (QImode, addr, true, &address, true);
+      m68k_decompose_address (QImode, addr, true, &address);
       gcc_unreachable ();
     }
 
@@ -6038,7 +6028,7 @@ sched_address_type (machine_mode mode, rtx addr_rtx)
     return OP_TYPE_MEM7;
 
   if (!m68k_decompose_address (mode, addr_rtx,
-			       reload_completed, &address, false))
+			       reload_completed, &address))
     {
       gcc_assert (!reload_completed);
       /* Reload will likely fix the address to be in the register.  */
@@ -7059,7 +7049,7 @@ sched_get_indexed_address_scale (rtx_insn *pro, rtx_insn *con)
   gcc_assert (mem != NULL && MEM_P (mem));
 
   if (!m68k_decompose_address (GET_MODE (mem), XEXP (mem, 0), reload_completed,
-			       &address, false))
+			       &address))
     gcc_unreachable ();
 
   if (REGNO (reg) == REGNO (address.index))

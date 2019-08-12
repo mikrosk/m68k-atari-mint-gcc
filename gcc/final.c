@@ -3124,6 +3124,25 @@ cleanup_subreg_operands (rtx_insn *insn)
 {
   int i;
   bool changed = false;
+#ifdef TARGET_AMIGA
+  rtx set = single_set(insn);
+  if (set && MEM_P(SET_SRC(set)) && REG_P(XEXP(SET_SRC(set), 0)) && !ADDRESS_REG_P(XEXP(SET_SRC(set), 0)))
+    {
+      changed = true;
+      rtx dreg = XEXP(SET_SRC(set), 0);
+      // handle the case that a memory_loc was created with a data register.
+      if (ADDRESS_REG_P(SET_DEST(set)))
+	{
+	  rtx areg = SET_DEST(set);
+	  emit_insn_before(gen_rtx_SET(areg, dreg), insn);
+	  XEXP(SET_SRC(set), 0) = areg;
+	}
+      else
+	{
+	  //TODO - use exchg to obtain an address reg
+	}
+    }
+#endif
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     {

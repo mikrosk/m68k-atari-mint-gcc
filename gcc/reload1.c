@@ -1574,9 +1574,9 @@ calculate_needs_all_insns (int global)
 			}
 		    }
 		}
+#endif
 	    }
 	}
-#endif
     }
   *pprev_reload = 0;
 }

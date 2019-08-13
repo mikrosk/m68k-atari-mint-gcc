@@ -4163,20 +4163,24 @@ remove_superfluous_stack_vars ()
 		  // || REG_P(src)
 		  )
 		    {
+		      rtx o_reg = NULL;
 		      int o_regno;
 		      int o_numreg;
 		      if (REG_P(src))
-			o_regno = REGNO(src), o_numreg = REG_NREGS(src);
+			o_reg = src;
 		      else
 			{
 			  rtx x = XEXP(src, 0);
 			  if (REG_P(x))
-			    o_regno = REGNO(x), o_numreg = REG_NREGS(x);
+			    o_reg = x;
 			  else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)))
-			    o_regno = REGNO(XEXP(x, 0)), o_numreg = REG_NREGS(XEXP(x, 0));
-			  else
-			    o_regno = -1;
+			    o_reg = XEXP(x, 0);
 			}
+		      if (o_reg)
+			o_regno = REGNO(o_reg), o_numreg = REG_NREGS(o_reg);
+		      else
+			o_regno = -1;
+
 		      int cost = rtx_cost(src, GET_MODE(src), SET, 0, optimize_this_for_speed_p);
 		      if (o_regno >= FIRST_PSEUDO_REGISTER
 			  && stack_cost >= cost
@@ -4186,9 +4190,9 @@ remove_superfluous_stack_vars ()
 			  ira_allocno_t other_var_a = ira_regno_allocno_map[o_regno];
 			  int ok = other_var_a->hard_regno >= 0
 			      && other_var_a->num_objects == 1
-			      && !other_var_a->conflict_vec_p
+//			      && !other_var_a->conflict_vec_p
 			      ;
-			  if (ok && other_var_a->hard_regno >= 0)
+			  if (ok)
 			    {
 			      struct insn_chain *c2;
 
@@ -4198,23 +4202,6 @@ remove_superfluous_stack_vars ()
 			      if (ok)
 			      for (c2 = c->next; c2 ; c2 = c2->next)
 				{
-				  // check all insns that this hard reg can be used throughout
-				  reg_set_iterator rsi;
-				  unsigned int rn;
-				  EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
-				  {
-				    ira_allocno_t dead_or_set_a = ira_regno_allocno_map[rn];
-				    if (dead_or_set_a && dead_or_set_a->num != 0 // valid
-					&& dead_or_set_a != other_var_a // skip other_var_a
-					&& ( dead_or_set_a->hard_regno == other_var_a->hard_regno // same hard reg
-					  || dead_or_set_a->regno == other_var_a->regno // same reg
-					    )
-					)
-				      {
-					ok = 0;
-					break;
-				      }
-				  }
 				  // also check that the set src does not occur again
 				  // this means the stack var is a real copy
 				  rtx oset = single_set(c2->insn);
@@ -4228,6 +4215,30 @@ remove_superfluous_stack_vars ()
 					  ok = 0;
 					  break;
 					}
+				      // reassignment - not covered by dead_or_set!
+				      if (rtx_equal_p(o_reg, SET_DEST(oset)))
+					{
+					  ok = 0;
+					  break;
+					}
+				    }
+
+				  // check all insns that this hard reg can be used throughout
+				  reg_set_iterator rsi;
+				  unsigned int rn;
+				  EXECUTE_IF_SET_IN_REG_SET(&c2->dead_or_set, 0, rn, rsi)
+				    {
+				      ira_allocno_t dead_or_set_a = ira_regno_allocno_map[rn];
+				      if (dead_or_set_a && dead_or_set_a->num != 0 // valid
+					  && dead_or_set_a != other_var_a // skip other_var_a
+					  && ( dead_or_set_a->hard_regno == other_var_a->hard_regno // same hard reg
+					    || dead_or_set_a->regno == other_var_a->regno // same reg
+					      )
+					  )
+					{
+					  ok = 0;
+					  break;
+					}
 				    }
 				}
 			    }
@@ -4237,6 +4248,9 @@ remove_superfluous_stack_vars ()
 			   */
 			  if (ok)
 			    {
+			      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+				fprintf (ira_dump_file, "insn %d:\treplacing var %d with %d\n", c->insn->u2.insn_uid, regno, o_regno);
+
 			      // update live range
 			      live_range_t la = OBJECT_LIVE_RANGES( ALLOCNO_OBJECT (stack_var_a, 0));
 			      ira_object_t oo = ALLOCNO_OBJECT (other_var_a, 0);

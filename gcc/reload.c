@@ -4863,6 +4863,38 @@ maybe_memory_address_addr_space_p (machine_mode mode, rtx ad,
   return retv;
 }
 
+
+static rtx
+update_memory_loc(rtx * loc, int regno)
+{
+  if (regno < FIRST_PSEUDO_REGISTER
+     || !num_not_at_initial_offset
+     || !reg_equiv_memory_loc(regno))
+    return 0;
+
+  /* We must rerun eliminate_regs, in case the elimination
+     offsets have changed.  */
+
+  rtx mem_loc = reg_equiv_memory_loc (regno);
+  rtx tem = XEXP(eliminate_regs (mem_loc, VOIDmode, NULL_RTX), 0);
+
+  /* If TEM might contain a pseudo, we must copy it to avoid
+     modifying it when we do the substitution for the reload.  */
+  if (rtx_varies_p (tem, 0))
+    tem = copy_rtx (tem);
+
+  tem = replace_equiv_address_nv (mem_loc, tem);
+  tem = adjust_address_nv (tem, GET_MODE (*loc), 0);
+
+
+//
+//  /* Copy the result if it's still the same as the equivalence, to avoid
+//     modifying it when we do the substitution for the reload.  */
+  if (tem == mem_loc)
+    tem = copy_rtx (tem);
+  return tem;
+}
+
 /* Record all reloads needed for handling memory address AD
    which appears in *LOC in a memory reference to mode MODE
    which itself is found in location  *MEMREFLOC.
@@ -5031,8 +5063,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
   while (0);
 #endif
 
-  /* The address is not valid.  We have to figure out why.  First see if
-     we have an outer AND and remove it if so.  Then analyze what's inside.  */
 #if defined(TARGET_AMIGA)
   /**
    * SBF: check the base register here, 
@@ -5069,7 +5099,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	  // this converts the outer_offset into an inner offset.
 	  address.offset = address.outer_offset;
 	  address.outer_offset = 0;
-
 	}
 //      else
 	{
@@ -5085,7 +5114,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 		      || reg_renumber[base_regno] >= 0
 		      || reg_equiv_constant (base_regno) == NULL_RTX)
 		{
-		  push_reload (*base_loc, NULL_RTX, base_loc, (rtx*) 0,
+		  rtx tem = update_memory_loc(base_loc, base_regno);
+		  push_reload (tem ? tem : *base_loc, NULL_RTX, base_loc, (rtx*) 0,
 				   ADDR_REGS,
 				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 		  done = true;
@@ -5107,7 +5137,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 		      || reg_renumber[index_regno] >= 0
 		      || reg_equiv_constant (index_regno) == NULL_RTX)
 		{
-		  push_reload (*index_loc, NULL_RTX, index_loc, (rtx*) 0,
+		  rtx tem = update_memory_loc(index_loc, index_regno);
+		  push_reload (tem ? tem : *index_loc, NULL_RTX, index_loc, (rtx*) 0,
 				   GENERAL_REGS,
 				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 		  done = true;
@@ -5154,8 +5185,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
     }
 #endif
 
-
-
+  /* The address is not valid.  We have to figure out why.  First see if
+     we have an outer AND and remove it if so.  Then analyze what's inside.  */
   if (GET_CODE (ad) == AND)
     {
       removed_and = 1;

@@ -5221,15 +5221,7 @@ print_index(FILE * file, rtx x, enum machine_mode mode, int scale)
 {
   int regno = 0;
   if (SUBREG_P(x))
-    {
-      x = XEXP(x, 0);
-      if (GET_MODE(x) == DImode)
-	regno = 1;
-      else
-	gcc_assert(GET_MODE(x) == SImode);
-    }
-  else
-    gcc_assert(REG_P(x));
+    x = alter_subreg(&x, true);
   regno += REGNO(x);
 
   fprintf (file, "%s.%c",

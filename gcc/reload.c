@@ -106,6 +106,9 @@ a register with any other reload.  */
 #include "addresses.h"
 #include "params.h"
 
+extern rtx
+alter_subreg (rtx *xp, bool final_p);
+
 #ifdef TARGET_AMIGA
 static rtx current_outer_address;
 extern void m68k_set_outer_address(rtx current_outer_address);
@@ -6202,6 +6205,7 @@ SBF: NO
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 		  return 1;
 		}
+	      alter_subreg(loc, true);
 	    }
 	  /* If this is a SUBREG of a pseudo-register, and the pseudo-register
 	     is larger than the class size, then reload the whole SUBREG.  */

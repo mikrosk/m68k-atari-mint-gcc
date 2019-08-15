@@ -3187,13 +3187,30 @@ cleanup_subreg_operands (rtx_insn *insn)
   rtx set = single_set(insn);
   if (set)
     {
+      rtx dst = SET_DEST(set);
       rtx * src = &SET_SRC(set);
-      if (GET_CODE(*src) == COMPARE)
-	src = &XEXP(*src, 0);
-      if (MEM_P(*src))
-	changed = darn_reload_did_not_catch_these(src, set, insn);
-      if (MEM_P(SET_DEST(set)))
-	changed |= darn_reload_did_not_catch_these(&SET_DEST(set), set, insn);
+
+      // handle invalid lea
+      if (ADDRESS_REG_P(dst) && GET_CODE(*src) == PLUS)
+	{
+	  rtx x = XEXP(*src, 0);
+	  if (REG_P(x) && !ADDRESS_REGNO_P (REGNO (x)))
+	    {
+	      emit_insn_before(gen_rtx_SET(dst, x), insn);
+	      *src = copy_rtx(*src);
+	      XEXP(*src, 0) = dst;
+	      changed = true;
+	    }
+	}
+      else
+	{
+	  if (GET_CODE(*src) == COMPARE)
+	    src = &XEXP(*src, 0);
+	  if (MEM_P(*src))
+	    changed = darn_reload_did_not_catch_these(src, set, insn);
+	  if (MEM_P(dst))
+	    changed |= darn_reload_did_not_catch_these(&SET_DEST(set), set, insn);
+	}
     }
 #endif
   extract_insn_cached (insn);

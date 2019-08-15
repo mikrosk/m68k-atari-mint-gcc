@@ -5079,28 +5079,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       memset(&address, 0, sizeof(address));
       bool r = decompose_mem(GET_MODE_SIZE(mode), ad, &address, true);
 
-      /* SBF: if both indexes are in use we reload the inner mem into an address reg.
-       * This yields a valid address for the outer part since a outer_index/outer_offset
-       * is combinable with an address register.
-       */
-//      gcc_assert(address.code != POST_MODIFY);
-      if (address.code == POST_MODIFY
-	  || (address.index && address.outer_index)
-	  || (address.offset && address.outer_offset)
-	  || (!TARGET_68020 && address.code == MEM)
-	  )
-	{
-	  // last case result into a base_reg replaced with a mem -> use base_loc
-	  rtx x = *address.mem_loc ;
-	  push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
-		       ADDR_REGS,
-		       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
-
-	  // this converts the outer_offset into an inner offset.
-	  address.offset = address.outer_offset;
-	  address.outer_offset = 0;
-	}
-//      else
 	{
 	  int base_regno = -1;
 	  int index_regno = -1;
@@ -5109,48 +5087,63 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	  if (address.base && !m68k_legitimate_base_reg_p(address.base, true))
 	    {
 	      rtx * base_loc = address.base_loc;
-	      base_regno = SUBREG_P(*base_loc) ? REGNO(SUBREG_REG(*base_loc)) : REGNO(*base_loc);
-	      if (base_regno < FIRST_PSEUDO_REGISTER
-		      || reg_renumber[base_regno] >= 0
-		      || reg_equiv_constant (base_regno) == NULL_RTX)
-		{
-		  rtx tem = update_memory_loc(base_loc, base_regno);
-		  push_reload (tem ? tem : *base_loc, NULL_RTX, base_loc, (rtx*) 0,
-				   ADDR_REGS,
-				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
-		  done = true;
-		}
-	      else
-	      if (reg_equiv_constant (base_regno) != 0)
-		{
-		  find_reloads_address_part (reg_equiv_constant (base_regno), base_loc,
-					     ADDR_REGS,
-					     GET_MODE (ad), opnum, type, ind_levels);
-		  done = true;
-		}
+	      find_reloads_address_1 (mode, as,
+				      *base_loc, 0, PLUS,
+				      GET_CODE (ad),
+				      base_loc, opnum,
+				      type, 0, insn);
+	      done = true;
+//
+//
+//	      base_regno = SUBREG_P(*base_loc) ? REGNO(SUBREG_REG(*base_loc)) : REGNO(*base_loc);
+//	      if (base_regno < FIRST_PSEUDO_REGISTER
+//		      || reg_renumber[base_regno] >= 0
+//		      || reg_equiv_constant (base_regno) == NULL_RTX)
+//		{
+//		  rtx tem = update_memory_loc(base_loc, base_regno);
+//		  push_reload (tem ? tem : *base_loc, NULL_RTX, base_loc, (rtx*) 0,
+//				   ADDR_REGS,
+//				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
+//		  done = true;
+//		}
+//	      else
+//	      if (reg_equiv_constant (base_regno) != 0)
+//		{
+//		  find_reloads_address_part (reg_equiv_constant (base_regno), base_loc,
+//					     ADDR_REGS,
+//					     GET_MODE (ad), opnum, type, ind_levels);
+//		  done = true;
+//		}
 	    }
 	  if (address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
 	    {
 	      rtx * index_loc = address.index_loc;
-	      index_regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);
-	      if (index_regno < FIRST_PSEUDO_REGISTER
-		      || reg_renumber[index_regno] >= 0
-		      || reg_equiv_constant (index_regno) == NULL_RTX)
-		{
-		  rtx tem = update_memory_loc(index_loc, index_regno);
-		  push_reload (tem ? tem : *index_loc, NULL_RTX, index_loc, (rtx*) 0,
-				   GENERAL_REGS,
-				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
-		  done = true;
-		}
-	      else
-	      if (reg_equiv_constant (index_regno) != 0)
-		{
-		  find_reloads_address_part (reg_equiv_constant (index_regno), index_loc,
-					     GENERAL_REGS,
-					     GET_MODE (ad), opnum, type, ind_levels);
-		  done = true;
-		}
+	      find_reloads_address_1 (mode, as,
+				      *index_loc, 1, PLUS,
+				      GET_CODE (ad),
+				      index_loc, opnum,
+				      type, 0, insn);
+	      done = true;
+
+//	      index_regno = SUBREG_P(*index_loc) ? REGNO(SUBREG_REG(*index_loc)) : REGNO(*index_loc);
+//	      if (index_regno < FIRST_PSEUDO_REGISTER
+//		      || reg_renumber[index_regno] >= 0
+//		      || reg_equiv_constant (index_regno) == NULL_RTX)
+//		{
+//		  rtx tem = update_memory_loc(index_loc, index_regno);
+//		  push_reload (tem ? tem : *index_loc, NULL_RTX, index_loc, (rtx*) 0,
+//				   GENERAL_REGS,
+//				   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
+//		  done = true;
+//		}
+//	      else
+//	      if (reg_equiv_constant (index_regno) != 0)
+//		{
+//		  find_reloads_address_part (reg_equiv_constant (index_regno), index_loc,
+//					     GENERAL_REGS,
+//					     GET_MODE (ad), opnum, type, ind_levels);
+//		  done = true;
+//		}
 	    }
 	  // 68000 has only support for small offsets if base and index are used.
 	  if (!TARGET_68020 && address.offset && address.base && address.index
@@ -5160,6 +5153,27 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 			       ADDR_REGS,
 			       GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
 	      done = true;
+	    }
+
+	  /* SBF: if both indexes are in use we reload the inner mem into an address reg.
+	   * This yields a valid address for the outer part since a outer_index/outer_offset
+	   * is combinable with an address register.
+	   */
+	  if (address.code == POST_MODIFY
+	      || (address.index && address.outer_index)
+	      || (address.offset && address.outer_offset)
+	      || (!TARGET_68020 && address.code == MEM)
+	      )
+	    {
+	      // last case result into a base_reg replaced with a mem -> use base_loc
+	      rtx x = *address.mem_loc ;
+	      push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
+			   ADDR_REGS,
+			   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+
+	      // this converts the outer_offset into an inner offset.
+	      address.offset = address.outer_offset;
+	      address.outer_offset = 0;
 	    }
 
 	  if (done)

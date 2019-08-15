@@ -2035,7 +2035,14 @@ m68k_legitimate_base_reg_p (rtx x, bool strict_p)
 bool
 m68k_legitimate_index_reg_p (rtx x, bool strict_p)
 {
-  if (GET_CODE (x) == SUBREG && (!strict_p || GET_MODE(x) == SImode))
+  if (GET_CODE(x) == SIGN_EXTEND)
+    {
+      x = XEXP(x, 0);
+      if (GET_MODE(x) != HImode && GET_MODE(x) != SImode)
+	return false;
+    }
+  /* Allow SUBREG everywhere we allow REG.  This results in better code.  */
+  if (!strict_p && GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
 
   return (REG_P (x)
@@ -2275,8 +2282,7 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
 
       if (GET_CODE(r) == SIGN_EXTEND)
 	{
-          loc = &XEXP(r, 0);
-	  r = *loc;
+	  r = XEXP(r, 0);
 	  if (GET_MODE(r) != HImode && GET_MODE(r) != SImode)
 	    return false;
 	}
@@ -5219,10 +5225,11 @@ print_operand_address (FILE *file, rtx addr)
 static void
 print_index(FILE * file, rtx x, enum machine_mode mode, int scale)
 {
-  int regno = 0;
+  if (GET_CODE(x) == SIGN_EXTEND)
+    x = XEXP(x, 0);
   if (SUBREG_P(x))
-    x = alter_subreg(&x, true);
-  regno += REGNO(x);
+    x = alter_subreg (&x, true);
+  int regno = REGNO(x);
 
   fprintf (file, "%s.%c",
 	       M68K_REGNAME (regno),

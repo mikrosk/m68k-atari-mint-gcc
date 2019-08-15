@@ -3131,7 +3131,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
   if (SUBREG_P(x))
     reg = XEXP(x, 0), alter_subreg(&x, true);
   // handle the case that a memory_loc was created with a data register.
-  if (REG_P(reg) && !ADDRESS_REG_P(reg)
+  if (REG_P(reg) && !ADDRESS_REGNO_P (REGNO (reg))
       && (GET_MODE_SIZE(GET_MODE(reg)) > GET_MODE_SIZE(GET_MODE(x))
        || !targetm.legitimate_address_p(GET_MODE(SET_DEST(set)), ad, true)))
     {
@@ -3208,7 +3208,10 @@ cleanup_subreg_operands (rtx_insn *insn)
 	  if (MEM_P(dst))
 	    {
 	      changed |= darn_reload_did_not_catch_these(&XEXP(SET_DEST(set), 0), set, insn);
-	      if (GET_CODE(XEXP(dst, 0)) == PRE_DEC) // pea
+	      if (GET_CODE(XEXP(dst, 0)) == PRE_DEC
+		  && GET_CODE(*src) == PLUS
+		  && REG_P(XEXP(*src, 0))
+		  && !ADDRESS_REGNO_P (REGNO (XEXP(*src, 0)))) // pea
 		changed |= darn_reload_did_not_catch_these(src, set, insn);
 	    }
 	}

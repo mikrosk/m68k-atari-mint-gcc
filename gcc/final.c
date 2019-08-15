@@ -3127,14 +3127,14 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
   if (!MEM_P(x))
     return false;
 
-  x = *(loc = &XEXP(x, 0));
+  rtx ad = x = *(loc = &XEXP(x, 0));
   if (GET_CODE(x) == PLUS && (REG_P(XEXP(x, 0)) || SUBREG_P(XEXP(x, 0))))
     x = *(loc = &XEXP(x, 0));
   rtx dreg = x;
   if (SUBREG_P(x))
     dreg = XEXP(x, 0), alter_subreg(&x, true);
   // handle the case that a memory_loc was created with a data register.
-  if (REG_P(dreg) && !ADDRESS_REG_P(dreg))
+  if (REG_P(dreg) && !ADDRESS_REG_P(dreg) && !targetm.legitimate_address_p(GET_MODE(SET_DEST(set)), ad, true))
     {
       // if there is a data register at dest - without overlap, use it
       if (ADDRESS_REG_P(SET_DEST(set)) && !reg_overlap_mentioned_p(SET_DEST(set), SET_SRC(set)))
@@ -3162,6 +3162,8 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
 		  rtx pat = gen_swapsi(areg, x);
     		  emit_insn_before (pat, insn);
     		  *loc = areg;
+    		  if (REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == REGNO(dreg))
+    		    SET_DEST(set) = gen_rtx_REG(GET_MODE(SET_DEST(set)), regno);
     		  emit_insn_after (pat, insn);
     		  return true;
 		}

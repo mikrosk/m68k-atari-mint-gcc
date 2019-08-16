@@ -5223,7 +5223,7 @@ print_operand_address (FILE *file, rtx addr)
 }
 
 static void
-print_index(FILE * file, rtx x, enum machine_mode mode, int scale)
+print_index(FILE * file, rtx x, int scale)
 {
   if (GET_CODE(x) == SIGN_EXTEND)
     x = XEXP(x, 0);
@@ -5233,7 +5233,7 @@ print_index(FILE * file, rtx x, enum machine_mode mode, int scale)
 
   fprintf (file, "%s.%c",
 	       M68K_REGNAME (regno),
-	       mode == HImode ? 'w' : 'l');
+	       GET_MODE(x) == HImode ? 'w' : 'l');
   if (scale != 1)
     fprintf (file, "*%d", scale);
 }
@@ -5247,7 +5247,7 @@ append_outer_address(FILE * file, struct m68k_address address)
   if (address.outer_index)
     {
       putc (',', file);
-      print_index(file, address.outer_index, GET_MODE(address.outer_index), address.scale);
+      print_index(file, address.outer_index, address.scale);
     }
 
   if (address.outer_offset)
@@ -5374,7 +5374,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	    {
 	      if (labelno >= 0 || address.offset || address.base)
 		putc (',', file);
-	      print_index(file, address.index, GET_MODE(address.index), address.scale);
+	      print_index(file, address.index, address.scale);
 	    }
 	  if (ket)
 	    append_outer_address(file, address);

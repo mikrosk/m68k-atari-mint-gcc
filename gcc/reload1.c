@@ -739,6 +739,105 @@ will_delete_init_insn_p (rtx_insn *insn)
   return false;
 }
 
+#ifdef TARGET_AMIGA
+
+extern rtx
+alter_subreg (rtx *xp, bool final_p);
+
+static
+rtx aregs[FIRST_PSEUDO_REGISTER];
+
+static bool
+darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
+{
+  rtx x = *loc;
+  rtx ad = x;
+  if (GET_CODE(x) == PLUS && (REG_P(XEXP(x, 0)) || SUBREG_P(XEXP(x, 0))))
+    x = *(loc = &XEXP(x, 0));
+  rtx reg = x;
+  if (SUBREG_P(x))
+    reg = XEXP(x, 0), alter_subreg(&x, true);
+  // handle the case that a memory_loc was created with a data register.
+  if (REG_P(reg) && !ADDRESS_REGNO_P (REGNO (reg))
+      && (GET_MODE_SIZE(GET_MODE(reg)) > GET_MODE_SIZE(GET_MODE(x))
+       || !targetm.legitimate_address_p(GET_MODE(SET_DEST(set)), ad, true)))
+    {
+      // if there is a data register at dest - without overlap, use it
+      if (ADDRESS_REG_P(SET_DEST(set)) && !reg_overlap_mentioned_p(SET_DEST(set), SET_SRC(set)))
+	{
+	  int regno = REGNO(SET_DEST(set));
+	  rtx areg = aregs[regno];
+	  if (!areg)
+	    areg = aregs[regno] = gen_rtx_REG(SImode, regno);
+	  emit_insn_before(gen_rtx_SET(areg, x), insn);
+	  *loc = areg;
+	  return true;
+	}
+
+      // try all address regs
+	int regno;
+	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
+	  if (ADDRESS_REGNO_P(regno))
+	    {
+	      rtx areg = aregs[regno];
+	      if (!areg)
+		areg = aregs[regno] = gen_rtx_REG(SImode, regno);
+
+	      if (!reg_overlap_mentioned_p(areg, set))
+		{
+		  rtx pat = gen_swapsi(areg, x);
+    		  emit_insn_before (pat, insn);
+    		  *loc = areg;
+    		  if (REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == REGNO(reg))
+    		    SET_DEST(set) = gen_rtx_REG(GET_MODE(SET_DEST(set)), regno);
+    		  emit_insn_after (pat, insn);
+    		  return true;
+		}
+	    }
+    }
+  return false;
+}
+
+static void
+fix_invalid_addresses (rtx_insn * insn)
+{
+  rtx set = single_set(insn);
+  if (set)
+    {
+      rtx dst = SET_DEST(set);
+      rtx * src = &SET_SRC(set);
+
+      // handle invalid lea
+      if (ADDRESS_REG_P(dst) && GET_CODE(*src) == PLUS)
+	{
+	  rtx x = XEXP(*src, 0);
+	  if (REG_P(x) && !ADDRESS_REGNO_P (REGNO (x)))
+	    {
+	      emit_insn_before(gen_rtx_SET(dst, x), insn);
+	      *src = copy_rtx(*src);
+	      XEXP(*src, 0) = dst;
+	    }
+	}
+      else
+	{
+	  if (GET_CODE(*src) == COMPARE)
+	    src = &XEXP(*src, 0);
+	  if (MEM_P(*src))
+	    darn_reload_did_not_catch_these(&XEXP(*src, 0), set, insn);
+	  if (MEM_P(dst))
+	    {
+	      darn_reload_did_not_catch_these(&XEXP(SET_DEST(set), 0), set, insn);
+	      if (GET_CODE(XEXP(dst, 0)) == PRE_DEC
+		  && GET_CODE(*src) == PLUS
+		  && REG_P(XEXP(*src, 0))
+		  && !ADDRESS_REGNO_P (REGNO (XEXP(*src, 0)))) // pea
+		darn_reload_did_not_catch_these(src, set, insn);
+	    }
+	}
+    }
+}
+#endif
+
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -1239,6 +1338,10 @@ reload (rtx_insn *first, int global)
 
 	if (AUTO_INC_DEC)
 	  add_auto_inc_notes (insn, PATTERN (insn));
+
+#ifdef TARGET_AMIGA
+	fix_invalid_addresses (insn);
+#endif
 
 	/* Simplify (subreg (reg)) if it appears as an operand.  */
 	cleanup_subreg_operands (insn);

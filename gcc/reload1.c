@@ -771,6 +771,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
 	    areg = aregs[regno] = gen_rtx_REG(SImode, regno);
 	  emit_insn_before(gen_rtx_SET(areg, x), insn);
 	  *loc = areg;
+	  fprintf(stderr, "+");
 	  return true;
 	}
 
@@ -791,6 +792,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
     		  if (REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == REGNO(reg))
     		    SET_DEST(set) = gen_rtx_REG(GET_MODE(SET_DEST(set)), regno);
     		  emit_insn_after (pat, insn);
+    		  fprintf(stderr, ":");
     		  return true;
 		}
 	    }
@@ -1652,32 +1654,6 @@ calculate_needs_all_insns (int global)
 	      copy_reloads (chain);
 	      *pprev_reload = chain;
 	      pprev_reload = &chain->next_need_reload;
-
-#ifdef TARGET_AMIGA
-	      rtx set = single_set (insn);
-	      if (set && REG_P(SET_DEST (set)) && MEM_P(SET_SRC(set)) && REG_P(XEXP(SET_SRC(set), 0))
-//		  && REGNO(SET_DEST (set)) == REGNO(XEXP(SET_SRC(set), 0))
-		  )
-		{
-		  unsigned regno = ORIGINAL_REGNO (SET_DEST (set));
-		  rtx_insn_list *init = reg_equiv_init (regno);
-		  if (init)
-		    {
-		      int j;
-		      for (j = 0; j < n_reloads; j++)
-			{
-			  if (rld[j].in && rld[j].rclass == ADDR_REGS)
-			    {
-			      /* prevent deletion of the insn, since it needs a reload. */
-			      reg_equiv_init (regno) = 0;
-			      /* also clear the reg_equiv_memory_loc to avoid an additional toplevel reload. */
-			      reg_equiv_memory_loc (regno) = 0;
-			      break;
-			    }
-			}
-		    }
-		}
-#endif
 	    }
 	}
     }

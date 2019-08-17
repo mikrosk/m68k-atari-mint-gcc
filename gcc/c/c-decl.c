@@ -5167,14 +5167,14 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
 
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
-	error ("%Jregister name not specified for %qD", decl, decl);
+	error ("%s register name not specified for %qD", asmspec, decl);
       else if (reg_number < 0)
-	error ("%Jinvalid register name for %qD", decl, decl);
+	error ("%s invalid register name for %qD", asmspec, decl);
       else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
-	error ("%Jdata type of %qD isn%'t suitable for a register", decl, decl);
+	error ("%s data type of %qD isn%'t suitable for a register", asmspec, decl);
       else if (!HARD_REGNO_MODE_OK(reg_number, TYPE_MODE (TREE_TYPE (decl))))
-	error ("%Jregister specified for %qD isn%'t suitable for data type",
-	       decl, decl);
+	error ("%s register specified for %qD isn%'t suitable for data type",
+	       asmspec, decl);
       /* Now handle properly declared static register variables.  */
       else
 	{

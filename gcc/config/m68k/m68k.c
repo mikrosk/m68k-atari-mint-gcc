@@ -2420,6 +2420,11 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
     }
   else
     {
+      if (ap->index_loc && !ap->base_loc)
+	{
+	  ap->base_loc = ap->index_loc;
+	  ap->index_loc = 0;
+	}
       // only ap is used -> simply transfer the set values
       if (ap->base_loc)
 	{

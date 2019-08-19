@@ -396,6 +396,15 @@ static const struct attribute_spec m68k_attribute_table[] =
   { NULL,                0, 0, false, false, false, NULL, false }
 };
 
+#undef TARGET_SCHED_REORDER
+#define TARGET_SCHED_REORDER m68k_target_sched_reorder
+
+static int
+m68k_target_sched_reorder (FILE *, int, rtx_insn **, int *, int);
+
+#undef TARGET_SCHED_REORDER2
+#define TARGET_SCHED_REORDER2 m68k_target_sched_reorder
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Base flags for 68k ISAs.  */
@@ -2377,7 +2386,9 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	   + (ap->index_loc ? 1 : 0) + (ap2->index_loc ? 1 : 0);
 
 
-      if (nregs >= 3 || ap2->loc || (ap->offset && ap2->offset) || ap->base_loc)
+      if (nregs >= 3 || ap2->loc
+	  || (ap->index_loc && ap2->index_loc)
+	  || (ap->offset && ap2->offset) || ap->base_loc)
 	{
 	  address->code = POST_MODIFY; // this is a marker for reload: must not appear there
 	  r = false;
@@ -7244,6 +7255,103 @@ static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
     return 4 / fop_count;
 #endif
   return n;
+}
+
+static int
+is_ea_insn(rtx set)
+{
+  if (!ADDRESS_REG_P(SET_DEST(set)))
+    return false;
+
+//  MOVE.L #im,An
+//  MOVE.L Reg,An
+  rtx src = SET_SRC(set);
+  if (REG_P(src) || CONST_INT_P(src))
+    return true;
+
+//  SUBQ #,An
+//  SUBA #im,An
+//  SUBA Reg,An
+  if (GET_CODE(src) == MINUS)
+    return rtx_equal_p(XEXP(src, 0), SET_DEST(set))
+	&& (REG_P(XEXP(src, 1)) || CONST_INT_P(XEXP(src, 1)));
+
+  if (GET_CODE(src) != PLUS)
+    return false;
+
+//  ADDQ #,An
+//  ADDA #im,An
+//  ADDA Reg,An
+  if (rtx_equal_p(XEXP(src, 0), SET_DEST(set))
+	&& (REG_P(XEXP(src, 1)) || CONST_INT_P(XEXP(src, 1))))
+    return true;
+
+  //  LEA (ea),An
+  return m68k_legitimate_address_p (GET_MODE(src), src, reload_completed);
+}
+
+/**
+ * if top insn is an EA insn
+ * make a non fp mode insn 2nd and return 2.
+ * or if a non fp mode insn is top make an EA insn 2nd and return 2.
+ * otherwise return 1.
+ */
+static int
+m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_readyp, int clock)
+{
+  int n = *n_readyp;
+  if (n > 1)
+    {
+      rtx_insn * top = ready[--n];
+      rtx set0 = single_set(top);
+      if (set0)
+	{
+	  machine_mode mode0 = GET_MODE(SET_DEST(set0));
+	  if (is_ea_insn(set0))
+	    {
+	      int i = --n;
+	      for (;i >= 0; --i)
+		{
+		  rtx set = single_set(ready[i]);
+		  if (!set)
+		    continue;
+		  machine_mode mode = GET_MODE(SET_DEST(set));
+		  if (mode != DFmode && mode != SFmode && !is_ea_insn(set))
+		    {
+		      if (i != n)
+			{
+			  rtx_insn * tmp = ready[i];
+			  ready[i] = ready[n];
+			  ready[n] = tmp;
+			}
+		      return 2;
+		    }
+		}
+	    }
+	  else if (mode0 != DFmode && mode0 != SFmode)
+	    {
+	      int i = --n;
+	      for (;i >= 0; --i)
+		{
+		  rtx set = single_set(ready[i]);
+		  if (!set)
+		    continue;
+		  machine_mode mode = GET_MODE(SET_DEST(set));
+		  if (is_ea_insn(set))
+		    {
+		      if (i != n)
+			{
+			  rtx_insn * tmp = ready[i];
+			  ready[i] = ready[n];
+			  ready[n] = tmp;
+			}
+		      return 2;
+		    }
+		}
+	    }
+	}
+    }
+  return 1;
 }
 
 

@@ -2174,6 +2174,8 @@ static bool is_valid_offset(rtx x)
     x = XEXP(x, 0);
   if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC)
     return true;
+  if (GET_CODE(x) == SYMBOL_REF && TARGET_68020)
+    return true;
   if (GET_CODE(x) != PLUS)
     return false;
   return is_valid_offset(XEXP(x, 0)) && is_valid_offset(XEXP(x, 1));
@@ -2420,7 +2422,7 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
     }
   else
     {
-      if (ap->index_loc && !ap->base_loc)
+      if (ap->index_loc && ap->scale <= 1 && !ap->base_loc)
 	{
 	  ap->base_loc = ap->index_loc;
 	  ap->index_loc = 0;

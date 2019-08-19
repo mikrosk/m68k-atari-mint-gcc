@@ -272,7 +272,7 @@
 (define_predicate "pow2_m1_operand"
   (match_code "const_int")
 {
-  return (GET_CODE (op) == CONST_INT && exact_log2 (INTVAL (op) + 1) >= 0);
+  return (GET_CODE (op) == CONST_INT && exact_log2 (INTVAL (op) + 1) > 0);
 })
 
 ;; Used to detect valid targets for conditional branches

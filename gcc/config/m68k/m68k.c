@@ -2183,9 +2183,9 @@ static bool is_valid_offset(rtx x)
 {
   if (GET_CODE(x) == CONST)
     x = XEXP(x, 0);
-  if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC || GET_CODE(x) == LABEL_REF)
+  if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC)
     return true;
-  if (GET_CODE(x) == SYMBOL_REF && TARGET_68020)
+  if ((GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == LABEL_REF) && TARGET_68020)
     return true;
   if (GET_CODE(x) != PLUS)
     return false;

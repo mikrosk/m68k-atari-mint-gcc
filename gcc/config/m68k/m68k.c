@@ -2287,7 +2287,7 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
 
       address->index_loc = loc;
       address->scale = scale;
-      return (REG_P(r));
+      return true;
     }
 
   if (GET_CODE(x) == PLUS)
@@ -2378,7 +2378,20 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	{
 	  address->base_loc = ap2->base_loc;
 	  address->base = *ap2->base_loc;
-	  r &= m68k_legitimate_base_reg_p(address->base, strict_p);
+
+	  if (!m68k_legitimate_base_reg_p(address->base, strict_p))
+	    {
+	      if (ap2->index_loc && ap2->scale == 1 && m68k_legitimate_base_reg_p(*ap2->index_loc, strict_p))
+		{
+		  // swap
+		  address->base_loc = ap2->index_loc;
+		  address->base = *ap2->index_loc;
+
+		  ap2->index_loc = ap2->base_loc;
+		}
+	      else
+		r = false;
+	    }
 	}
       if (ap2->index_loc)
 	{

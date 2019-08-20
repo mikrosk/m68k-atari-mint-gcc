@@ -118,9 +118,11 @@ struct m68k_address {
   rtx * base_loc;
   rtx index;
   rtx * index_loc;
-  rtx offset;
   int scale;
+  rtx offset;
   rtx outer_index;
+  rtx * outer_index_loc;
+  int outer_scale;
   rtx outer_offset;
 };
 
@@ -5030,7 +5032,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
     }
   while (0);
 #endif
-
 #if defined(TARGET_AMIGA)
   /**
    * SBF: check the base register here, 
@@ -5038,6 +5039,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
    * and a data reg could end up in the base reg slot.
    * => reload the data reg
    */
+#define DX 0
   if (GET_CODE(ad) == PLUS || GET_CODE(ad) == MEM)
     {
       extern bool m68k_legitimate_index_reg_p (rtx x, bool strict_p);
@@ -5046,6 +5048,9 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       struct m68k_address address;
       memset(&address, 0, sizeof(address));
       bool r = decompose_mem(GET_MODE_SIZE(mode), ad, &address, true);
+      if (DX) fprintf(stderr, "insn %d %d %d\t", insn->u2.insn_uid, r, address.code);
+
+//      gcc_assert(address.code != POST_MODIFY);
 
       int base_regno = -1;
       int index_regno = -1;
@@ -5053,6 +5058,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (address.base && !m68k_legitimate_base_reg_p(address.base, true))
 	{
 	  rtx * base_loc = address.base_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload base ", insn->u2.insn_uid), debug_rtx(*base_loc);
 	  find_reloads_address_1 (mode, as,
 				  *base_loc, 0, PLUS,
 				  GET_CODE (ad),
@@ -5062,6 +5068,18 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
 	{
 	  rtx * index_loc = address.index_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload index ", insn->u2.insn_uid), debug_rtx(*index_loc);
+	  find_reloads_address_1 (mode, as,
+				  *index_loc, 1, PLUS,
+				  GET_CODE (ad),
+				  index_loc, opnum,
+				  type, 0, insn);
+	}
+
+      if (address.outer_index_loc && !m68k_legitimate_index_reg_p(*address.outer_index_loc, true))
+	{
+	  rtx * index_loc = address.outer_index_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload outer index ", insn->u2.insn_uid), debug_rtx(*index_loc);
 	  find_reloads_address_1 (mode, as,
 				  *index_loc, 1, PLUS,
 				  GET_CODE (ad),
@@ -5082,14 +5100,14 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
        * This yields a valid address for the outer part since a outer_index/outer_offset
        * is combinable with an address register.
        */
-      if (address.code == POST_MODIFY
-	  || (address.index && address.outer_index)
+      if (address.code == POST_MODIFY || (address.index && address.outer_index)
 	  || (address.offset && address.outer_offset)
 	  || (!TARGET_68020 && address.code == MEM)
 	  )
 	{
 	  // last case result into a base_reg replaced with a mem -> use base_loc
-	  rtx x = *address.mem_loc ;
+	  rtx x = *address.mem_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload mem ", insn->u2.insn_uid), debug_rtx(x);
 	  push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
 		       ADDR_REGS,
 		       GET_MODE (x), VOIDmode, 0, 0, opnum, type);

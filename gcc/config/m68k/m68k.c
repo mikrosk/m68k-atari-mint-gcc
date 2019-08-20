@@ -153,9 +153,11 @@ struct m68k_address {
   rtx * base_loc;
   rtx index;
   rtx * index_loc;
-  rtx offset;
   int scale;
+  rtx offset;
   rtx outer_index;
+  rtx * outer_index_loc;
+  int outer_scale;
   rtx outer_offset;
 };
 
@@ -2181,7 +2183,7 @@ static bool is_valid_offset(rtx x)
 {
   if (GET_CODE(x) == CONST)
     x = XEXP(x, 0);
-  if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC)
+  if (GET_CODE(x) == CONST_INT || GET_CODE(x) == UNSPEC || GET_CODE(x) == LABEL_REF)
     return true;
   if (GET_CODE(x) == SYMBOL_REF && TARGET_68020)
     return true;
@@ -2190,27 +2192,8 @@ static bool is_valid_offset(rtx x)
   return is_valid_offset(XEXP(x, 0)) && is_valid_offset(XEXP(x, 1));
 }
 
-extern void m68k_set_outer_address(rtx current_outer_address);
-extern void m68k_clear_outer_address();
 static bool
 decompose_one(rtx * loc, struct m68k_address_part *address);
-
-/**
- * Track presence of an outer index.
- */
-static rtx outer_address;
-
-/**
- * This is a cludge to force the use of an address register as BASE.
- */
-void m68k_set_outer_address(rtx current_outer_address)
-{
-  outer_address = current_outer_address;
-}
-void m68k_clear_outer_address()
-{
-  outer_address = NULL;
-}
 
 /**
  * decode the nested rtx structure into a flat structure.
@@ -2304,7 +2287,7 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
 
       address->index_loc = loc;
       address->scale = scale;
-      return true;
+      return (REG_P(r));
     }
 
   if (GET_CODE(x) == PLUS)
@@ -2354,12 +2337,6 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 
   struct m68k_address_part * ap = &ap_data[0];
   bool r = true;
-  if (outer_address)
-    {
-      r &= decompose_one(&outer_address, ap);
-      ++ap;
-      memset(ap, 0, sizeof(struct m68k_address_part) * 4);
-    }
 
   static int n;
 //  fprintf(stderr, "%d ", n++);
@@ -2382,11 +2359,7 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	  ap->base_loc = NULL;
 	}
 
-      int nregs = (ap->base_loc ? 1 : 0) + (ap2->base_loc ? 1 : 0)
-	   + (ap->index_loc ? 1 : 0) + (ap2->index_loc ? 1 : 0);
-
-
-      if (nregs >= 3 || ap2->loc
+      if ( ap2->loc
 	  || (ap->index_loc && ap2->index_loc)
 	  || (ap->offset && ap2->offset) || ap->base_loc)
 	{
@@ -2396,29 +2369,16 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 
       if (ap->index_loc)
 	{
-	  address->index_loc = ap->index_loc;
+	  address->outer_index_loc = ap->index_loc;
 	  address->outer_index = *ap->index_loc;
-	  address->scale = ap->scale;
+	  address->outer_scale = ap->scale;
 	  r &= m68k_legitimate_index_reg_p(address->outer_index, strict_p);
 	}
       if (ap2->base_loc)
 	{
 	  address->base_loc = ap2->base_loc;
 	  address->base = *ap2->base_loc;
-
-	  if (!m68k_legitimate_base_reg_p(address->base, strict_p))
-	    {
-	      if (ap2->index_loc && ap2->scale == 1 && m68k_legitimate_base_reg_p(*ap2->index_loc, strict_p))
-		{
-		  // swap
-		  address->base_loc = ap2->index_loc;
-		  address->base = *ap2->index_loc;
-
-		  ap2->index_loc = ap2->base_loc;
-		}
-	      else
-		r = false;
-	    }
+	  r &= m68k_legitimate_base_reg_p(address->base, strict_p);
 	}
       if (ap2->index_loc)
 	{
@@ -2571,7 +2531,7 @@ extern rtx m68k_SI_memory_operand_to_HI(rtx x)
   if (!decompose_mem(4, x, &address, true))
     return 0;
 
-  rtx * p = address.code == MEM ? &address.outer_index : &address.index;
+  rtx * p = address.code == MEM ? address.outer_index_loc : address.index_loc;
 
   if (address.offset)
     {
@@ -5265,7 +5225,7 @@ append_outer_address(FILE * file, struct m68k_address address)
   if (address.outer_index)
     {
       putc (',', file);
-      print_index(file, address.outer_index, address.scale);
+      print_index(file, address.outer_index, address.outer_scale);
     }
 
   if (address.outer_offset)

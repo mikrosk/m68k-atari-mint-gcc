@@ -4677,33 +4677,84 @@ notice_update_cc (rtx exp, rtx insn)
 }
 
 const char *
+print_fp_const(const char * cmd, const char * prec, rtx x)
+{
+  static char buf[60];
+
+  const REAL_VALUE_TYPE * r = CONST_DOUBLE_REAL_VALUE (x);
+
+  HOST_WIDE_INT i;
+  if (real_isinteger(r, &i))
+    {
+      if (i - (short)i == 0)
+	{
+	  sprintf (buf, "%sw #%d,%%0", cmd, (short)i);
+	  return buf;
+	}
+      if (i - (int)i == 0)
+        {
+          sprintf (buf, "%sl #%d,%%0", cmd, (long)i);
+          return buf;
+        }
+    }
+
+  if (prec[0] == 's' || exact_real_truncate (SFmode, r))
+    {
+      long l;
+      REAL_VALUE_TO_TARGET_SINGLE (*r, l);
+#ifndef TARGET_AMIGAOS_VASM
+      sprintf (buf, "%ss #0x%lx,%%0", cmd, l & 0xFFFFFFFF);
+#else
+      sprintf (buf, "%ss #$%lx, %%0", cmd, l & 0xFFFFFFFF);
+#endif
+      return buf;
+    }
+
+  if (prec[0] == 'd' || exact_real_truncate (DFmode, r))
+    {
+      long l2[2];
+      REAL_VALUE_TO_TARGET_DOUBLE (*r, l2);
+#ifndef TARGET_AMIGAOS_VASM
+      sprintf (buf, "%sd #0x%lx%08lx,%%0", cmd, l2[0] & 0xFFFFFFFF, l2[1] & 0xFFFFFFFF);
+#else
+       sprintf (buf, "%sd #$%lx%08lx,%%0", cmd, l2[0] & 0xFFFFFFFF, l2[1] & 0xFFFFFFFF);
+#endif
+       return buf;
+    }
+
+  long l3[3];
+  REAL_VALUE_TO_TARGET_LONG_DOUBLE (*r, l3);
+
+#ifndef TARGET_AMIGAOS_VASM
+  sprintf (buf, "%sx #0x%lx%08lx%08lx,%%0", cmd, l3[0] & 0xFFFFFFFF,
+		   l3[1] & 0xFFFFFFFF, l3[2] & 0xFFFFFFFF);
+#else
+  sprintf (buf, "%sx #$%lx%08lx%08lx,%%0", cmd, l3[0] & 0xFFFFFFFF,
+		   l3[1] & 0xFFFFFFFF, l3[2] & 0xFFFFFFFF);
+#endif
+
+  return buf;
+}
+
+const char *
 output_move_const_double (rtx *operands)
 {
+  static char buf[40];
   int code = standard_68881_constant_p (operands[1]);
 
   if (code != 0)
     {
-      static char buf[40];
-
       sprintf (buf, "fmovecr #0x%x,%%0", code & 0xff);
       return buf;
     }
-  return "fmove%.d %1,%0";
+
+  return print_fp_const("fmove.", "d", operands[1]);
 }
 
 const char *
 output_move_const_single (rtx *operands)
 {
-  int code = standard_68881_constant_p (operands[1]);
-
-  if (code != 0)
-    {
-      static char buf[40];
-
-      sprintf (buf, "fmovecr #0x%x,%%0", code & 0xff);
-      return buf;
-    }
-  return "fmove%.s %f1,%0";
+  return output_move_const_double (operands);
 }
 
 /* Return nonzero if X, a CONST_DOUBLE, has a value that we can get
@@ -7314,9 +7365,11 @@ m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_rea
 		    {
 		      if (i != n)
 			{
+			  // move ea insn in front of current.
 			  rtx_insn * tmp = ready[i];
 			  ready[i] = ready[n];
-			  ready[n] = tmp;
+			  ready[n] = ready[n + 1];
+			  ready[n + 1] = tmp;
 			}
 		      return 2;
 		    }

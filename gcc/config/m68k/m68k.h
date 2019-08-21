@@ -1055,3 +1055,7 @@ extern void default_stabs_asm_out_destructor (rtx, int);
 
 struct m68k_address;
 int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p);
+
+
+const char *
+print_fp_const(const char * cmd, const char * prec, rtx x);

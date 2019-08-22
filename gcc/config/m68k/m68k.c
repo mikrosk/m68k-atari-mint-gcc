@@ -4679,7 +4679,9 @@ notice_update_cc (rtx exp, rtx insn)
 const char *
 print_fp_const(const char * cmd, const char * prec, rtx x)
 {
-  static char buf[60];
+  static char p[2];
+  static char buf[160];
+  static char buf2[120];
 
   const REAL_VALUE_TYPE * r = CONST_DOUBLE_REAL_VALUE (x);
 
@@ -4698,41 +4700,21 @@ print_fp_const(const char * cmd, const char * prec, rtx x)
         }
     }
 
-  if (prec[0] == 's' || exact_real_truncate (SFmode, r))
-    {
-      long l;
-      REAL_VALUE_TO_TARGET_SINGLE (*r, l);
-#ifndef TARGET_AMIGAOS_VASM
-      sprintf (buf, "%ss #0x%lx,%%0", cmd, l & 0xFFFFFFFF);
-#else
-      sprintf (buf, "%ss #$%lx, %%0", cmd, l & 0xFFFFFFFF);
-#endif
-      return buf;
-    }
+  if (exact_real_truncate (SFmode, r))
+    p[0] = 's';
+  else
+  if (exact_real_truncate (DFmode, r))
+    p[0] = 'd';
+  else
+    p[0] = prec[0];
 
-  if (prec[0] == 'd' || exact_real_truncate (DFmode, r))
-    {
-      long l2[2];
-      REAL_VALUE_TO_TARGET_DOUBLE (*r, l2);
-#ifndef TARGET_AMIGAOS_VASM
-      sprintf (buf, "%sd #0x%lx%08lx,%%0", cmd, l2[0] & 0xFFFFFFFF, l2[1] & 0xFFFFFFFF);
-#else
-       sprintf (buf, "%sd #$%lx%08lx,%%0", cmd, l2[0] & 0xFFFFFFFF, l2[1] & 0xFFFFFFFF);
-#endif
-       return buf;
-    }
-
-  long l3[3];
-  REAL_VALUE_TO_TARGET_LONG_DOUBLE (*r, l3);
+  real_to_decimal(buf2, r, 120, 100, 1);
 
 #ifndef TARGET_AMIGAOS_VASM
-  sprintf (buf, "%sx #0x%lx%08lx%08lx,%%0", cmd, l3[0] & 0xFFFFFFFF,
-		   l3[1] & 0xFFFFFFFF, l3[2] & 0xFFFFFFFF);
+  sprintf (buf, "%s%s #0e%s,%%0", cmd, p, buf2);
 #else
-  sprintf (buf, "%sx #$%lx%08lx%08lx,%%0", cmd, l3[0] & 0xFFFFFFFF,
-		   l3[1] & 0xFFFFFFFF, l3[2] & 0xFFFFFFFF);
+  sprintf (buf, "%s%s #%s,%%0", cmd, p, buf2);
 #endif
-
   return buf;
 }
 

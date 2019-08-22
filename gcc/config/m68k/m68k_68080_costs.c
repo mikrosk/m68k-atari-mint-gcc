@@ -155,6 +155,13 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case LSHIFTRT:
       {
 	*total = 4;
+	rtx op = XEXP(x, 1);
+	if (CONST_INT_P(op))
+	  {
+	    int n = INTVAL(op);
+	    while (n -= 8 > 0)
+	      *total += 4;
+	  }
 	return true;
       }
       break;

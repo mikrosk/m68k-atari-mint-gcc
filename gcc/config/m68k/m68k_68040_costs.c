@@ -192,6 +192,12 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	      }
 	  }
 	*total = 4;
+	if (CONST_INT_P(b))
+	  {
+	    int n = INTVAL(b);
+	    while (n -= 8 > 0)
+	      *total += 4;
+	  }
 	return true;
       }
       break;

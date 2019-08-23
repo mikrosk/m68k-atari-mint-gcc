@@ -725,6 +725,15 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
       && !HONOR_SIGNED_ZEROS (element_mode (type)))
   (minus (negate @1) @0)))
 
+/* A - B ->  -(B - A), if A is real constant. */
+(simplify
+ (minus REAL_CST@0 @1)
+ (if (!HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
+      && !HONOR_SIGNED_ZEROS (element_mode (type)))
+    (negate (minus @1 @0))
+  )
+)
+
 /* A - B -> A + (-B) if B is easily negatable.  */
 (simplify
  (minus @0 negate_expr_p@1)
@@ -3041,8 +3050,3 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (SIGNBIT @0)
  (if (!HONOR_SIGNED_ZEROS (@0))
   (convert (lt @0 { build_real (TREE_TYPE (@0), dconst0); }))))
-
-(simplify
-  (minus REAL_CST@0 @1)
-  (negate (minus @1 @0))
-)

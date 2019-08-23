@@ -636,7 +636,6 @@ fold_negate_expr_1 (location_t loc, tree t)
       /* - (A - B) -> B - A  */
       if (!HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
 	  && !HONOR_SIGNED_ZEROS (element_mode (type))
-	  && TREE_CODE(TREE_OPERAND (t, 1)) != REAL_CST
 	  && reorder_operands_p (TREE_OPERAND (t, 0), TREE_OPERAND (t, 1)))
 	return fold_build2_loc (loc, MINUS_EXPR, type,
 				TREE_OPERAND (t, 1), TREE_OPERAND (t, 0));

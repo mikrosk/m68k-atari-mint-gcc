@@ -3281,13 +3281,6 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 		      (i1_feeds_i2_n && i1dest_in_i1src)
 		      || ((i0_feeds_i2_n || (i0_feeds_i1_n && i1_feeds_i2_n))
 			  && i0dest_in_i0src));
-
-      if (newpat == PATTERN (i3))
-	{
-	  undo_all();
-	  return 0;
-	}
-
       substed_i2 = 1;
 
       /* Record whether I2's body now appears within I3's body.  */
@@ -5227,17 +5220,6 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
       n_occurrences++;
       return (unique_copy && n_occurrences > 1 ? copy_rtx (to) : to);
     }
-
-#ifdef TARGET_AMIGA
-  /* prevent merging of  (minus (fp const)) and (neg fp) since it's faster. */
-  if ((GET_MODE(to) == DFmode || GET_MODE(to) == SFmode)
-      && GET_CODE(to) == MINUS
-      && GET_CODE(XEXP(to, 1)) == CONST_DOUBLE
-      && GET_CODE(x) == SET
-      && GET_CODE(XEXP(x, 1)) == NEG
-      )
-    return x;
-#endif
 
   /* If X and FROM are the same register but different modes, they
      will not have been seen as equal above.  However, the log links code

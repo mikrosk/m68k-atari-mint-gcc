@@ -159,7 +159,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	if (CONST_INT_P(op))
 	  {
 	    int n = INTVAL(op);
-	    while (n -= 8 > 0)
+	    if (n > 8)
 	      *total += 4;
 	  }
 	return true;

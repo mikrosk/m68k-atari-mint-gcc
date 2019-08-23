@@ -4686,18 +4686,10 @@ print_fp_const(const char * cmd, const char * prec, rtx x)
   const REAL_VALUE_TYPE * r = CONST_DOUBLE_REAL_VALUE (x);
 
   HOST_WIDE_INT i;
-  if (real_isinteger(r, &i))
+  if (real_isinteger(r, &i) && i - (short)i == 0)
     {
-      if (i - (short)i == 0)
-	{
-	  sprintf (buf, "%sw #%d,%%0", cmd, (short)i);
-	  return buf;
-	}
-      if (i - (int)i == 0)
-        {
-          sprintf (buf, "%sl #%d,%%0", cmd, (long)i);
-          return buf;
-        }
+      sprintf (buf, "%sw #%d,%%0", cmd, (short)i);
+      return buf;
     }
 
   if (exact_real_truncate (SFmode, r))
@@ -4707,6 +4699,12 @@ print_fp_const(const char * cmd, const char * prec, rtx x)
     p[0] = 'd';
   else
     p[0] = prec[0];
+
+  if (p[0] != 's' && real_isinteger(r, &i) && i - (int)i == 0)
+    {
+      sprintf (buf, "%sl #%d,%%0", cmd, (long)i);
+      return buf;
+    }
 
   real_to_decimal(buf2, r, 120, 100, 1);
 

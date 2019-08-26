@@ -2378,9 +2378,19 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	{
 	  address->base_loc = ap2->base_loc;
 	  address->base = *ap2->base_loc;
-
-	  if (!m68k_legitimate_base_reg_p(address->base, strict_p))
+	  if (!m68k_legitimate_base_reg_p(*ap2->base_loc, strict_p))
 	    {
+	      if (!ap2->index_loc && !ap->index_loc)
+		{
+		  // use index instead
+		  ap2->index_loc = ap2->base_loc;
+		  ap2->base_loc = NULL;
+		  ap2->scale = 1;
+
+		  address->base_loc = NULL;
+		  address->base = NULL;
+		}
+	      else
 	      if (ap2->index_loc && ap2->scale == 1 && m68k_legitimate_base_reg_p(*ap2->index_loc, strict_p))
 		{
 		  // swap
@@ -2388,6 +2398,7 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 		  address->base = *ap2->index_loc;
 
 		  ap2->index_loc = ap2->base_loc;
+		  ap2->base_loc = address->base_loc;
 		}
 	      else
 		r = false;

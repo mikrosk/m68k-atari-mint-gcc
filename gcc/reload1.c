@@ -771,7 +771,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
 	    areg = aregs[regno] = gen_rtx_REG(SImode, regno);
 	  emit_insn_before(gen_rtx_SET(areg, x), insn);
 	  *loc = areg;
-	  fprintf(stderr, "+");
+//	  fprintf(stderr, "+");
 	  return true;
 	}
 
@@ -792,7 +792,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
     		  if (REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == REGNO(reg))
     		    SET_DEST(set) = gen_rtx_REG(GET_MODE(SET_DEST(set)), regno);
     		  emit_insn_after (pat, insn);
-    		  fprintf(stderr, ":");
+//    		  fprintf(stderr, ":");
     		  return true;
 		}
 	    }

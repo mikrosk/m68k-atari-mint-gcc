@@ -4173,7 +4173,7 @@ remove_superfluous_stack_vars ()
 			  rtx x = XEXP(src, 0);
 			  if (REG_P(x))
 			    o_reg = x;
-			  else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)))
+			  else if (GET_CODE(x) == PLUS && REG_P(XEXP(x, 0)) && CONST_INT_P(XEXP(x, 1)))
 			    o_reg = XEXP(x, 0);
 			}
 		      if (o_reg)

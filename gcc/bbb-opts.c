@@ -5460,6 +5460,28 @@ make_pass_bbb_optimizations (gcc::context * ctxt)
 {
   return new pass_bbb_optimizations (ctxt);
 }
+
+#define TEST(t) {int x = t(); if (x) printf(#t " failed\n"); r |= x; }
+
+static int
+valid_address_1()
+{
+  rtx ad = gen_rtx_MEM(SImode, gen_rtx_REG(SImode, 6));
+  return !targetm.legitimate_address_p(SImode, ad, true);
+}
+
+int run_tests()
+{
+  printf("gcc-test: START\n");
+  int r = 0;
+
+  TEST(valid_address_1);
+
+  printf("gcc-test: STOP with rc=%d\n", r);
+  exit(r);
+}
+
+
 namespace
 {
 
@@ -5487,6 +5509,8 @@ namespace
     virtual bool
     gate (function *)
     {
+      if (string_bbb_opts && 0 == strcmp("TEST", string_bbb_opts))
+	run_tests();
       return TARGET_AMIGA && flag_pic >= 3;
     }
 

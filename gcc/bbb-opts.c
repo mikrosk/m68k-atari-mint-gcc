@@ -74,6 +74,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <genrtl.h>
 
 //#define XUSE(c) fputc(c, stderr)
 #define XUSE(c) done = 0
@@ -2066,8 +2067,11 @@ append_reg_usage (FILE * f, rtx_insn * insn)
     else
       fprintf (f, "     ");
 
-  if (ii.is_use (FIRST_PSEUDO_REGISTER))
-    fprintf (f, ii.is_def (FIRST_PSEUDO_REGISTER) ? "+cc " : " cc ");
+  if (ii.is_use (FIRST_PSEUDO_REGISTER) || ii.is_def (FIRST_PSEUDO_REGISTER))
+    {
+      fprintf (f, ii.is_def (FIRST_PSEUDO_REGISTER) ? ii.is_use (FIRST_PSEUDO_REGISTER) ? "*" : "+" : ii.is_myuse (FIRST_PSEUDO_REGISTER) ? "." : " ");
+      fprintf (f, "cc ");
+    }
   else
     fprintf (f, "    ");
 
@@ -5207,22 +5211,22 @@ opt_pipeline_insns()
 
       // only check if not in prolog and a register is set
       rtx iiset = single_set(ii.get_insn());
-      if (ii.in_proepi() || ii.is_compare() || !ii.get_dst_reg() || ii.get_hard() || !iiset)
+      if (ii.in_proepi() || ii.is_compare() || !ii.get_dst_reg() || ii.get_hard() || !iiset || ii.is_myuse (FIRST_PSEUDO_REGISTER))
 	continue;
 
       insn_info & jj = infos[index + 1];
-      // don't touch compares and check for register overlap
+      // don't touch compares and check for register overlap and CC use
       if (jj.is_compare() || !(jj.get_myuse() & ii.get_def()))
 	continue;
 
       // check previous insn
       insn_info & hh = infos[index - 1];
       rtx hhset = single_set(hh.get_insn());
-      if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset || !hh.get_dst_reg())
+      if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset || !hh.get_dst_reg() || hh.is_myuse (FIRST_PSEUDO_REGISTER))
 	continue;
 
       // overlap with current insn
-      if (((ii.get_myuse() | ii.get_def()) & hh.get_def() & ~(1<<FIRST_PSEUDO_REGISTER)) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
+      if (((ii.get_myuse() | ii.get_def()) & hh.get_def() & ~(1<<(FIRST_PSEUDO_REGISTER+1))) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
 	continue;
 
       rtx pat = PATTERN(hh.get_insn());
@@ -5436,14 +5440,14 @@ namespace
     if (r && be_verbose)
       log ("no bbb optimization code %d\n", r);
 
-    if (strchr (string_bbb_opts, 'X') || strchr (string_bbb_opts, 'x'))
-      dump_insns ("bbb", strchr (string_bbb_opts, 'X'));
-
-    if (dump_reg_track || dump_cycles || be_very_verbose)
+    if (dump_reg_track || dump_cycles || be_very_verbose || strchr (string_bbb_opts, 'X') || strchr (string_bbb_opts, 'x'))
       {
 	update_insns ();
 	if (dump_reg_track)
 	  track_regs ();
+
+	if (strchr (string_bbb_opts, 'X') || strchr (string_bbb_opts, 'x'))
+	  dump_insns ("bbb", strchr (string_bbb_opts, 'X'));
       }
 
     if (be_verbose)
@@ -5461,7 +5465,7 @@ make_pass_bbb_optimizations (gcc::context * ctxt)
   return new pass_bbb_optimizations (ctxt);
 }
 
-#define TEST(t) {int x = t(); if (x) printf(#t " failed\n"); r |= x; }
+#define TEST(t) {int x = t(); if (!x) printf(#t " failed\n"); r &= x; }
 
 static int
 valid_address_1()
@@ -5470,15 +5474,26 @@ valid_address_1()
   return !targetm.legitimate_address_p(SImode, ad, true);
 }
 
+static int
+detect_cc_use_1()
+{
+  rtx gt = gen_rtx_GT(QImode, cc0_rtx, GEN_INT(0));
+
+  insn_info ii;
+  ii.scan_rtx(gt);
+  return ii.is_use(FIRST_PSEUDO_REGISTER);
+}
+
 int run_tests()
 {
   printf("gcc-test: START\n");
-  int r = 0;
+  int r = 1;
 
   TEST(valid_address_1);
+  TEST(detect_cc_use_1);
 
   printf("gcc-test: STOP with rc=%d\n", r);
-  exit(r);
+  exit(!r);
 }
 
 

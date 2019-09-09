@@ -1531,7 +1531,7 @@ defer_stack_allocation (tree var, bool toplevel)
      at all is that, after sorting, we can more efficiently pack
      small variables in the stack frame.  Continue to defer at -O2.  */
   /* SBF: do not check optimize level for now. */   
-  if (toplevel)// && optimize < 2)
+  if (toplevel && optimize < 2)
     return false;
 
   /* Without optimization, *most* variables are allocated from the

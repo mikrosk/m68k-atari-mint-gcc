@@ -4308,7 +4308,7 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
 
   ira_assert (! ira_use_lra_p);
 
-  remove_superfluous_stack_vars ();
+//  remove_superfluous_stack_vars ();
 
   /* Set up allocnos can be coalesced.  */
   coloring_allocno_bitmap = ira_allocate_bitmap ();

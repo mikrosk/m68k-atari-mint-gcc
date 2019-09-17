@@ -1478,7 +1478,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		}
 	      iter.skip_subrtxes ();
 	      break;
-#if 0
+#if 1
 	    case PLUS:
 	      new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
 	      if (new_rtx)

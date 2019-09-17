@@ -1924,6 +1924,10 @@ fprofile-reorder-functions
 Common Report Var(flag_profile_reorder_functions)
 Enable function reordering that improves code placement.
 
+fprune-stack-vars
+Common Report Var(flag_prune_stack_vars)
+Try to prune read only stack variable which contain a copied value which could be used instead.
+
 frandom-seed
 Common Var(common_deferred_options) Defer
 

@@ -2476,9 +2476,13 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	  return false;
 	}
 
-
-      // 68k has no support for indirect or a missing base register
-      if (address->code || !address->base)
+      // 68k has no support for indirect
+      if (address->code) {
+	  address->code = POST_MODIFY;
+	return false;
+      }
+      // 68k has no support for a missing base register
+      if (!address->base)
 	return false;
 
       // only const_int offsets in range, if base and index are set

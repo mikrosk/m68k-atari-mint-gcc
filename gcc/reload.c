@@ -5034,7 +5034,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 #endif
 #if defined(TARGET_AMIGA)
   /**
-   * SBF: check the base register here, 
+   * SBF: check the base register here,
    * since later no information exists, which reg is the base reg
    * and a data reg could end up in the base reg slot.
    * => reload the data reg
@@ -5055,7 +5055,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       int base_regno = -1;
       int index_regno = -1;
 
-      if (address.base && !m68k_legitimate_base_reg_p(address.base, true))
+      if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))
 	{
 	  rtx * base_loc = address.base_loc;
 	  if (DX) fprintf(stderr, "insn %d: reload base ", insn->u2.insn_uid), debug_rtx(*base_loc);
@@ -5065,7 +5065,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 				  base_loc, opnum,
 				  type, 0, insn);
 	}
-      if (address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
+      if (address.code != POST_MODIFY && address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
 	{
 	  rtx * index_loc = address.index_loc;
 	  if (DX) fprintf(stderr, "insn %d: reload index ", insn->u2.insn_uid), debug_rtx(*index_loc);
@@ -5108,6 +5108,25 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	  // last case result into a base_reg replaced with a mem -> use base_loc
 	  rtx x = *address.mem_loc;
 	  if (DX) fprintf(stderr, "insn %d: reload mem ", insn->u2.insn_uid), debug_rtx(x);
+
+	  // too many mem inside - recurse
+	  if (address.code == POST_MODIFY)
+	    {
+	      rtx tem = x;
+	      find_reloads_address (GET_MODE (x), &tem, XEXP (x, 0), &XEXP (x, 0),
+				    opnum, ADDR_TYPE (type),
+				    ind_levels == 0 ? 0 : ind_levels - 1, insn);
+
+	      /* If tem was changed, then we must create a new memory reference to
+		 hold it and store it back into memrefloc.  */
+	      if (tem != x )
+		{
+		  *address.mem_loc = copy_rtx (*address.mem_loc);
+		  copy_replacements (tem, XEXP (*address.mem_loc, 0));
+		  x = *address.mem_loc;
+		}
+	    }
+
 	  push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
 		       ADDR_REGS,
 		       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -5116,27 +5135,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	  address.offset = address.outer_offset;
 	  address.outer_offset = 0;
 	}
-#if 0
-      if (done)
-	{
-	  /**
-	   * if this is an INPUT reload for an init insn setting a register,
-	   * clear the reg_equivs memory_loc, since that memory_loc has no reload yet.
-	   * This will hopefully trigger a new reload later...
-	   */
-	  if (opnum == 1 && GET_CODE(PATTERN(insn)) == SET)
-	    {
-	      rtx dst = SET_DEST(PATTERN(insn));
-	      if (REG_P(dst) && reg_equiv_init (ORIGINAL_REGNO(dst))
-		  && !reg_equiv_mem (ORIGINAL_REGNO(dst))
-		  && (base_regno == -1 || base_regno != ORIGINAL_REGNO(dst))
-		  && (index_regno == -1 || index_regno != ORIGINAL_REGNO(dst))
-		  )
-		reg_equiv_memory_loc(ORIGINAL_REGNO(dst)) = NULL;
-	    }
-	return 0;
-	}
-#endif
+
       return 0;
     }
 #endif

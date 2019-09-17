@@ -5219,11 +5219,11 @@ static std::set<rtx> prolonged_regs;
 // already resurrected - don't try again
 static std::set<rtx> forbidden_regs;
 // removed insn - needed for resurrection, DEST contains the register to use during restiore
-static std::vector<std::pair<rtx, rtx_insn *>> reg2deleted_insn;
+static std::vector<std::pair<rtx, rtx_insn *> > reg2deleted_insn;
 // modified insns
-static std::vector<std::pair<rtx, rtx_insn *>> dst2modified_insn;
+static std::vector<std::pair<rtx, rtx_insn *> > dst2modified_insn;
 // REG_EQUAL notes
-static std::vector<std::pair<rtx_insn *, rtx>> insn2req_equals;
+static std::vector<std::pair<rtx_insn *, rtx> > insn2req_equals;
 
 static int prune_pass;
 
@@ -5266,7 +5266,7 @@ prune_stack_vars ()
    * If these end up spilled, it's better to live with the spilled variable,
    * => undo the change.
    */
-  auto i = prolonged_regs.begin();
+  std::set<rtx>::iterator i = prolonged_regs.begin();
   for(;i != prolonged_regs.end(); ++i)
     {
       rtx prolonged_reg = *i;
@@ -5289,10 +5289,10 @@ prune_stack_vars ()
 	  /* once undone, prevent working with / undoing them again and prevent endless loops. */
 	  forbidden_regs.insert(prolonged_reg);
 
-	  auto j = reg2deleted_insn.begin();
+	  std::vector<std::pair<rtx, rtx_insn *> >::iterator j = reg2deleted_insn.begin();
 	  for(; j != reg2deleted_insn.end(); ++j)
 	    {
-	      auto p = *j;
+	      std::pair<rtx, rtx_insn *> p = *j;
 	      if (p.first != prolonged_reg)
 		continue;
 
@@ -5302,10 +5302,10 @@ prune_stack_vars ()
 
 	      rtx src = SET_SRC(pattern);
 	      rtx dst = SET_DEST(pattern);
-	      auto k = dst2modified_insn.begin();
+	      std::vector<std::pair<rtx, rtx_insn *> >::iterator  k = dst2modified_insn.begin();
 	      for(; k != dst2modified_insn.end(); ++k)
 		{
-		  auto q = *k;
+		  std::pair<rtx, rtx_insn *> q = *k;
 		  if (q.first != dst)
 		    continue;
 
@@ -5490,7 +5490,7 @@ prune_stack_vars ()
       free_dominance_info (CDI_DOMINATORS);
 
       /* plus restore the REG_EQUAL notes! */
-      auto i2r = insn2req_equals.begin();
+      std::vector<std::pair<rtx_insn *, rtx> >::iterator i2r = insn2req_equals.begin();
       for (;i2r != insn2req_equals.end(); ++i2r)
 	{
 	  rtx_insn * insn = i2r->first;

@@ -1485,7 +1485,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		  XEXP (x, 0) = new_rtx;
 		  *loc = plus_constant (GET_MODE (x), x, offset, true);
 		  changed = true;
-		  iter.skip_subrtxes ();
+//		  iter.skip_subrtxes (); // may contain a mem instead of the const.
 		  break;
 		}
 	      /* FIXME -- from old code */

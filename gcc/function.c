@@ -1478,7 +1478,6 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		}
 	      iter.skip_subrtxes ();
 	      break;
-#if 1
 	    case PLUS:
 	      new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
 	      if (new_rtx)
@@ -1489,7 +1488,6 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		  iter.skip_subrtxes ();
 		  break;
 		}
-#endif
 	      /* FIXME -- from old code */
 	      /* If we have (plus (subreg (virtual-reg)) (const_int)), we know
 		 we can commute the PLUS and SUBREG because pointers into the

@@ -4308,13 +4308,15 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
 
 /* Estimates cost of forcing expression EXPR into a variable.  */
 
+static unsigned ivopts_integer_cost [2];
+static unsigned ivopts_comparison_cost [2];
+
 
 static comp_cost
 force_expr_to_var_cost (tree expr, bool speed)
 {
   static bool costs_initialized = false;
   static unsigned small_integer_cost [2];
-  static unsigned integer_cost [2];
   static unsigned symbol_cost [2];
   static unsigned address_cost [2];
   tree op0, op1;
@@ -4343,10 +4345,13 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (!small_integer_cost[i])
 	    small_integer_cost[i] = 1;
 
-	  integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
+	  ivopts_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
 							     2000), i);
-	  if (!integer_cost[i])
-	    integer_cost[i] = 1;
+	  if (!ivopts_integer_cost[i])
+	    ivopts_integer_cost[i] = 1;
+
+	  rtx reg = gen_reg_rtx(SImode);
+	  ivopts_comparison_cost[i] = set_rtx_cost(gen_rtx_SET(cc0_rtx, gen_rtx_LT(SImode, reg, reg)), i);
 
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
@@ -4356,7 +4361,8 @@ force_expr_to_var_cost (tree expr, bool speed)
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
 	      fprintf (dump_file, "  small integer %d\n", (int) small_integer_cost[i]);
-	      fprintf (dump_file, "  integer %d\n", (int) integer_cost[i]);
+	      fprintf (dump_file, "  integer %d\n", (int) ivopts_integer_cost[i]);
+	      fprintf (dump_file, "  comparison %d\n", (int) ivopts_comparison_cost[i]);
 	      fprintf (dump_file, "  symbol %d\n", (int) symbol_cost[i]);
 	      fprintf (dump_file, "  address %d\n", (int) address_cost[i]);
 	      fprintf (dump_file, "  other %d\n", (int) target_spill_cost[i]);
@@ -4379,7 +4385,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (-0x80 <= expr->int_cst.val[0]
 	      && expr->int_cst.val[0] <= 0x7f)
 	    return new_cost (small_integer_cost [speed], 0);
-	  return new_cost (integer_cost [speed], 0);
+	  return new_cost (ivopts_integer_cost [speed], 0);
 	}
 
       if (TREE_CODE (expr) == ADDR_EXPR)
@@ -4636,7 +4642,11 @@ difference_cost (struct ivopts_data *data,
   *var_present = true;
 
   if (integer_zerop (e2))
+#ifdef TARGET_AMIGAOS
+    return no_cost;
+#else
     return force_var_cost (data, e1, depends_on);
+#endif
 
   if (integer_zerop (e1))
     {
@@ -5060,9 +5070,11 @@ get_computation_cost (struct ivopts_data *data,
 		      bool address_p, bitmap *depends_on,
                       bool *can_autoinc, int *inv_expr_id)
 {
-  return get_computation_cost_at (data,
+  comp_cost cc = get_computation_cost_at (data,
 				  use, cand, address_p, depends_on, use->stmt,
 				  can_autoinc, inv_expr_id);
+//  fprintf(stderr, "use %d - cand %d: cost %d\n", use->id, cand->id, cc.cost);
+  return cc;
 }
 
 /* Determines cost of basing replacement of USE on CAND in a generic
@@ -5543,7 +5555,7 @@ may_eliminate_iv (struct ivopts_data *data,
     return false;
 
   /* Sometimes, it is possible to handle the situation that the number of
-     iterations may be zero unless additional assumtions by using <
+     iterations may be zero unless additional assumptions by using <
      instead of != in the exit condition.
 
      TODO: we could also calculate the value MAY_BE_ZERO ? 0 : NITER and
@@ -5618,6 +5630,9 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
+#ifdef TARGET_AMIGAOS
+      elim_cost.cost += ivopts_comparison_cost[0];
+#endif
     }
   else
     elim_cost = infinite_cost;
@@ -5638,7 +5653,9 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    elim_cost.cost -= COSTS_N_INSNS(1);
+    // assume the omitted comparison saves ivopts_integer_cost[0] - better than 1
+    elim_cost.cost -= ivopts_integer_cost[0] > COSTS_N_INSNS(2) ? ivopts_integer_cost[0] : COSTS_N_INSNS(2);
+//    elim_cost.cost -= 1;
     
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,

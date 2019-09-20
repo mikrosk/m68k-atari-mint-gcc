@@ -5483,13 +5483,13 @@ prune_stack_vars ()
       if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
 	calculate_allocation_cost ();
 
-      /* the life time of all registers must be reconsidered - reset what's needed. */
+      /* the lifetime of all registers must be reconsidered - reset what's needed. */
       regstat_free_n_sets_and_refs ();
       regstat_free_ri ();
       loop_optimizer_finalize ();
       free_dominance_info (CDI_DOMINATORS);
 
-      /* plus restore the REG_EQUAL notes! */
+      /* plus restore the REG_EQUAL notes which were recorded during init_prune_stack_vars() ! */
       std::vector<std::pair<rtx_insn *, rtx> >::iterator i2r = insn2req_equals.begin();
       for (;i2r != insn2req_equals.end(); ++i2r)
 	{
@@ -5497,7 +5497,6 @@ prune_stack_vars ()
 	  REG_NOTES (insn) = i2r->second;
 	}
 
-//      df_insn_rescan_all();
       df_mark_solutions_dirty();
       df_analyze ();
     }

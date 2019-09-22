@@ -282,6 +282,10 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool outgoin
   if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
     {
       const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
+
+      if (DECL_BUILT_IN(fn_decl_or_type) || fn_decl_or_type->decl_common.virtual_flag)
+        fntype = 0;
+
       if (fntype)
 	{
 	  tree attrs = TYPE_ATTRIBUTES(fntype);

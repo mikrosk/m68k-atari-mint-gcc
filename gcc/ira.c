@@ -5253,7 +5253,7 @@ init_prune_stack_vars ()
 static bool
 prune_stack_vars ()
 {
-  bool touched = false;
+  bool changed = false;
   int regno, max_regno;
   max_regno = max_reg_num ();
 
@@ -5279,7 +5279,7 @@ prune_stack_vars ()
 
       if (ira_regno_allocno_map[REGNO(prolonged_reg)] && ira_regno_allocno_map[REGNO(prolonged_reg)]->hard_regno < 0)
 	{
-	  touched = true;
+	  changed = true;
 	  if (ira_dump_file)
 	    {
 	      fprintf(ira_dump_file, "***************************************************\n");
@@ -5393,6 +5393,9 @@ prune_stack_vars ()
 	  bool skip = false;
 	  if (address_reg)
 	    {
+	      if (DF_REG_DEF_COUNT(REGNO(address_reg)) != 1)
+		skip = true;
+	      else
 	      /* check that there is no use as dest and all uses refer to this regno. */
 	      for(ref = DF_REG_USE_CHAIN(REGNO(address_reg));ref; ref = DF_REF_NEXT_REG (ref))
 		{
@@ -5407,8 +5410,9 @@ prune_stack_vars ()
 		      break;
 		    }
 
+		  rtx isrc = SET_SRC(iset);
 		  /* does it feed other vars as well? */
-		  if (rtx_equal_p(src, SET_SRC(iset)) && !rtx_equal_p(dst, SET_DEST(iset)))
+		  if (rtx_equal_p(src, isrc) && !rtx_equal_p(dst, SET_DEST(iset)))
 		    {
 		      skip = true;
 		      break;
@@ -5440,8 +5444,6 @@ prune_stack_vars ()
 	      fprintf(ira_dump_file, "\n");
 	    }
 
-	  touched = true;
-
 	  /* drop the assignment. */
 	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
 	    {
@@ -5450,6 +5452,7 @@ prune_stack_vars ()
 	    }
 
 	  /* replace the variable in all locations. */
+	  bool ok = true;
 	  for(ref = DF_REG_USE_CHAIN(regno);ref; ref = DF_REF_NEXT_REG (ref))
 	    {
 	      rtx_insn * insn = ref->base.insn_info->insn;
@@ -5469,15 +5472,20 @@ prune_stack_vars ()
 		dst2modified_insn.push_back(std::make_pair(dst, insn));
 	    }
 
-	  if (apply_change_group())
+	  if (ok && apply_change_group())
+	    {
+   	      changed = true;
 	      SET_INSN_DELETED(def)
+	    }
 	  else
-	    forbidden_regs.insert(address_reg);
-
+	    {
+	      cancel_changes(0);
+	      forbidden_regs.insert(address_reg);
+	    }
 	}
     }
 
-  if (touched)
+  if (changed)
     {
       /* make stats visible. */
       if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
@@ -5502,7 +5510,7 @@ prune_stack_vars ()
     }
 
   ++ prune_pass;
-  return touched;
+  return changed;
 }
 
 /* If the backend knows where to allocate pseudos for hard

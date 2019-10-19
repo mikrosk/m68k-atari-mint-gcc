@@ -5101,7 +5101,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
        * is combinable with an address register.
        */
       if (address.code == POST_MODIFY || (address.index && address.outer_index)
-	  || (address.offset && address.outer_offset)
 	  || (!TARGET_68020 && address.code == MEM)
 	  )
 	{
@@ -5131,9 +5130,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 		       ADDR_REGS,
 		       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 
-	  // this converts the outer_offset into an inner offset.
-	  address.offset = address.outer_offset;
-	  address.outer_offset = 0;
 	}
 
       return 0;

@@ -2053,7 +2053,8 @@ m68k_legitimate_index_reg_p (rtx x, bool strict_p)
 	return false;
     }
   /* Allow SUBREG everywhere we allow REG.  This results in better code.  */
-  if (!strict_p && GET_CODE (x) == SUBREG)
+  if (//!strict_p &&
+      GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
 
   return (REG_P (x)

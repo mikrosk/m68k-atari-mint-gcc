@@ -4887,8 +4887,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
    * p2: x = *b.0;
    * ==>
    * p0: b.0 = b;
-   * p2: x = *b;
-   * p1: b = b + 4;
+   * p2: x = *b.0;
+   * p1: b = b.0 + 4;
    */
   gimple * p0, *p1, * p2 = gimple_seq_last_stmt(*pre_p);
   if ((p1 = p2->prev) && (p0 = p1->prev)
@@ -4906,12 +4906,9 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  && p1rhs == p0lhs /* b.0 == b.0 */
 	  && TREE_CODE(p2rhs) == MEM_REF /* *b.0 */
 	  && TREE_OPERAND(p2rhs, 0) == p0lhs /* b.0 == b.0 */
+	  && TREE_OPERAND(p2rhs, 0) != p1lhs /* b.0 != b */
 	  )
 	{
-	  /* leave p0 alone - will be removed by later passes. */
-	  /* replace b.0 with b. */
-	  *gimple_assign_rhs1_ptr(p1) = p0rhs;
-	  TREE_OPERAND(p2rhs, 0) = p0rhs;
 	  /* modify order */
 	  p0->next = p2;
 	  p1->next = p2->next;

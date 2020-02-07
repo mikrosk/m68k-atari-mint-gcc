@@ -7909,6 +7909,22 @@ grokfndecl (tree ctype,
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
   tree t;
 
+#ifdef TARGET_AMIGA
+  if (amigaos_regparm > 0)
+    {
+      tree asm1 = lookup_attribute("asmregs", *attrlist);
+      tree stack1 = lookup_attribute("stkparm", *attrlist);
+      tree reg1 = lookup_attribute("regparm", *attrlist);
+      if (!asm1 && !stack1 && !reg1)
+	{
+	  tree ttasm = get_identifier("regparm");
+	  tree value = tree_cons(ttasm, build_int_cst(NULL, amigaos_regparm), NULL_TREE);
+	  tree attrs = tree_cons(ttasm, value, NULL_TREE);
+	  *attrlist = chainon(attrs, *attrlist);
+	}
+    }
+#endif
+
   // Was the concept specifier present?
   bool concept_p = inlinep & 4;
 

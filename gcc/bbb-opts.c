@@ -4793,6 +4793,12 @@ opt_absolute (void)
   return change_count;
 }
 
+/**
+ * @param index the insn index to start with.
+ * @param ii the insn_info of the auto_inc candidate.
+ * @param size the size of the increment: 1,2,4,8
+ * @param addend the value used in the loop: -1 to search backwards, +1 to search forwards.
+ */
 static int
 try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 {
@@ -4819,6 +4825,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
       if (pos == index)
 	return 0;
 
+      // prevent double handling
       if (visited.find (pos) != visited.end ())
 	continue;
       visited.insert (pos);
@@ -4887,6 +4894,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (jj.get_src_mem_addr () * addend < size)
 		return 0;
 
+	      if (jj.get_src_autoinc())
+		return 0;
+
 	      fix = true;
 	    }
 	  if (jj.get_dst_mem_regno () == regno)
@@ -4895,6 +4905,9 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 		return 0;
 
 	      if (jj.get_dst_mem_addr () * addend < size)
+		return 0;
+
+	      if (jj.get_src_autoinc())
 		return 0;
 
 	      fix = true;
@@ -4931,10 +4944,12 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
   // fix all offsets / adds
   for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)
     {
-//	  log ("(i) fixup at %d\n", *k);
       insn_info & kk = infos[*k];
+//      log ("(i) fixup at %d\n", *k);
+//      debug_rtx(kk.get_insn());
       kk.auto_inc_fixup (regno, size, addend);
     }
+
   return 1;
 }
 

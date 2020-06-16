@@ -4539,7 +4539,8 @@ opt_elim_dead_assign (int blocked_regno)
 	continue;
 
       if (REG_NREGS(ii.get_dst_reg ()) == 1
-	  && is_reg_dead (ii.get_dst_regno (), index))
+	  && is_reg_dead (ii.get_dst_regno (), index)
+	  && SET_SRC(set)->volatil == 0) // keep reading volatil stuff.
 	{
 	  mask |= (1<<ii.get_dst_regno ());
 

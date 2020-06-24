@@ -3258,7 +3258,7 @@ expand_asm_stmt (gasm *stmt)
 		 tripping over the under-construction body.  */
 	      for (unsigned k = 0; k < noutputs; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, output_rvec[k]))
-		  internal_error ("asm clobber conflict with output operand");
+		  error ("asm clobber conflict with output operand");
 
 /**
  * SBF: Why?

@@ -1438,7 +1438,8 @@ insn_info::scan_rtx (rtx x)
       if (REG_P(dst) || ((GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG) && REG_P(XEXP(dst, 0))))
 	{
 	  def |= use;
-	  if ((GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG))
+	  // word or byte dest is also a use of the dst register.
+	  if (GET_MODE_SIZE(GET_MODE(dst)) < 4  || (GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG))
 	    use |= u;
 	  else
 	    use = u;

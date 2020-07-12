@@ -5094,12 +5094,15 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	}
 
       // 68000 has only support for small offsets if base and index are used.
-      if (!TARGET_68020 && address.offset && address.base && address.index
-	  && (GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x80, 0x80 - GET_MODE_SIZE(GET_MODE(ad)))))
+      if (!TARGET_68020 && address.offset && address.base &&
+	  ( (address.index && (GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x80, 0x80 - GET_MODE_SIZE(GET_MODE(ad)))))
+	  ||(!address.index && (GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x8000, 0x8000 - GET_MODE_SIZE(GET_MODE(ad)))))
+	      ))
 	{
-	  push_reload (XEXP(ad, 0), NULL_RTX, &XEXP(ad, 0), (rtx*) 0,
+	  push_reload (address.index ? XEXP(ad, 0) : ad, NULL_RTX, address.index ? &XEXP(ad, 0) : loc, (rtx*) 0,
 			   ADDR_REGS,
 			   GET_MODE (ad), VOIDmode, 0, 0, opnum, utype);
+	  return -1; // reloaded
 	}
 
       /* SBF: if both indexes are in use we reload the inner mem into an address reg.

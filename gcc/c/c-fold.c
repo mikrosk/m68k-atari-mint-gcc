@@ -591,6 +591,9 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 tree
 decl_constant_value_for_optimization (tree exp)
 {
+#ifdef TARGET_AMIGA
+  return exp;
+#else
   tree ret;
 
   if (!optimize
@@ -606,4 +609,5 @@ decl_constant_value_for_optimization (tree exp)
   if (ret != exp && TREE_STATIC (exp))
     ret = unshare_expr (ret);
   return ret;
+#endif
 }

@@ -1946,6 +1946,10 @@ cp_fold_maybe_rvalue (tree x, bool rval)
       x = cp_fold (x);
       if (rval && DECL_P (x))
 	{
+#ifdef TARGET_AMIGA
+	  if (VAR_P (x))
+	    break;
+#endif
 	  tree v = decl_constant_value (x);
 	  if (v != x && v != error_mark_node)
 	    {

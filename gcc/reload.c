@@ -5052,6 +5052,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       int base_regno = -1;
       int index_regno = -1;
       enum reload_type utype = type == RELOAD_FOR_INPUT ? RELOAD_FOR_INPUT_ADDRESS : type;
+      int fixed = 0;
 
       if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))
 	{
@@ -5062,6 +5063,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 				  GET_CODE (ad),
 				  base_loc, opnum,
 				  utype, 0, insn);
+	  fixed = 1;
 	}
       if (address.code != POST_MODIFY && address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
 	{
@@ -5076,6 +5078,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 				  GET_CODE (ad),
 				  index_loc, opnum,
 				  utype, 0, insn);
+	  fixed = 1;
 	}
 
       if (address.outer_index_loc && !m68k_legitimate_index_reg_p(*address.outer_index_loc, true))
@@ -5091,6 +5094,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 				  GET_CODE (ad),
 				  index_loc, opnum,
 				  utype, 0, insn);
+	  fixed = 1;
 	}
 
       // 68000 has only support for small offsets if base and index are used.
@@ -5139,9 +5143,11 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 		       ADDR_REGS,
 		       GET_MODE (x), VOIDmode, 0, 0, opnum, utype);
 
+	  fixed = 1;
 	}
 
-      return 0;
+      if (fixed)
+	return 0;
     }
 #endif
 

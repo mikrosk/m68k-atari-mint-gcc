@@ -5577,76 +5577,80 @@ namespace
     enum rtx_code code = GET_CODE(*x);
     if (code == SYMBOL_REF)
       {
-	bool ispic = false;
-	section * sec = 0;
 
 	tree decl = SYMBOL_REF_DECL (*x);
-	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && (
-	    !DECL_SECTION_NAME(decl) || 0 == strcmp(".data", DECL_SECTION_NAME(decl)) || 0 == strcmp(".bss", DECL_SECTION_NAME(decl)))
-	)
-	  {
-	    sec = get_variable_section(decl, false);
-	    ispic = (sec->common.flags & 0x200) &&
-		(!decl->base.readonly_flag // SECTION_WRITE;
-	       || 0 == strcmp(".data", DECL_SECTION_NAME(decl)) || 0 == strcmp(".bss", DECL_SECTION_NAME(decl)));
-	  }
+	if (!decl)
+	  return 0;
+
+	// only handle VAR/CONST
+	if (decl->base.code != VAR_DECL && decl->base.code != CONST_DECL)
+	  return 0;
+
+	// a section means: a4 unless the section is ".datachip" ".datafast" ".datafar"
+	char const * secname = DECL_SECTION_NAME(decl);
+	if (secname && (
+	       0 == strcmp(secname, ".datachip")
+	    || 0 == strcmp(secname, ".datafast")
+	    || 0 == strcmp(secname, ".datafar")))
+	  return 0;
+
+	section * sec = get_variable_section(decl, false);
+	if ( (sec->common.flags & SECTION_WRITE) == 0)
+	  return 0;
 
 //	  if (decl)
 //	    printf("%s: %8x %d\n", decl->decl_minimal.name->identifier.id.str, sec ? sec->common.flags : 0, ispic);
 
-	if (ispic)
+	rtx symbol = *x;
+
+	// create the pic_ref expression
+	rtx s = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, *x, GEN_INT (0)),
+					    UNSPEC_RELOC16);
+	s = gen_rtx_CONST (Pmode, s);
+	s = gen_rtx_PLUS (Pmode, a4reg, s);
+	s = gen_rtx_CONST (Pmode, s);
+
+	// try to use it directly.
+	if (!use_tmp)
+	  validate_unshare_change(insn, x, s, 0);
+	else if (!*use_tmp)
+	  *use_tmp |= !validate_unshare_change(insn, x, s, 0);
+
+	// if direct use failed, use a tmp register per symbol
+	if (use_tmp && *use_tmp)
 	  {
-	    rtx symbol = *x;
-
-	    // create the pic_ref expression
-	    rtx s = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, *x, GEN_INT (0)),
-						UNSPEC_RELOC16);
-	    s = gen_rtx_CONST (Pmode, s);
-	    s = gen_rtx_PLUS (Pmode, a4reg, s);
-	    s = gen_rtx_CONST (Pmode, s);
-
-	    // try to use it directly.
-	    if (!use_tmp)
-	      validate_unshare_change(insn, x, s, 0);
-	    else if (!*use_tmp)
-	      *use_tmp |= !validate_unshare_change(insn, x, s, 0);
-
-	    // if direct use failed, use a tmp register per symbol
-	    if (use_tmp && *use_tmp)
+	    rtx r = 0;
+	    for (int i = 0; i < cur_tmp_use; ++i)
 	      {
-		rtx r = 0;
-		for (int i = 0; i < cur_tmp_use; ++i)
+		if (rtx_equal_p(cur_symbol[i], symbol))
 		  {
-		    if (rtx_equal_p(cur_symbol[i], symbol))
-		      {
-		        r = cur_tmp_reg[i];
-			break;
-		      }
+		    r = cur_tmp_reg[i];
+		    break;
 		  }
-		if (!r)
-		  {
-		    r = gen_reg_rtx (Pmode);
-		    rtx set = gen_rtx_SET(r, s);
-		    emit_insn_before(set, insn);
+	      }
+	    if (!r)
+	      {
+		r = gen_reg_rtx (Pmode);
+		rtx set = gen_rtx_SET(r, s);
+		emit_insn_before(set, insn);
 
-		    cur_symbol[cur_tmp_use] = symbol;
-		    cur_tmp_reg[cur_tmp_use] = r;
-		    ++cur_tmp_use;
-		  }
+		cur_symbol[cur_tmp_use] = symbol;
+		cur_tmp_reg[cur_tmp_use] = r;
+		++cur_tmp_use;
+	      }
 
-		// if the change does not validate, poke it hard and pray that it's fixed later on. see maybe_fix()
-		if (!validate_unshare_change(insn, x, r, 0))
-		  {
+	    // if the change does not validate, poke it hard and pray that it's fixed later on. see maybe_fix()
+	    if (!validate_unshare_change(insn, x, r, 0))
+	      {
 //		    fprintf(stderr, "can't convert to baserel: ");
 //		    debug_rtx(insn);
-		    *x = r;
+		*x = r;
 //		    debug_rtx(insn);
-		    return -1;
-		  }
+		return -1;
 	      }
 	  }
 
-	return ispic;
+	return 1;
       }
 
     switch (code)

@@ -5594,6 +5594,10 @@ namespace
 	    || 0 == strcmp(secname, ".datafar")))
 	  return 0;
 
+	// normal constants end up in text.
+	if (secname == 0 && decl->base.readonly_flag)
+	  return false;
+
 	section * sec = get_variable_section(decl, false);
 	if ( (sec->common.flags & SECTION_WRITE) == 0)
 	  return 0;

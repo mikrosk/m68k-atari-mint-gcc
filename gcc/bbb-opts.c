@@ -5581,10 +5581,14 @@ namespace
 	section * sec = 0;
 
 	tree decl = SYMBOL_REF_DECL (*x);
-	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && !(DECL_SECTION_NAME(decl)))
+	if (decl &&  (decl->base.code == VAR_DECL || decl->base.code == CONST_DECL) && (
+	    !DECL_SECTION_NAME(decl) || 0 == strcmp(".data", DECL_SECTION_NAME(decl)) || 0 == strcmp(".bss", DECL_SECTION_NAME(decl)))
+	)
 	  {
 	    sec = get_variable_section(decl, false);
-	    ispic = (sec->common.flags & 0x200) && !decl->base.readonly_flag; // SECTION_WRITE;
+	    ispic = (sec->common.flags & 0x200) &&
+		(!decl->base.readonly_flag // SECTION_WRITE;
+	       || 0 == strcmp(".data", DECL_SECTION_NAME(decl)) || 0 == strcmp(".bss", DECL_SECTION_NAME(decl)));
 	  }
 
 //	  if (decl)

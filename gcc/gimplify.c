@@ -4880,7 +4880,6 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gsi = gsi_last (*pre_p);
   maybe_fold_stmt (&gsi);
 
-
   /* check if a post increment can be reordered...
    * p0: b.0 = b;
    * p1: b = b.0 + 4;
@@ -4890,6 +4889,44 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
    * p2: x = *b.0;
    * p1: b = b.0 + 4;
    */
+  gimple * p2 = gimple_seq_last_stmt(*pre_p);
+  if (p2->code == GIMPLE_ASSIGN)
+    {
+      tree p2lhs = gimple_assign_lhs(p2);
+      if (TREE_CODE(p2lhs) == VAR_DECL)
+	{
+	  tree p2rhs = gimple_assign_rhs1(p2);
+	  if (TREE_CODE(p2rhs) == MEM_REF)
+	    {
+	      tree var = TREE_OPERAND(p2rhs, 0);
+	      if (TREE_CODE(var) == VAR_DECL)
+		{
+		  // search the assignment for this var and move current stmt behind
+		  gimple_stmt_iterator from = gsi_last (*pre_p);
+		  gimple_seq_node next, cur = from.ptr;
+		  for (next = cur->prev; next != from.ptr; next = next->prev)
+		    {
+		      if (next->code == GIMPLE_ASSIGN)
+			{
+			  tree ilhs = gimple_assign_lhs(next);
+			  if (ilhs == var)
+			    {
+			      if (next != cur->prev)
+				{
+				  gimple_stmt_iterator to = from;
+				  to.ptr = next;
+				  gsi_move_after(&from, &to);
+				}
+			      break;
+			    }
+			}
+		    }
+
+		}
+	    }
+	}
+    }
+#if 0
   gimple * p0, *p1, * p2 = gimple_seq_last_stmt(*pre_p);
   if ((p1 = p2->prev) && (p0 = p1->prev)
       && p0->code == GIMPLE_ASSIGN && p1->code == GIMPLE_ASSIGN && p2->code == GIMPLE_ASSIGN)
@@ -4920,7 +4957,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  gimple_seq_set_last (pre_p, p1);
 	}
     }
-
+#endif
   if (want_value)
     {
       *expr_p = TREE_THIS_VOLATILE (*to_p) ? *from_p : unshare_expr (*to_p);

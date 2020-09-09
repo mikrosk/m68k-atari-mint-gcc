@@ -4657,6 +4657,9 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gimple *assign;
   location_t loc = EXPR_LOCATION (*expr_p);
   gimple_stmt_iterator gsi;
+  gimple * last;
+
+  last = gimple_seq_last (*pre_p);
 
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
@@ -4904,12 +4907,23 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  // search the assignment for this var and move current stmt behind
 		  gimple_stmt_iterator from = gsi_last (*pre_p);
 		  gimple_seq_node next, cur = from.ptr;
-		  for (next = cur->prev; next != from.ptr; next = next->prev)
+		  for (next = cur->prev; next != last && next != from.ptr; next = next->prev)
 		    {
 		      if (next->code != GIMPLE_ASSIGN)
 			break;
 
 		      tree ilhs = gimple_assign_lhs(next);
+
+		      // do not move over assignment to the same MEM_REF
+		      if (TREE_CODE(ilhs) == MEM_REF)
+			{
+			  if (ilhs == p2rhs || TREE_OPERAND(ilhs, 0) == TREE_OPERAND(p2rhs, 0))
+			    break;
+			}
+//		      else
+//		     if (TREE_CODE(ilhs) != VAR_DECL)
+//			break;
+
 		      if (ilhs == var)
 			{
 			  if (next != cur->prev)

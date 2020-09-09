@@ -4906,58 +4906,26 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  gimple_seq_node next, cur = from.ptr;
 		  for (next = cur->prev; next != from.ptr; next = next->prev)
 		    {
-		      if (next->code == GIMPLE_ASSIGN)
+		      if (next->code != GIMPLE_ASSIGN)
+			break;
+
+		      tree ilhs = gimple_assign_lhs(next);
+		      if (ilhs == var)
 			{
-			  tree ilhs = gimple_assign_lhs(next);
-			  if (ilhs == var)
+			  if (next != cur->prev)
 			    {
-			      if (next != cur->prev)
-				{
-				  gimple_stmt_iterator to = from;
-				  to.ptr = next;
-				  gsi_move_after(&from, &to);
-				}
-			      break;
+			      gimple_stmt_iterator to = from;
+			      to.ptr = next;
+			      gsi_move_after(&from, &to);
 			    }
+			  break;
 			}
 		    }
-
 		}
 	    }
 	}
     }
-#if 0
-  gimple * p0, *p1, * p2 = gimple_seq_last_stmt(*pre_p);
-  if ((p1 = p2->prev) && (p0 = p1->prev)
-      && p0->code == GIMPLE_ASSIGN && p1->code == GIMPLE_ASSIGN && p2->code == GIMPLE_ASSIGN)
-    {
-      tree p0lhs = gimple_assign_lhs(p0);
-      tree p0rhs = gimple_assign_rhs1(p0);
-      tree p1lhs = gimple_assign_lhs(p1);
-      tree p1rhs = gimple_assign_rhs1(p1);
-      tree p2lhs = gimple_assign_lhs(p2);
-      tree p2rhs = gimple_assign_rhs1(p2);
 
-      if (p1lhs == p0rhs /* b == b */
-	  && gimple_assign_rhs_code (p1) == POINTER_PLUS_EXPR /* b.0 + 4 */
-	  && p1rhs == p0lhs /* b.0 == b.0 */
-	  && TREE_CODE(p2rhs) == MEM_REF /* *b.0 */
-	  && TREE_OPERAND(p2rhs, 0) == p0lhs /* b.0 == b.0 */
-	  && TREE_OPERAND(p2rhs, 0) != p1lhs /* b.0 != b */
-	  )
-	{
-	  /* modify order */
-	  p0->next = p2;
-	  p1->next = p2->next;
-	  p2->next = p1;
-	  p2->prev = p0;
-	  p1->prev = p2;
-	  if (p1->next)
-	    p1->next->prev = p1;
-	  gimple_seq_set_last (pre_p, p1);
-	}
-    }
-#endif
   if (want_value)
     {
       *expr_p = TREE_THIS_VOLATILE (*to_p) ? *from_p : unshare_expr (*to_p);

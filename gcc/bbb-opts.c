@@ -2604,10 +2604,10 @@ opt_reg_rename (void)
       /* get the mask for free registers. */
       unsigned mask = ii.get_free_mask ();
 
-      /* the mask contains the current src register.
+      /* If it's a full register assignment, add the source register.
        * Add this register anyway and track it's modification too. */
       unsigned reusemask = 0;
-      if (ii.get_src_reg () && ii.get_mode() == SImode)
+      if (ii.is_src_reg() && ii.get_mode() == SImode)
         mask |= reusemask = 1 << ii.get_src_regno ();
 
       mask &= usable_regs;
@@ -2744,10 +2744,10 @@ opt_reg_rename (void)
 
 	      /* update free regs. */
 	      mask &= ~jj.get_use ();
-	      mask &= ~jj.get_def ();
-	      mask &= ~jj.get_multi_reg();
 	      /* add the reused reg again. */
 	      mask |= reusemask;
+	      mask &= ~jj.get_def ();
+	      mask &= ~jj.get_multi_reg();
 	      if (!mask)
 		break;
 

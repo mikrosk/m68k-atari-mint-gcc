@@ -1113,9 +1113,9 @@ public:
   inline bool
   contains (insn_info const & o) const
   {
-    if (o.def8 & ~def8)
+    if ((o.def8|o.def16|o.def32) & ~(def8|def16|def32))
       return false;
-    if (o.use8 & ~use8)
+    if ((o.use8|o.use16|o.use32) & ~(use8|use16|use32))
       return false;
     if (o.hard & ~hard)
       return false;

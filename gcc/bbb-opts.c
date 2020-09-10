@@ -2604,9 +2604,11 @@ opt_reg_rename (void)
       /* get the mask for free registers. */
       unsigned mask = ii.get_free_mask ();
 
-      /* the mask contains the current src register. Add this register to the mask if it's dead here. */
-      if (ii.get_src_reg () && is_reg_dead (ii.get_src_regno (), index))
-        mask |= 1 << ii.get_src_regno ();
+      /* the mask contains the current src register.
+       * Add this register anyway and track it's modification too. */
+      unsigned reusemask = 0;
+      if (ii.get_src_reg () && ii.get_mode() == SImode)
+        mask |= reusemask = 1 << ii.get_src_regno ();
 
       mask &= usable_regs;
 
@@ -2707,6 +2709,24 @@ opt_reg_rename (void)
 		  break;
 		}
 
+	      // if a register is reused in a tail rename
+	      // check for modifications
+	      if (reusemask)
+		{
+		  if (jj.get_def() & reusemask)
+		    {
+		      // the reused is modified - tail rename not possible
+		      mask &= ~reusemask;
+		      reusemask = 0;
+		    }
+		  else if ((jj.get_def() & rename_regbit) && (jj.get_use() & reusemask))
+		    {
+		      // if the register is modified, the reused reg must be dead
+		      mask &= ~reusemask;
+		      reusemask = 0;
+		    }
+		}
+
 	      /* not used. and not a def */
 	      if (pos == runpos && (jj.get_def () & rename_regbit))
 		{
@@ -2726,6 +2746,8 @@ opt_reg_rename (void)
 	      mask &= ~jj.get_use ();
 	      mask &= ~jj.get_def ();
 	      mask &= ~jj.get_multi_reg();
+	      /* add the reused reg again. */
+	      mask |= reusemask;
 	      if (!mask)
 		break;
 

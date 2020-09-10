@@ -488,7 +488,7 @@ public:
 
   /* only keep common values in both sides. */
   void
-  merge (track_var * o, unsigned)
+  merge (track_var * o, unsigned index)
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
@@ -523,11 +523,12 @@ class insn_info
 {
   rtx_insn * insn; // the insn
 
-// usage flags
-  unsigned myuse;  // bit set if registers are used in this statement
+// usage flags - 32 sets also 16,8; 16 sets also 8.
+  unsigned myuse8, myuse16, myuse32;  // bit set if registers are used in this statement
+  unsigned use8, use16, use32;        // bit set if registers are used in program flow
+  unsigned def8, def16, def32;        // bit set if registers are defined here
+
   unsigned hard; // bit set if registers can't be renamed
-  unsigned use;  // bit set if registers are used in program flow
-  unsigned def;  // bit set if registers are defined here
 
   enum proepis proepi;
 
@@ -573,10 +574,12 @@ class insn_info
 
 public:
   insn_info (rtx_insn * i = 0, enum proepis p = IN_CODE) :
-      insn (i), myuse (0), hard (0), use (0), def (0), proepi (p), stack (false), label (false), jump (false), call (
-	  false), compare (false), dst_mem (false), src_mem (false), dst_plus (false), src_plus (false), src_op (
-	  (rtx_code) 0), src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode), dst_reg (0), dst_mem_reg (
-	  0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
+      insn (i), myuse8 (0), myuse16 (0), myuse32 (0),
+      use8 (0), use16(0), use32(0),
+      def8 (0), def16(0), def32(0),
+      hard (0), proepi (p), stack (false), label (false), jump (false), call (false), compare (false), dst_mem (false), src_mem (false),
+      dst_plus (false), src_plus (false), src_op ((rtx_code) 0),  src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode),
+      dst_reg (0), dst_mem_reg (0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
 	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
   {
   }
@@ -834,10 +837,16 @@ public:
   void
   update (insn_info & o)
   {
-    myuse = o.myuse;
+    myuse8 = o.myuse8;
+    myuse16 = o.myuse16;
+    myuse32 = o.myuse32;
+    use8 = o.use8;
+    use16 = o.use16;
+    use32 = o.use32;
+    def8 = o.def8;
+    def16 = o.def16;
+    def32 = o.def32;
     hard = o.hard;
-    use = o.use;
-    def = o.def;
     multi_reg = o.multi_reg;
   }
 
@@ -917,26 +926,37 @@ public:
   inline bool
   is_empty ()
   {
-    return !def && !use && !hard;
+    return !def8 && !use8 && !hard;
   }
 
+  /** mark usage here as 32 bit. */
   inline void
   mark_myuse (int regno)
   {
-    myuse |= 1 << regno;
-    use |= 1 << regno;
+    myuse8 |= 1 << regno;
+    myuse16 |= 1 << regno;
+    myuse32 |= 1 << regno;
+    use8 |= 1 << regno;
+    use16 |= 1 << regno;
+    use32 |= 1 << regno;
   }
 
+  /** mark usage as 32 bit. */
   inline void
   mark_use (int regno)
   {
-    use |= 1 << regno;
+    use8 |= 1 << regno;
+    use16 |= 1 << regno;
+    use32 |= 1 << regno;
   }
 
+  /** mark def as 32 bit. */
   inline void
   mark_def (int regno)
   {
-    def |= 1 << regno;
+    def8 |= 1 << regno;
+    def16 |= 1 << regno;
+    def32 |= 1 << regno;
   }
 
   inline void
@@ -945,48 +965,46 @@ public:
     hard |= 1 << regno;
   }
 
+  /** clear usage of full register. */
   inline void
   unset (int regno)
   {
-    use &= ~(1 << regno);
-    def &= ~(1 << regno);
+    use8 &= ~(1 << regno);
+    use16 &= ~(1 << regno);
+    use32 &= ~(1 << regno);
+    def8 &= ~(1 << regno);
+    def16 &= ~(1 << regno);
+    def32 &= ~(1 << regno);
     hard &= ~(1 << regno);
   }
 
+  /** a register is used if at least a byte is read. */
   inline unsigned
   get_use () const
   {
-    return use;
+    return use8 | use16 | use32;
   }
 
   inline void
-  set_use (unsigned u)
+  copy_use (const insn_info & u)
   {
-    use = u;
+    use8 = u.use8;
+    use16 = u.use16;
+    use32 = u.use32;
   }
 
+  /** a register is used if at least a byte is read. */
   inline unsigned
   get_myuse () const
   {
-    return myuse;
+    return myuse8 | myuse16 | myuse32;
   }
 
-  inline void
-  set_myuse (unsigned u)
-  {
-    myuse = u;
-  }
-
+  /** a register is defined if at least a byte is set. */
   inline unsigned
   get_def () const
   {
-    return def;
-  }
-
-  inline void
-  set_def(unsigned u)
-  {
-    def = u;
+    return def8;
   }
 
   inline unsigned
@@ -998,19 +1016,19 @@ public:
   inline bool
   is_use (int regno)
   {
-    return (use & (1 << regno)) != 0;
+    return ((use8 | use16 | use32) & (1 << regno)) != 0;
   }
 
   inline bool
   is_myuse (int regno)
   {
-    return (myuse & (1 << regno)) != 0;
+    return ((myuse8 | myuse16 | myuse32) & (1 << regno)) != 0;
   }
 
   inline bool
   is_def (int regno)
   {
-    return (def & (1 << regno)) != 0;
+    return (def8 & (1 << regno)) != 0;
   }
 
   inline bool
@@ -1023,7 +1041,9 @@ public:
   clear_hard_def ()
   {
     hard = 0;
-    def = 0;
+    def8 = 0;
+    def16 = 0;
+    def32 = 0;
   }
 
   /*
@@ -1036,17 +1056,30 @@ public:
   inline void
   updateWith (insn_info const & o)
   {
-    use &= ~o.def;
-    use |= o.use;
-    def = 0;
+    use8 &= ~o.def8;
+    use8 |= o.use8;
+    def8 = 0;
+    use16 &= ~o.def16;
+    use16 |= o.use16;
+    def16 = 0;
+    use32 &= ~o.def32;
+    use32 |= o.use32;
+    def32 = 0;
   }
 
   inline insn_info &
   merge (insn_info const & o)
   {
-    myuse = o.myuse;
-    use = (use & ~o.def) | o.use;
-    def |= o.def;
+    myuse8  = o.myuse8;
+    myuse16 = o.myuse16;
+    myuse32 = o.myuse32;
+    use8  = (use8 & ~o.def8) | o.use8;
+    use16 = (use16 & ~o.def16) | o.use16;
+    use32 = (use32 & ~o.def32) | o.use32;
+    def8  |= o.def8;
+    def16 |= o.def16;
+    def32 |= o.def32;
+
     hard |= o.hard;
     multi_reg = o.multi_reg;
     return *this;
@@ -1055,37 +1088,34 @@ public:
   inline insn_info &
   or_def (insn_info const & o)
   {
-    def |= o.def;
-    return *this;
-  }
-
-  inline insn_info &
-  drop_def ()
-  {
-    use &= ~def;
+    def8  |= o.def8;
+    def16 |= o.def16;
+    def32 |= o.def32;
     return *this;
   }
 
   inline insn_info &
   make_hard ()
   {
-    hard = use | def;
+    hard = use8 | def8;
     return *this;
   }
 
   inline insn_info &
-  make_clobber ()
+  make_clobber (machine_mode mode)
   {
-    hard = use = def = use | def;
+    hard = use8 = def8 = use8 | def8;
+    use16 = def16 = use16 | def16;
+    use32 = def32 = use32 | def32;
     return *this;
   }
 
   inline bool
   contains (insn_info const & o) const
   {
-    if (o.def & ~def)
+    if (o.def8 & ~def8)
       return false;
-    if (o.use & ~use)
+    if (o.use8 & ~use8)
       return false;
     if (o.hard & ~hard)
       return false;
@@ -1141,25 +1171,25 @@ public:
   unsigned
   get_free_mask () const
   {
-    if (def & hard)
+    if (def8 & hard)
       return 0;
 
-    if (!def)
+    if (!def8)
       return 0;
 
-    unsigned def_no_cc = def & ~(1 << FIRST_PSEUDO_REGISTER);
+    unsigned def_no_cc = def8 & ~(1 << FIRST_PSEUDO_REGISTER);
     if (def_no_cc > 0x4000)
       return 0;
 
     unsigned mask = def_no_cc - 1;
     /* more than one register -> don't touch. */
-    if ((mask & ~def) != mask)
+    if ((mask & ~def8) != mask)
       return 0;
 
     if (def_no_cc > 0xff)
       mask &= 0xff00;
 
-    return mask & ~use;
+    return mask & ~(use8|use16|use32);
   }
 
   unsigned
@@ -1167,7 +1197,7 @@ public:
   {
     if (GET_MODE_SIZE(mode) > 4)
       return 0;
-    return def & ~hard & ~use & 0x7fff;
+    return (def8|def16|def32) & ~hard & ~(use8|use16|use32) & 0x7fff;
   }
 
   void
@@ -1398,7 +1428,7 @@ insn_info::scan ()
       mark_def (16);
       mark_def (17);
       /* also mark all registers as not renamable */
-      hard = use;
+      hard = use8;
     }
   scan_rtx (pattern);
 }
@@ -1407,15 +1437,37 @@ insn_info::scan ()
 void
 insn_info::scan_rtx (rtx x)
 {
-  if (REG_P(x))
+  if (REG_P(x) || ((GET_CODE(x) == STRICT_LOW_PART || GET_CODE(x) == SUBREG) && REG_P(XEXP(x, 0))))
     {
+      if (!REG_P(x))
+        x = XEXP(x, 0);
+        
+      int msize = GET_MODE_SIZE(GET_MODE(x));
       int n0 = REG_NREGS(x);
-      for (int n = n0, r = REGNO(x); n > 0; --n, ++r)
+      if (n0 > 1)
 	{
-	  mark_myuse (r);
-	  if (n0 > 1)
-	    multi_reg |= 1<<r;
+	  for (int n = n0, r = REGNO(x); n > 0; --n, ++r)
+	    {
+	      mark_myuse (r);
+	      multi_reg |= 1<<r;
+	    }
 	}
+      else
+	{
+	  unsigned regno = REGNO(x);
+	  myuse8 |= 1 << regno;
+	  use8 |= 1 << regno;
+	  if (msize > 1)
+	    {
+	      myuse16 |= 1 << regno;
+	      use16 |= 1 << regno;
+	      if (msize > 2)
+		{
+		  myuse32 |= 1 << regno;
+		  use32 |= 1 << regno;
+		}
+	    }
+      }
       return;
     }
 
@@ -1430,38 +1482,55 @@ insn_info::scan_rtx (rtx x)
   /* handle SET and record use and def. */
   if (code == SET)
     {
-      unsigned u = use;
-      unsigned mu = myuse;
-      use = myuse = 0;
+      unsigned u8 = use8;
+      unsigned u16 = use16;
+      unsigned u32 = use32;
+      unsigned mu8 = myuse8;
+      unsigned mu16 = myuse16;
+      unsigned mu32 = myuse32;
+      use8  = myuse8 = 0;
+      use16 = myuse16 = 0;
+      use32 = myuse32 = 0;
       rtx dst = SET_DEST(x);
       scan_rtx (dst);
       if (REG_P(dst) || ((GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG) && REG_P(XEXP(dst, 0))))
 	{
-	  def |= use;
-	  // word or byte dest is also a use of the dst register.
-	  if (GET_MODE_SIZE(GET_MODE(dst)) < 4  || (GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG))
-	    use |= u;
-	  else
-	    use = u;
-	  myuse = mu;
+
+	  def8  |= use8;
+	  def16 |= use16;
+	  def32 |= use32;
+
+	  use8  = u8;
+	  myuse8  = mu8;
+      use16 = u16;
+      myuse16 = mu16;
+      use32 = u32;
+      myuse32 = mu32;
 	}
 
       // avoid side effects from myuse -> def, e.g. adding the dst reg to def by src auto inc
-      mu = myuse;
-      myuse = 0;
+      mu8 = myuse8;
+      mu16 = myuse16;
+      mu32 = myuse32;
+      myuse8 = 0;
+      myuse16 = 0;
+      myuse32 = 0;
+      // this updates myuse8/16/32
       scan_rtx (SET_SRC(x));
-      myuse |= mu;
+      myuse8  |= mu8;
+      myuse16 |= mu16;
+      myuse32 |= mu32;
 
       int code = GET_CODE(SET_SRC(x));
       if (code == ASM_OPERANDS)
-	hard |= def | use;
+	hard |= def8 | use8 | use16 | use32;
       return;
     }
 
   if (code == TRAP_IF)
     {
       /* mark all registers used. */
-      hard = use = myuse = (1 << FIRST_PSEUDO_REGISTER) - 1;
+      hard = use8 = myuse8 = use16 = myuse16 = use32 = myuse32 = (1 << FIRST_PSEUDO_REGISTER) - 1;
       return;
     }
 
@@ -1473,24 +1542,36 @@ insn_info::scan_rtx (rtx x)
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  {
-	    unsigned u = use;
-	    unsigned mu = myuse;
-	    unsigned d = def;
+	    unsigned u8  = use8;
+	    unsigned u16 = use16;
+	    unsigned u32 = use32;
+	    unsigned mu8  = myuse8;
+	    unsigned mu16 = myuse16;
+	    unsigned mu32 = myuse32;
+	    unsigned d8  = def8;
+	    unsigned d16 = def16;
+	    unsigned d32 = def32;
 	    unsigned mr = multi_reg;
 	    scan_rtx (XVECEXP(x, i, j));
-	    use |= u;
-	    myuse |= mu;
-	    def |= d;
+	    use8  |= u8;
+	    use16 |= u16;
+	    use32 |= u32;
+	    myuse8  |= mu8;
+	    myuse16 |= mu16;
+	    myuse32 |= mu32;
+	    def8  |= d8;
+	    def16 |= d16;
+	    def32 |= d32;
 	    multi_reg |= mr;
-	    if ((def - 1) & def)
-	      multi_reg |= def;
+	    if ((def8 - 1) & def8)
+	      multi_reg |= def8;
 	  }
     }
 
   if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
-    def |= myuse;
+    {  def8 |= myuse8; def16 |= myuse16; def32 |= myuse32;}
   if (code == CLOBBER)
-    multi_reg |= def;
+    multi_reg |= def8;
 }
 
 void
@@ -2155,7 +2236,10 @@ update_insn_infos (void)
 
       // mark sp reg as used.
       if (proepi >= IN_EPILOGUE)
-	ii.mark_use (STACK_POINTER_REGNUM), infos[start].mark_use (STACK_POINTER_REGNUM);
+	{
+	  ii.mark_use (STACK_POINTER_REGNUM);
+	  infos[start].mark_use (STACK_POINTER_REGNUM);
+	}
 
       for (int pos = start; pos >= 0; --pos)
 	{
@@ -2241,7 +2325,7 @@ update_insn_infos (void)
 	    }
 	  else if (GET_CODE (pattern) == USE || GET_CODE (pattern) == CLOBBER)
 	    {
-	      use.make_clobber ();
+	      use.make_clobber (GET_MODE(XEXP(pattern, 0)));
 	    }
 	  else if (single_set (insn) == 0)
 	    use.make_hard ();
@@ -2522,7 +2606,7 @@ opt_reg_rename (void)
 
       /* the mask contains the current src register. Add this register to the mask if it's dead here. */
       if (ii.get_src_reg () && is_reg_dead (ii.get_src_regno (), index))
-        mask |= ii.get_use ();
+        mask |= 1 << ii.get_src_regno ();
 
       mask &= usable_regs;
 
@@ -4464,9 +4548,9 @@ opt_elim_dead_assign (int blocked_regno)
 	{
 	  if (blocked_regno == FIRST_PSEUDO_REGISTER && ii.get_dst_reg())
 	    {
-	      unsigned mask = ii.get_track_var()->getMask(ii.get_dst_regno());
-	      if (mask != 0xffffffff)
-		add_reg_note(ii.get_insn(), REG_BIT_MASK, gen_rtx_CONST_INT (SImode, mask));
+	      unsigned lmask = ii.get_track_var()->getMask(ii.get_dst_regno());
+	      if (lmask != 0xffffffff)
+		add_reg_note(ii.get_insn(), REG_BIT_MASK, gen_rtx_CONST_INT (SImode, lmask));
 	    }
 	  continue;
 	}
@@ -4568,7 +4652,7 @@ opt_elim_dead_assign (int blocked_regno)
 	      continue;
 	    }
 
-	  if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(16, index))
+	  if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(FIRST_PSEUDO_REGISTER, index))
 	    {
 	      log ("(e) %d: eliminate self load of %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      SET_INSN_DELETED(insn);
@@ -4746,7 +4830,6 @@ opt_absolute (void)
 	  else
 	    log ("(b) modifying %d absolute addresses using %s\n", found.size (), reg_names[regno]);
 
-	  unsigned current_use = ii.get_use ();
 
 	  for (std::vector<unsigned>::iterator k = found.begin (); k != found.end (); ++k)
 	    {
@@ -4771,7 +4854,7 @@ opt_absolute (void)
 	    lea = gen_rtx_SET(gen_raw_REG (SImode, regno), gen_rtx_CONST_INT (SImode, base));
 	  rtx_insn * insn = emit_insn_before (lea, ii.get_insn ());
 	  insn_info nn (insn);
-	  nn.set_use (current_use);
+	  nn.copy_use (ii);
 	  nn.scan ();
 	  nn.fledder (lea);
 	  nn.mark_def (regno);

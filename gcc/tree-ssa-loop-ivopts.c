@@ -5105,7 +5105,8 @@ determine_use_iv_cost_generic (struct ivopts_data *data,
                                NULL, &inv_expr_id);
 
   // not simple...
-  ++cost.cost;
+  if (!infinite_cost_p (cost))
+    ++cost.cost;
 
   set_use_iv_cost (data, use, cand, cost, depends_on, NULL_TREE, ERROR_MARK,
                    inv_expr_id);

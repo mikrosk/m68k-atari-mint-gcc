@@ -2885,6 +2885,7 @@ add_candidate_1 (struct ivopts_data *data,
 	{
 	  cand->var_before = create_tmp_var_raw (TREE_TYPE (base), "ivtmp");
 	  cand->var_after = cand->var_before;
+	  ++ cand->cost;
 	}
       cand->important = important;
       cand->incremented_at = incremented_at;
@@ -5102,6 +5103,9 @@ determine_use_iv_cost_generic (struct ivopts_data *data,
 
   cost = get_computation_cost (data, use, cand, false, &depends_on,
                                NULL, &inv_expr_id);
+
+  // not simple...
+  ++cost.cost;
 
   set_use_iv_cost (data, use, cand, cost, depends_on, NULL_TREE, ERROR_MARK,
                    inv_expr_id);

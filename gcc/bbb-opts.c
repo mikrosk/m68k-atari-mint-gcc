@@ -1889,7 +1889,6 @@ insn_info::swap_adds (rtx_insn * newinsn, insn_info & ii)
 // usage flags did not change
 }
 
-static
 void
 replace_reg (rtx x, unsigned regno, rtx newreg, int offset)
 {

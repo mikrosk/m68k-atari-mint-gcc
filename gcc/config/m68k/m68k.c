@@ -665,7 +665,7 @@ m68k_option_override (void)
     {
       m68k_symbolic_call_var = M68K_SYMBOLIC_CALL_JSR;
 #ifndef TARGET_AMIGAOS_VASM
-      m68k_symbolic_jump = "jbra %a0";
+      m68k_symbolic_jump = flag_pic ? "jbra %a0" : "jra %a0";
 #else
       m68k_symbolic_jump = "jmp %a0";
 #endif
@@ -696,7 +696,7 @@ m68k_option_override (void)
   switch (m68k_symbolic_call_var)
     {
     case M68K_SYMBOLIC_CALL_JSR:
-      m68k_symbolic_call = "jbsr %a0";
+      m68k_symbolic_call = flag_pic ? "jbsr %a0" : "jsr %a0";
       break;
 
     case M68K_SYMBOLIC_CALL_BSR_C:
@@ -5684,7 +5684,7 @@ output_call (rtx x)
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_call;
   else
-    return "jbsr %a0";
+    return flag_pic ? "jbsr %a0" : "jsr %a0";
 }
 
 /* Likewise sibling calls.  */
@@ -5695,7 +5695,7 @@ output_sibcall (rtx x)
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_jump;
   else
-    return "jbra %a0";
+    return flag_pic ? "jbra %a0" : "jra %a0";
 }
 
 static void

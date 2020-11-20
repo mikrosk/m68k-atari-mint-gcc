@@ -2321,6 +2321,12 @@ update_insn_infos (void)
 		      break;
 		    }
 		}
+	      if (ANY_RETURN_P(PATTERN (insn)))
+		{
+		  for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
+		    if (global_regs[i])
+		      use.mark_hard(i);
+		}
 	    }
 	  else if (GET_CODE (pattern) == USE || GET_CODE (pattern) == CLOBBER)
 	    {

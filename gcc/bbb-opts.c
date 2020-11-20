@@ -1430,7 +1430,7 @@ insn_info::scan ()
       /* also mark all registers as not renamable */
       hard = use8;
     }
-  if (CALL_P(insn) || ANY_RETURN_P(insn))
+  if (CALL_P(insn) || ANY_RETURN_P(pattern))
     {
       for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
 	if (global_regs[i])

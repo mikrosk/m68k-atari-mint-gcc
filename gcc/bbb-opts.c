@@ -1097,7 +1097,7 @@ public:
   inline insn_info &
   make_hard ()
   {
-    hard = use8 | def8;
+    hard |= use8 | def8;
     return *this;
   }
 
@@ -1429,6 +1429,15 @@ insn_info::scan ()
       mark_def (17);
       /* also mark all registers as not renamable */
       hard = use8;
+    }
+  if (CALL_P(insn) || ANY_RETURN_P(insn))
+    {
+      for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
+	if (global_regs[i])
+	  {
+	    mark_hard (i);
+	    mark_myuse(i);
+	  }
     }
   scan_rtx (pattern);
 }
@@ -2320,12 +2329,6 @@ update_insn_infos (void)
 		      pp.clear_visited ();
 		      break;
 		    }
-		}
-	      if (ANY_RETURN_P(PATTERN (insn)))
-		{
-		  for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
-		    if (global_regs[i])
-		      use.mark_hard(i);
 		}
 	    }
 	  else if (GET_CODE (pattern) == USE || GET_CODE (pattern) == CLOBBER)

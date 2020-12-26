@@ -28,6 +28,7 @@ Once it knows which kind of compilation to perform, the procedure for
 compilation is specified by a string called a "spec".  */
 
 #include "config.h"
+#include "configargs.h"
 #include "system.h"
 #include "coretypes.h"
 #include "multilib.h" /* before tm.h */
@@ -206,9 +207,6 @@ int is_cpp_driver;
 
 /* Flag set to nonzero if an @file argument has been supplied to gcc.  */
 static bool at_file_supplied;
-
-/* Definition of string containing the arguments given to configure.  */
-#include "configargs.h"
 
 /* Flag saying to print the command line options understood by gcc and its
    sub-processes.  */

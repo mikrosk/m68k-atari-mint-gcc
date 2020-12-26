@@ -283,6 +283,8 @@ amiga_declare_object = 0
     } \
       if (flag_resident) \
     builtin_define ("__resident__"); \
+      if (__POSIX_THREADS__) \
+    builtin_define ("__posix_threads__"); \
     } \
   while (0)
 
@@ -465,6 +467,12 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "-lc " \
   "-lstubs "
 
+#if __POSIX_THREADS__
+#define __LPTHREAD__ "-lpthread "
+#else
+#define __LPTHREAD__   "%{pthread:-lpthread} %{lpthread:-lpthread } "
+#endif
+
 #ifdef TARGET_AMIGAOS_VASM
 #define LIB_SPEC \
   "-lvc -lamiga "
@@ -477,8 +485,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=clib2:%(lib_clib2)} " \
   "%{!mcrt=*:%{!noixemul:%(lib_newlib)}} " \
   "-lamiga -lgcc "\
-  "%{pthread:-lpthread} "\
-  "%{lpthread:-lpthread } "\
+  __LPTHREAD__ \
   "%{lm:-lm -l__m__ } "\
   "-) "
 #endif
@@ -653,6 +660,10 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
+#ifndef CROSS_INCLUDE_DIR
+#define CROSS_INCLUDE_DIR "m68k-amigaos/sys-include"
+#endif
+
 #undef FIXED_INCLUDE_DIR
 #define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../ndk-include"
 
@@ -757,3 +768,31 @@ amigaos_function_arg_reg(unsigned regno);
 
 
 #define DOUBLE_INDIRECT_JUMP 1
+#if 0
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
+/* This is how we tell the assembler that a symbol is weak.  */
+#define ASM_WEAKEN_LABEL(FILE, NAME)	\
+  do					\
+    {					\
+      fputs ("\t.weak\t", (FILE));	\
+      assemble_name ((FILE), (NAME));	\
+      fputc ('\n', (FILE));		\
+    }					\
+  while (0)
+
+#undef  SET_ASM_OP
+#define SET_ASM_OP	"\t.set\t"
+
+/* Output a definition (implements alias) */
+#define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
+do									\
+{									\
+    fputs (SET_ASM_OP, (FILE));						\
+    assemble_name (FILE, LABEL1);					\
+    fputc (',', (FILE));						\
+    assemble_name (FILE, LABEL2);					\
+    fputc ('\n', (FILE));						\
+    }									\
+while (0)
+#endif

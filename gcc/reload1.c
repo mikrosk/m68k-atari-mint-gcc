@@ -3405,6 +3405,13 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 		  }
 	      }
 
+	    /* SBF: there can't be assignments to the FRAME_POINTER - keep it. */
+	    if (ep->from == FRAME_POINTER_REGNUM && !frame_pointer_needed)
+	      {
+		warning_for_asm (insn, "keeping assignment to %s", reg_names[FRAME_POINTER_REGNUM]);
+		goto done;
+	      }
+
 	    /* In this case this insn isn't serving a useful purpose.  We
 	       will delete it in reload_as_needed once we know that this
 	       elimination is, in fact, being done.

@@ -2432,16 +2432,16 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	  if (!m68k_legitimate_base_reg_p(address->base, strict_p))
 	    {
 	      if (ap->index_loc && ap->scale == 1 && m68k_legitimate_base_reg_p(*ap->index_loc, strict_p))
-		{
-		  // swap
-		  address->base_loc = ap->index_loc;
-		  address->base = *ap->index_loc;
+		    {
+		      // swap
+		      address->base_loc = ap->index_loc;
+		      address->base = *ap->index_loc;
 
-		  ap->index_loc = ap->base_loc;
+		      ap->index_loc = ap->base_loc;
+		    }
+		  else
+		    r = false;
 		}
-	      else
-		r = false;
-	    }
 	}
       if (ap->index_loc)
 	{
@@ -2452,6 +2452,16 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
 	}
       address->offset = ap->offset;
     }
+
+    // force use of a single address register.
+    if (address->index && address->scale == 1 && !address->base)
+      {
+	address->base = address->index;
+	address->base_loc = address->index_loc;
+
+	address->index = 0;
+	address->index_loc = 0;
+      }
 
 //  static int nnn;
 //  fprintf(stderr, "%08d %d ", ++nnn, r);

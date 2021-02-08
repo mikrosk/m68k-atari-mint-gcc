@@ -1014,9 +1014,15 @@ public:
   }
 
   inline bool
-  is_use (int regno)
+  is_use (int regno) const
   {
     return ((use8 | use16 | use32) & (1 << regno)) != 0;
+  }
+
+  inline int
+  getX(int regno) const
+  {
+    return ((use8 & (1 << regno)) ? 1 : 0) + ((use16 & (1 << regno)) ? 2 : 0) + ((use32 & (1 << regno)) ? 4 : 0);
   }
 
   inline bool
@@ -1113,9 +1119,17 @@ public:
   inline bool
   contains (insn_info const & o) const
   {
-    if ((o.def8|o.def16|o.def32) & ~(def8|def16|def32))
+    if ((o.def8) & ~(def8))
       return false;
-    if ((o.use8|o.use16|o.use32) & ~(use8|use16|use32))
+    if ((o.def16) & ~(def16))
+      return false;
+    if ((o.def32) & ~(def32))
+      return false;
+    if ((o.use8) & ~(use8))
+      return false;
+    if ((o.use16) & ~(use16))
+      return false;
+    if ((o.use32) & ~(use32))
       return false;
     if (o.hard & ~hard)
       return false;
@@ -1543,6 +1557,9 @@ insn_info::scan_rtx (rtx x)
       return;
     }
 
+  unsigned prevu16 = use16;
+  unsigned prevu32 = use32;
+
   const char *fmt = GET_RTX_FORMAT(code);
   for (int i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
@@ -1576,6 +1593,31 @@ insn_info::scan_rtx (rtx x)
 	      multi_reg |= def8;
 	  }
     }
+
+  /* handle
+   * AND.W (REG 255)
+   * AND.L (REG 255)
+   * AND.L (REG 65535)
+   * to reduce the use
+   */
+  if (code == AND && REG_P (XEXP (x, 0)) && CONST_INT_P (XEXP (x, 1)))
+    {
+      unsigned regno = REGNO (XEXP (x, 0));
+      unsigned val = INTVAL (XEXP (x, 1));
+      if (val <= 0xff)
+	{
+	  myuse32 &= ~(1<<regno);
+	  use32 = prevu32 | myuse32;
+	  myuse16 &= ~(1<<regno);
+	  use16 = prevu16 | myuse16;
+	}
+      else if (val <= 0xffff)
+	{
+	  myuse32 &= ~(1<<regno);
+	  use32 = prevu32 | myuse32;
+	}
+    }
+
 
   if (code == POST_INC || code == PRE_DEC || code == CLOBBER)
     {  def8 |= myuse8; def16 |= myuse16; def32 |= myuse32;}
@@ -2142,7 +2184,8 @@ append_reg_usage (FILE * f, rtx_insn * insn)
       {
 	fprintf (f, ii.is_hard (j) ? "!" : " ");
 	fprintf (f, ii.is_def (j) ? ii.is_use (j) ? "*" : "+" : ii.is_myuse (j) ? "." : " ");
-	fprintf (f, "d%d ", j);
+	fprintf (f, "%d", ii.getX(j));
+	fprintf (f, "d%d", j);
       }
     else
       fprintf (f, "     ");
@@ -4543,8 +4586,10 @@ track_regs ()
 	      continue;
 	    }
 
-	  // operation, autoinf or more than one register used: can't cache
-	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))
+	  // auto increment
+	  // WHY? or more than one register used: can't cache
+	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ())
+	      )
 	    continue;
 
 	  rtx src = SET_SRC(set);
@@ -4646,13 +4691,14 @@ opt_elim_dead_assign (int blocked_regno)
 		   index, reg_names[ii.get_dst_regno ()], lmask, nmask);
 	      SET_INSN_DELETED(insn);
 	      ++change_count;
+	      mask |= 1<<ii.get_dst_regno ();
 	    }
 	  continue;
 	}
-
+	
       if (mask & (1<<ii.get_dst_regno ()))
 	continue;
-
+	
       if (REG_NREGS(ii.get_dst_reg ()) == 1
 	  && is_reg_dead (ii.get_dst_regno (), index)
 	  && SET_SRC(set)->volatil == 0) // keep reading volatil stuff.
@@ -4666,55 +4712,86 @@ opt_elim_dead_assign (int blocked_regno)
 	}
 
       // check for redundant load
-      if (ii.get_src_op () == 0 && ii.get_dst_reg ()
-	  && (!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ()))
+      if (ii.get_src_op () == 0 && ii.get_dst_reg ())
 	{
 	  track_var * track = ii.get_track_var ();
-
 	  rtx src = SET_SRC(set);
-	  if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
+
+	  if(!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ())
 	    {
-	      mask |= (1<<ii.get_dst_regno ());
+	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
+		{
+		  mask |= (1<<ii.get_dst_regno ());
 
-	      log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      SET_INSN_DELETED(insn);
-	      ++change_count;
-	      continue;
+		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  SET_INSN_DELETED(insn);
+		  ++change_count;
+		  continue;
+		}
+
+	      if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(FIRST_PSEUDO_REGISTER, index))
+		{
+		  mask |= (1<<ii.get_dst_regno ());
+
+		  log ("(e) %d: eliminate self load of %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  SET_INSN_DELETED(insn);
+		  ++change_count;
+		  continue;
+		}
+
+	      if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
+		{
+		  mask |= (1<<ii.get_dst_regno ());
+
+		  log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  SET_INSN_DELETED(insn);
+		  ++change_count;
+		  continue;
+		}
+	      if (!ii.get_src_reg ())
+		{
+		  // is there a register holding that value?
+		  int aliasRegno = track->find_alias (src);
+		  if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
+		    {
+
+		      if ( (mask & (1<<aliasRegno)))
+			continue;
+
+		      mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
+
+		      log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
+		      validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0);
+		      ++change_count;
+		      continue;
+		    }
+		}
 	    }
-
-	  if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(FIRST_PSEUDO_REGISTER, index))
-	    {
-	      log ("(e) %d: eliminate self load of %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      SET_INSN_DELETED(insn);
-	      ++change_count;
-	      continue;
-	    }
-
-	  if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
-	    {
-	      mask |= (1<<ii.get_dst_regno ());
-
-	      log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      SET_INSN_DELETED(insn);
-	      ++change_count;
-	      continue;
-	    }
-
-	  // is there a register holding that value?
 	  if (!ii.get_src_reg ())
 	    {
-	      int aliasRegno = track->find_alias (src);
-	      if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
-		{
 
-		  if ( (mask & (1<<aliasRegno)))
+	      insn_info & jj = infos[index + 1];
+	      // eliminate clr if the next insn makes it obsolete.
+	      if (GET_MODE_SIZE(ii.get_mode()) == 4 && CONST_INT_P (SET_SRC (set)) && jj.get_dst_regno() == ii.get_dst_regno())
+		{
+		  unsigned val = INTVAL (SET_SRC (set));
+		  rtx jset = single_set(jj.get_insn());
+		  if (!jset && !MEM_P (SET_SRC(jset)))
 		    continue;
 
-		  mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
+		  if ((jj.get_mode() == QImode && val <= 0xff && track->getMask(ii.get_dst_regno()) <= 0xff)
+		      || (jj.get_mode() == HImode && val <= 0xffff && track->getMask(ii.get_dst_regno()) <= 0xffff))
+		    {
+		      mask |= (1<<ii.get_dst_regno ());
 
-		  log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
-		  validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0);
-		  ++change_count;
+			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
+			      debug(jj.get_insn());
+
+		      log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
+		      SET_INSN_DELETED(insn);
+		      ++change_count;
+		      continue;
+		    }
 		}
 	    }
 	}
@@ -5386,6 +5463,58 @@ opt_pipeline_insns()
     }
 }
 
+/**
+ * insert a moveq #0, dx .
+ */
+static unsigned
+opt_insert_move0()
+{
+  unsigned change_count = 0;
+  for (unsigned index = 0; index< infos.size(); ++index)
+    {
+      insn_info &ii = infos[index];
+
+      if (GET_MODE_SIZE(ii.get_mode()) >= 4)
+	continue;
+
+      int regno = ii.get_dst_regno();
+      if (regno < 0 || regno > 7)
+	continue;
+
+      if (ii.is_use(regno))
+	continue;
+
+      rtx set = single_set(ii.get_insn());
+      rtx src = SET_SRC (set);
+      if (!MEM_P(src))
+	continue;
+
+      rtx dst = SET_DEST (set);
+
+//      fprintf(stderr, "modesize=%d ", GET_MODE_SIZE(ii.get_mode()));
+//      debug(ii.get_insn());
+
+      if (REG_P (dst))
+	{
+	  // convert to strict_low_part
+	  rtx slp = gen_rtx_STRICT_LOW_PART (
+	  //GET_MODE (dst)
+	  VOIDmode
+	  , dst);
+	  if (!validate_unshare_change(ii.get_insn(), &SET_DEST (set), slp, false))
+	    continue;
+	  log("(0) %d: to strict_low_part,%s\n", index, reg_names[regno]);
+        }
+
+      rtx nset = gen_rtx_SET(gen_rtx_REG(SImode, regno), gen_rtx_CONST_INT(SImode, 0));
+      emit_insn_before (nset, ii.get_insn());
+      ++change_count;
+
+      log("(0) %d: prepend moveq #0,%s\n", index, reg_names[regno]);
+    }
+  return change_count;
+}
+
 
 void print_inline_info()
 {
@@ -5487,6 +5616,7 @@ namespace
     bool do_propagate_moves = strchr (string_bbb_opts, 'p') || strchr (string_bbb_opts, '+');
     bool do_bb_reg_rename = strchr (string_bbb_opts, 'r') || strchr (string_bbb_opts, '+');
     bool do_opt_strcpy = strchr (string_bbb_opts, 's') || strchr (string_bbb_opts, '+');
+    bool do_opt_0 = strchr (string_bbb_opts, '0') || strchr (string_bbb_opts, '+');
     bool do_opt_final = strchr (string_bbb_opts, 'z') || strchr (string_bbb_opts, '+');
 
     if (be_very_verbose)
@@ -5498,6 +5628,12 @@ namespace
 	if (do_lea_mem && opt_lea_mem())
 	  update_insns ();
 
+	if (do_opt_final && opt_clear())
+	  update_insns ();
+
+	if (do_opt_0 && opt_insert_move0())
+	  update_insns();
+
 	int pass = 0;
 	for (;;)
 	  {
@@ -5505,9 +5641,6 @@ namespace
 	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", pass);
-
-	    if (do_opt_final && opt_clear())
-	      update_insns ();
 
 	    if (do_opt_strcpy && opt_strcpy ())
 	      {XUSE('s'); done = 0; update_insns (); }

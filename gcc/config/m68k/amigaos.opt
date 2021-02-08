@@ -76,6 +76,7 @@ p    propagate move assignment pairs out of loops\n
 r    register renaming to maybe save registers\n
 s    a strcpy optimization\n
 z    final pass with simple substitutions\n
+0    insert clear registers before storing a byte or word, if possible\n
 v    be verbose\n
 V    be very verbose\n
 x    dump insns\n

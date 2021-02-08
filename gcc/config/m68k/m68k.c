@@ -4629,6 +4629,8 @@ notice_update_cc (rtx exp, rtx insn)
 	{
 	  cc_status.flags = 0;
 	  cc_status.value1 = SET_DEST (exp);
+	  if (GET_CODE(cc_status.value1) == STRICT_LOW_PART)
+	    cc_status.value1 = XEXP (cc_status.value1, 0);
 	  cc_status.value2 = SET_SRC (exp);
 	}
     }

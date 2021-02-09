@@ -167,12 +167,14 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case IOR:
     case XOR:
       {
-	rtx dst = XEXP(x, 0);
-	rtx src = XEXP(x, 1);
-	if (__m68k_68040_costs (dst, mode, code, 0, total, speed)
-	    && __m68k_68040_costs (src, mode, code, 1, &total2, speed))
+	rtx a = XEXP(x, 0);
+	rtx b = XEXP(x, 1);
+	if (__m68k_68040_costs (a, mode, code, 0, total, speed)
+	    && __m68k_68040_costs (b, mode, code, 1, &total2, speed))
 	  {
 	    *total += total2;
+	    if (GET_CODE (a) == PLUS)
+	      *total += 3;
 	    return true;
 	  }
       }
@@ -187,9 +189,11 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  {
 	    if (GET_CODE(b) == CONST_INT)
 	      {
-		*total = 3;
+		*total = 2;
 		return true;
 	      }
+	      *total = 3;
+	      return true;
 	  }
 	*total = 4;
 	if (CONST_INT_P(b))

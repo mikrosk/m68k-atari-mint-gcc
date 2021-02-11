@@ -129,7 +129,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	else if (m68k_68080_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68080_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += 4 + total2;
+	    *total += total2;
 	    return true;
 	  }
       }
@@ -145,7 +145,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	if (m68k_68080_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68080_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += 4 + total2;
+	    *total += total2;
 	    return true;
 	  }
       }

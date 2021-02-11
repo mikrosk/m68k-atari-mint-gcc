@@ -2885,7 +2885,6 @@ add_candidate_1 (struct ivopts_data *data,
 	{
 	  cand->var_before = create_tmp_var_raw (TREE_TYPE (base), "ivtmp");
 	  cand->var_after = cand->var_before;
-	  ++ cand->cost;
 	}
       cand->important = important;
       cand->incremented_at = incremented_at;
@@ -4307,12 +4306,10 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
   return true;
 }
 
-/* Estimates cost of forcing expression EXPR into a variable.  */
-
 static unsigned ivopts_integer_cost [2];
 static unsigned ivopts_comparison_cost [2];
 
-
+/* Estimates cost of forcing expression EXPR into a variable.  */
 static comp_cost
 force_expr_to_var_cost (tree expr, bool speed)
 {
@@ -4643,11 +4640,7 @@ difference_cost (struct ivopts_data *data,
   *var_present = true;
 
   if (integer_zerop (e2))
-#ifdef TARGET_AMIGAOS
-    return no_cost;
-#else
     return force_var_cost (data, e1, depends_on);
-#endif
 
   if (integer_zerop (e1))
     {
@@ -5071,11 +5064,9 @@ get_computation_cost (struct ivopts_data *data,
 		      bool address_p, bitmap *depends_on,
                       bool *can_autoinc, int *inv_expr_id)
 {
-  comp_cost cc = get_computation_cost_at (data,
+  return get_computation_cost_at (data,
 				  use, cand, address_p, depends_on, use->stmt,
 				  can_autoinc, inv_expr_id);
-//  fprintf(stderr, "use %d - cand %d: cost %d\n", use->id, cand->id, cc.cost);
-  return cc;
 }
 
 /* Determines cost of basing replacement of USE on CAND in a generic
@@ -5620,7 +5611,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       if (elim_cost.cost == 0)
         elim_cost.cost = parm_decl_cost (data, bound);
       else if (TREE_CODE (bound) == INTEGER_CST)
-        elim_cost.cost = 0;
+	elim_cost.cost = 0;
       /* If we replace a loop condition 'i < n' with 'p < base + n',
 	 depends_on_elim will have 'base' and 'n' set, which implies
 	 that both 'base' and 'n' will be live during the loop.	 More likely,
@@ -5635,10 +5626,6 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
-#ifdef TARGET_AMIGAOS
-      if (!cand->iv->no_overflow)
-	elim_cost.cost += ivopts_comparison_cost[0];
-#endif
     }
   else
     elim_cost = infinite_cost;
@@ -5656,12 +5643,15 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
      be target-dependent.  This information should be added to the
      target costs for each backend.  */
   if (!infinite_cost_p (elim_cost) /* Do not try to decrease infinite! */
-      && (integer_zerop (*bound_cst) || integer_minus_onep(*bound_cst))
+      && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    // assume the omitted comparison saves ivopts_integer_cost[0] - better than 1
-    elim_cost.cost -= ivopts_integer_cost[0] > COSTS_N_INSNS(2) ? ivopts_integer_cost[0] : COSTS_N_INSNS(2);
-//    elim_cost.cost -= 1;
+    elim_cost.cost -= 1;
+#ifdef TARGET_AMIGAOS
+  else if (bound && integer_minus_onep(bound) && integer_minus_onep(cand->iv->step))
+     elim_cost.cost -= target_spill_cost[0];
+#endif
+
 
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,
@@ -5935,20 +5925,6 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
   if (cand->pos == IP_END
       && empty_block_p (ip_end_pos (data->current_loop)))
     cost++;
-
-#ifdef TARGET_AMIGA
-  if (TUNE_68080 && cand->var_after && cand->var_before && cand->iv->base
-      && cand->var_after->base.code == SSA_NAME
-      && cand->var_before->base.code == SSA_NAME
-      && cand->iv->base->base.code == SSA_NAME
-      && cand->var_after->ssa_name.var == cand->var_before->ssa_name.var
-      && cand->var_after->ssa_name.var == cand->iv->base->ssa_name.var
-      && !cand->iv->base_object && !cand->iv->ssa_name
-      && cand->iv->step && cand->iv->step->base.code == INTEGER_CST
-      && cand->iv->step->int_cst.val[0] < 0
-      )
-    cost -= COSTS_N_INSNS(2);
-#endif
 
   cand->cost = cost;
   cand->cost_step = cost_step;

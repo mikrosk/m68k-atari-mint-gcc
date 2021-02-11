@@ -4801,38 +4801,41 @@ opt_elim_dead_assign (int blocked_regno)
 	{
 	  rtx dx = XEXP (src, 0);
 	  rtx dy = XEXP (src, 1);
-	  // dx == 0
-	  rtx v = track->get(REGNO(dx));
-	  if (v && CONST_INT_P(v) && INTVAL(v) == 0)
+	  if (REG_P(dx) && REG_P(dy))
 	    {
-	      // ensure also dx reg was not touched
-	      if (mask & (1<<REGNO(dx)))
-		continue;
+	      // dx == 0
+	      rtx v = track->get(REGNO(dx));
+	      if (v && CONST_INT_P(v) && INTVAL(v) == 0)
+		{
+		  // ensure also dx reg was not touched
+		  if (mask & (1<<REGNO(dx)))
+		    continue;
 
-	      // convert into move dy,dy
-	      validate_change (ii.get_insn (), &SET_SRC(set), dy, 0);
+		  // convert into move dy,dy
+		  validate_change (ii.get_insn (), &SET_SRC(set), dy, 0);
 
-	      mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dx));
-	      log ("(e) %d: convert left add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      ++change_count;
-	      continue;
-	    }
+		  mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dx));
+		  log ("(e) %d: convert left add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  ++change_count;
+		  continue;
+		}
 
-	  // dy == 0
-	  v = track->get(REGNO(dy));
-	  if (v && CONST_INT_P(v) && INTVAL(v) == 0)
-	    {
-	      // ensure also dy reg was not touched
-	      if (mask & (1<<REGNO(dy)))
-		continue;
+	      // dy == 0
+	      v = track->get(REGNO(dy));
+	      if (v && CONST_INT_P(v) && INTVAL(v) == 0)
+		{
+		  // ensure also dy reg was not touched
+		  if (mask & (1<<REGNO(dy)))
+		    continue;
 
-	      // convert into move
-	      validate_change (ii.get_insn (), &SET_SRC(set), dx, 0);
+		  // convert into move
+		  validate_change (ii.get_insn (), &SET_SRC(set), dx, 0);
 
-	      mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dy));
-	      log ("(e) %d: convert right add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
-	      ++change_count;
-	      continue;
+		  mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dy));
+		  log ("(e) %d: convert right add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
+		  ++change_count;
+		  continue;
+		}
 	    }
 	}
     }

@@ -5636,7 +5636,8 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
 #ifdef TARGET_AMIGAOS
-      elim_cost.cost += ivopts_comparison_cost[0];
+      if (!cand->iv->no_overflow)
+	elim_cost.cost += ivopts_comparison_cost[0];
 #endif
     }
   else
@@ -5655,16 +5656,12 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
      be target-dependent.  This information should be added to the
      target costs for each backend.  */
   if (!infinite_cost_p (elim_cost) /* Do not try to decrease infinite! */
-      && integer_zerop (*bound_cst)
+      && (integer_zerop (*bound_cst) || integer_minus_onep(*bound_cst))
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
     // assume the omitted comparison saves ivopts_integer_cost[0] - better than 1
     elim_cost.cost -= ivopts_integer_cost[0] > COSTS_N_INSNS(2) ? ivopts_integer_cost[0] : COSTS_N_INSNS(2);
 //    elim_cost.cost -= 1;
-    
-  // combined test and jump
-  if (!use->iv->no_overflow)
-    elim_cost.cost -= COSTS_N_INSNS(1);
 
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,

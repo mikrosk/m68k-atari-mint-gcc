@@ -5662,6 +5662,10 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
     elim_cost.cost -= ivopts_integer_cost[0] > COSTS_N_INSNS(2) ? ivopts_integer_cost[0] : COSTS_N_INSNS(2);
 //    elim_cost.cost -= 1;
     
+  // combined test and jump
+  if (!use->iv->no_overflow)
+    elim_cost.cost -= COSTS_N_INSNS(1);
+
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,
                                        &express_inv_expr_id);

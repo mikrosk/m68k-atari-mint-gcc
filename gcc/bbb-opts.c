@@ -4799,35 +4799,37 @@ opt_elim_dead_assign (int blocked_regno)
 	// eliminate add dx,dy with dx/dy ==0
       if (ii.get_src_op () == PLUS && ii.get_dst_reg () && ii.get_src_reg() && ii.get_src_regno() <= 7)
 	{
+	  rtx dx = XEXP (src, 0);
+	  rtx dy = XEXP (src, 1);
 	  // dx == 0
-	  rtx v = track->get(ii.get_src_regno());
+	  rtx v = track->get(REGNO(dx));
 	  if (v && CONST_INT_P(v) && INTVAL(v) == 0)
 	    {
-	      // ensure also src reg was not touched
-	      if (mask & (1<<ii.get_src_regno ()))
+	      // ensure also dx reg was not touched
+	      if (mask & (1<<REGNO(dx)))
 		continue;
 
 	      // convert into move dy,dy
-	      validate_change (ii.get_insn (), &SET_SRC(set), ii.get_dst_reg(), 0);
+	      validate_change (ii.get_insn (), &SET_SRC(set), dy, 0);
 
-	      mask |= (1<<ii.get_dst_regno ()) | (1<<ii.get_src_regno ());
+	      mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dx));
 	      log ("(e) %d: convert left add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      ++change_count;
 	      continue;
 	    }
 
 	  // dy == 0
-	  v = track->get(ii.get_dst_regno());
+	  v = track->get(REGNO(dy));
 	  if (v && CONST_INT_P(v) && INTVAL(v) == 0)
 	    {
-	      // ensure also src reg was not touched
-	      if (mask & (1<<ii.get_src_regno ()))
+	      // ensure also dy reg was not touched
+	      if (mask & (1<<REGNO(dy)))
 		continue;
 
 	      // convert into move
-	      validate_change (ii.get_insn (), &SET_SRC(set), ii.get_src_reg(), 0);
+	      validate_change (ii.get_insn (), &SET_SRC(set), dx, 0);
 
-	      mask |= (1<<ii.get_dst_regno ()) | (1<<ii.get_src_regno ());
+	      mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dy));
 	      log ("(e) %d: convert right add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
 	      ++change_count;
 	      continue;

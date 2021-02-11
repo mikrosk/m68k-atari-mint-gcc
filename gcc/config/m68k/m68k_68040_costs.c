@@ -173,7 +173,8 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	    && __m68k_68040_costs (b, mode, code, 1, &total2, speed))
 	  {
 	    *total += total2;
-	    if (GET_CODE (a) == PLUS)
+	    // for lea
+	    if (GET_CODE (a) == PLUS && REG_P (XEXP (a, 1)))
 	      *total += 3;
 	    return true;
 	  }

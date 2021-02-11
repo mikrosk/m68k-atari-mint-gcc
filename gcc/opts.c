@@ -439,7 +439,7 @@ maybe_default_options (struct gcc_options *opts,
 static const struct default_options default_options_table[] =
   {
     /* -O1 optimizations.  */
-    { OPT_LEVELS_1_PLUS, OPT_fdefer_pop, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_fdefer_pop, NULL, 0 },
 #if DELAY_SLOTS
     { OPT_LEVELS_1_PLUS, OPT_fdelayed_branch, NULL, 1 },
 #endif
@@ -475,6 +475,8 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_ftree_loop_ivcanon, NULL, 0 },
+
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },

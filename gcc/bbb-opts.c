@@ -4495,7 +4495,7 @@ track_regs ()
 	  // do not clear if self assigned unless there is an operator
 	  int dregno = ii.get_dst_regno ();
 	  unsigned dmask = track->getMask(dregno);
-	  if ((dregno != ii.get_src_regno () || ii.get_src_op ()) && !ii.is_src_mem())
+	  if ((dregno != ii.get_src_regno () || ii.get_src_op ()))
 	    track->clear (ii.get_mode (), dregno, index);
 
 
@@ -4604,7 +4604,8 @@ track_regs ()
 	    }
 
 	  // WHY? or more than one register used: can't cache
-	  if (((ii.get_myuse () - 1) & ii.get_myuse ()))
+//	  if (((ii.get_myuse () - 1) & ii.get_myuse ()))
+	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ()))	  
 	    continue;
 
 	  rtx src = SET_SRC(set);

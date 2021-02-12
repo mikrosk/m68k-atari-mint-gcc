@@ -2346,7 +2346,8 @@ update_insn_infos (void)
 		  rtx_insn * prev = infos[pos - 1].get_insn ();
 		  rtx set = single_set (prev);
 		  /* unconditional? -> break! */
-		  if (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+		  if ( (set && SET_DEST (set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+		    || (!set && GET_CODE (SET_SRC (XVECEXP (PATTERN(prev), 0, 0))) != IF_THEN_ELSE))
 		    break;
 		}
 
@@ -2468,7 +2469,8 @@ update_insns ()
 		  inproepilogue = IN_CODE;
 		  rtx set = single_set (insn);
 		  if (ANY_RETURN_P(PATTERN (insn))
-		      || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE))
+		      || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+ 	              || (!set && GET_CODE (SET_SRC (XVECEXP (PATTERN(insn), 0, 0))) != IF_THEN_ELSE))
 		    continue;
 		}
 
@@ -2734,7 +2736,9 @@ opt_reg_rename (void)
 		      insn_info & bb = infos[pos - 1];
 		      rtx set = single_set (bb.get_insn ());
 		      if (ANY_RETURN_P(bb.get_insn ())
-			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE))
+			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+			  || (!set && GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0))) != IF_THEN_ELSE))
+
 			continue;
 
 //		      printf ("label start check %d use %d\n", pos, bb.is_use (rename_regno) || bb.is_def(rename_regno)); fflush (stdout);
@@ -4506,6 +4510,10 @@ track_regs ()
 	      if (set && GET_CODE(SET_SRC(set)) == IF_THEN_ELSE)
 		continue;
 
+	      // dbra == parallel with IF_THEN_ELSE
+	      if (!set && GET_CODE(SET_SRC( XVECEXP (PATTERN(ii.get_insn ()), 0, 0) )) == IF_THEN_ELSE)
+		continue;
+
 	      // unconditional jump
 	      break;
 	    }
@@ -4719,7 +4727,8 @@ opt_elim_dead_assign (int blocked_regno)
 
 	  if(!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ())
 	    {
-	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src))
+	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src)
+		|| (ii.get_dst_regno () == ii.get_src_regno () && infos[index +1].is_def(FIRST_PSEUDO_REGISTER)))
 		{
 		  mask |= (1<<ii.get_dst_regno ());
 

@@ -2347,7 +2347,7 @@ update_insn_infos (void)
 		  rtx set = single_set (prev);
 		  /* unconditional? -> break! */
 		  if ( (set && SET_DEST (set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
-		    || (!set && GET_CODE(PATTERN(prev)) == PARALLEL &&  GET_CODE (SET_SRC (XVECEXP (PATTERN(prev), 0, 0))) != IF_THEN_ELSE))
+		    || (!set && PATTERN(prev) && ANY_RETURN_P(PATTERN(prev)) &&  GET_CODE (SET_SRC (XVECEXP (PATTERN(prev), 0, 0))) != IF_THEN_ELSE))
 		    break;
 		}
 
@@ -2470,7 +2470,7 @@ update_insns ()
 		  rtx set = single_set (insn);
 		  if (ANY_RETURN_P(PATTERN (insn))
 		      || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
- 	              || (!set && GET_CODE(PATTERN(insn)) == PARALLEL && GET_CODE (SET_SRC (XVECEXP (PATTERN(insn), 0, 0))) != IF_THEN_ELSE))
+ 	              || (!set && PATTERN(insn) && ANY_RETURN_P(PATTERN(insn)) && GET_CODE (SET_SRC (XVECEXP (PATTERN(insn), 0, 0))) != IF_THEN_ELSE))
 		    continue;
 		}
 
@@ -2737,7 +2737,7 @@ opt_reg_rename (void)
 		      rtx set = single_set (bb.get_insn ());
 		      if (ANY_RETURN_P(bb.get_insn ())
 			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
-			  || (!set && GET_CODE(PATTERN(bb.get_insn ())) == PARALLEL && GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0))) != IF_THEN_ELSE))
+			  || (!set && PATTERN(bb.get_insn()) && !ANY_RETURN_P(PATTERN(bb.get_insn())) && (debug(bb.get_insn()), GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0)))) != IF_THEN_ELSE))
 
 			continue;
 
@@ -4511,7 +4511,7 @@ track_regs ()
 		continue;
 
 	      // dbra == parallel with IF_THEN_ELSE
-	      if (!set && GET_CODE(PATTERN(ii.get_insn ())) == PARALLEL && GET_CODE(SET_SRC( XVECEXP (PATTERN(ii.get_insn ()), 0, 0) )) == IF_THEN_ELSE)
+	      if (!set && PATTERN(ii.get_insn()) && ANY_RETURN_P(PATTERN(ii.get_insn ())) && GET_CODE(SET_SRC( XVECEXP (PATTERN(ii.get_insn ()), 0, 0) )) == IF_THEN_ELSE)
 		continue;
 
 	      // unconditional jump

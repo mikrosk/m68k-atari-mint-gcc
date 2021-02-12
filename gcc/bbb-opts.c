@@ -345,7 +345,12 @@ public:
 	  {
 	    value[i] = 0;
 	    usedRegs[i] = 0;
-	    andMask[i] = 0xffffffff;
+	    if (GET_MODE_SIZE (mode) == 1)
+	      andMask[i] |= 0xff;
+	    else if (GET_MODE_SIZE (mode) == 2)
+	      andMask[i] |= 0xffff;
+	    else
+	      andMask[i] = 0xffffffff;
 	  }
       }
 
@@ -4464,7 +4469,7 @@ track_regs ()
 		  ii.get_track_var ()->assign (track);
 		  ii.mark_visited ();
 		}
-	      continue;
+	      continue;f
 	    }
 
 	  // mark current insn_info and set sp_offset
@@ -4476,7 +4481,11 @@ track_regs ()
 	    {
 	      // more than one register set? or mask from clobber?
 	      if (((def - 1) & def) || !ii.get_dst_reg ())
-		track->clear_for_mask (def, index);
+		{
+		  // exception for autoinc
+		  if (!ii.get_dst_reg() || !ii.get_src_autoinc())
+		    track->clear_for_mask (def, index);
+		}
 	    }
 
 	  // compare must not clear
@@ -4486,7 +4495,7 @@ track_regs ()
 	  // do not clear if self assigned unless there is an operator
 	  int dregno = ii.get_dst_regno ();
 	  unsigned dmask = track->getMask(dregno);
-	  if (dregno != ii.get_src_regno () || ii.get_src_op ())
+	  if ((dregno != ii.get_src_regno () || ii.get_src_op ()) && !ii.is_src_mem())
 	    track->clear (ii.get_mode (), dregno, index);
 
 
@@ -4594,10 +4603,8 @@ track_regs ()
 	      continue;
 	    }
 
-	  // auto increment
 	  // WHY? or more than one register used: can't cache
-	  if (ii.get_src_autoinc () || ((ii.get_myuse () - 1) & ii.get_myuse ())
-	      )
+	  if (((ii.get_myuse () - 1) & ii.get_myuse ()))
 	    continue;
 
 	  rtx src = SET_SRC(set);
@@ -4793,8 +4800,8 @@ opt_elim_dead_assign (int blocked_regno)
 		    {
 		      mask |= (1<<ii.get_dst_regno ());
 
-			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
-			      debug(jj.get_insn());
+//			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
+//			      debug(jj.get_insn());
 
 		      log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
 		      SET_INSN_DELETED(insn);
@@ -5072,10 +5079,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
       // prevent double handling
       if (visited.find (pos) != visited.end ())
 	continue;
-      visited.insert (pos);
 
       for (; (int)pos >= 0 && pos < infos.size (); pos = pos + addend)
 	{
+	  visited.insert (pos);
 	  insn_info & jj = infos[pos];
 
 	  // do not auto_inc over calls for d0/d1/a0/a1/a7
@@ -5092,8 +5099,12 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 		  j != label2jump.end () && j->first == k->first; ++j)
 		{
 		  insn_info * ll = insn2info.find (j->second)->second;
-		  if (ll->is_use (regno))
+		  if (ll->is_use (regno)) {
+		      // jump from an already visited pos is ok
+		      if (visited.find (ll->get_index()) != visited.end ())
+			goto LoopContinue;
 		    return 0;
+		  }
 		}
 	      break;
 	    }
@@ -5122,7 +5133,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 
 	  // not used directly
 	  if (!jj.is_myuse (regno))
-	    continue;
+	    {
+LoopContinue:
+	      continue;
+	    }
 
 	  // can't fixup such kind of insn (yet)
 	  if (single_set (jj.get_insn ()) == 0)
@@ -5541,7 +5555,7 @@ opt_insert_move0()
       rtx dst = SET_DEST (set);
 
 //      fprintf(stderr, "modesize=%d ", GET_MODE_SIZE(ii.get_mode()));
-//      debug(ii.get_insn());
+      debug(ii.get_insn());
 
       if (REG_P (dst))
 	{

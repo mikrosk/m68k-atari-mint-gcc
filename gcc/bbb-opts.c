@@ -5096,18 +5096,24 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (addend < 0)
 		return 0; // no labels backwards
 
+	      // check previous insn, if the reg is used there
+	      // that label must been seen before
+	      insn_info & pp = infos[pos - 1];
+	      if (pp.is_use (regno) && visited.find (pos - 1) == visited.end ())
+		return 0;
+
+	      // jumps to here which use that register must be already visited.
+	      // jumps to here which do not use that register are ok.
 	      for (l2j_iterator j = label2jump.find (jj.get_insn ()->u2.insn_uid), k = j;
 		  j != label2jump.end () && j->first == k->first; ++j)
 		{
 		  insn_info * ll = insn2info.find (j->second)->second;
-		  if (ll->is_use (regno)) {
+		  if (ll->is_use (regno)
 		      // jump from an already visited pos is ok
-		      if (visited.find (ll->get_index()) != visited.end ())
-			goto LoopContinue;
+		      && visited.find (ll->get_index()) == visited.end ())
 		    return 0;
-		  }
 		}
-	      break;
+	      continue;
 	    }
 
 	  // break if no longer used
@@ -5134,10 +5140,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 
 	  // not used directly
 	  if (!jj.is_myuse (regno))
-	    {
-LoopContinue:
-	      continue;
-	    }
+	    continue;
 
 	  // can't fixup such kind of insn (yet)
 	  if (single_set (jj.get_insn ()) == 0)

@@ -5555,7 +5555,7 @@ opt_insert_move0()
       rtx dst = SET_DEST (set);
 
 //      fprintf(stderr, "modesize=%d ", GET_MODE_SIZE(ii.get_mode()));
-      debug(ii.get_insn());
+//      debug(ii.get_insn());
 
       if (REG_P (dst))
 	{

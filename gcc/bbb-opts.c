@@ -4469,7 +4469,7 @@ track_regs ()
 		  ii.get_track_var ()->assign (track);
 		  ii.mark_visited ();
 		}
-	      continue;f
+	      continue;
 	    }
 
 	  // mark current insn_info and set sp_offset

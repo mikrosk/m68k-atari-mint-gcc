@@ -4485,6 +4485,9 @@ track_regs ()
 		  // exception for autoinc
 		  if (!ii.get_dst_reg() || !ii.get_src_autoinc())
 		    track->clear_for_mask (def, index);
+		  else
+		    // mark only the auto inc register as unknown
+		    track->clear(SImode, ii.get_src_mem_regno(), index);
 		}
 	    }
 
@@ -4495,7 +4498,7 @@ track_regs ()
 	  // do not clear if self assigned unless there is an operator
 	  int dregno = ii.get_dst_regno ();
 	  unsigned dmask = track->getMask(dregno);
-	  if ((dregno != ii.get_src_regno () || ii.get_src_op ()))
+	  if (dregno != ii.get_src_regno () || ii.get_src_op ())
 	    track->clear (ii.get_mode (), dregno, index);
 
 

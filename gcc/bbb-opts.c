@@ -3386,11 +3386,11 @@ opt_strcpy ()
       /* check for a match for x2reg. */
       if (x2reg == 0)
 	{
-	  if (REG_P(SET_DEST(set)) && ii.get_src_op() != ASM_OPERANDS)
+	  if (ii.get_dst_reg() && ii.get_src_op() != ASM_OPERANDS)
 	    {
 	      x2reg = insn;
 	      reg2x = 0;
-	      regno = REGNO(SET_DEST(set));
+	      regno = ii.get_dst_regno();
 	    }
 	}
     }
@@ -4706,7 +4706,6 @@ opt_elim_dead_assign (int blocked_regno)
 	{
 	  track_var * tv = ii.get_track_var();
 	  unsigned lmask = tv->getMask(ii.get_dst_regno());
-	  unsigned nmask = 0;
 	  rtx andval = XEXP(SET_SRC(set), 1);
 
 	  if (REG_P(andval))
@@ -4731,24 +4730,29 @@ opt_elim_dead_assign (int blocked_regno)
 	      long long int lli = UINTVAL(andval);
 	      if (lli < 0x100000000LL)
 		{
-		  unsigned val = lli;
+		  unsigned nmask = lli;
 		  if (GET_MODE_SIZE(ii.get_mode()) == 1)
-		    val |= 0xffffff00;
+		    {
+		      nmask &= 0xff;
+		      lmask &= 0xff;
+		    }
 		  else if (GET_MODE_SIZE(ii.get_mode()) < 4)
-		    val |= 0xffff0000;
+		    {
+		      nmask &= 0xffff;
+		      lmask &= 0xffff;
+		    }
 
-		  nmask = lmask & val;
+		  if (lmask == nmask)
+		    {
+		      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
+			   index, reg_names[ii.get_dst_regno ()], lmask, nmask);
+		      SET_INSN_DELETED(insn);
+		      ++change_count;
+		      mask |= 1<<ii.get_dst_regno ();
+		    }
 		}
 	    }
 
-	  if (lmask == nmask)
-	    {
-	      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
-		   index, reg_names[ii.get_dst_regno ()], lmask, nmask);
-	      SET_INSN_DELETED(insn);
-	      ++change_count;
-	      mask |= 1<<ii.get_dst_regno ();
-	    }
 	  continue;
 	}
 	
@@ -4868,9 +4872,20 @@ opt_elim_dead_assign (int blocked_regno)
 	    }
 	}
     }
+  return change_count;
+}
+
+static unsigned
+opt_elim_dead_assign2 (int blocked_regno)
+{
+  track_regs ();
+
+  unsigned mask = 0;
+
+  unsigned change_count = 0;
 
   // same but top->down
-  for (int index = infos.size () - 1; index >= 0; --index)
+  for (int index = 0; index < infos.size () - 1; ++index)
     {
       insn_info & ii = infos[index];
 
@@ -4904,10 +4919,6 @@ opt_elim_dead_assign (int blocked_regno)
       if (mask & (1<<ii.get_dst_regno ()))
 	continue;
 
-      track_var * track = ii.get_track_var ();
-      rtx src = SET_SRC(set);
-
-
       if (ii.get_src_op () == 0 && ii.get_dst_reg ())
 	{
 	  if(!ii.is_myuse (ii.get_dst_regno ()))
@@ -4923,6 +4934,8 @@ opt_elim_dead_assign (int blocked_regno)
 		      rtx jset = single_set(jj.get_insn());
 		      if (!jset && !MEM_P (SET_SRC(jset)))
 			continue;
+
+		      track_var * track = infos[index].get_track_var ();
 
 		      if ((jj.get_mode() == QImode && val <= 0xff && (!jj.is_use_hi24(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xff))
 		      || (jj.get_mode() == HImode && val <= 0xffff && (!jj.is_use32(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xffff)))
@@ -5623,8 +5636,10 @@ opt_pipeline_insns()
 static unsigned
 opt_insert_move0()
 {
+  std::set<unsigned> positions;
+
   unsigned change_count = 0;
-  for (unsigned index = 0; index< infos.size(); ++index)
+  for (unsigned index = 0, pos = 0; index< infos.size(); ++index, ++pos)
     {
       insn_info &ii = infos[index];
 
@@ -5665,7 +5680,9 @@ opt_insert_move0()
       ++change_count;
 
       log("(0) %d: prepend moveq #0,%s\n", index, reg_names[regno]);
+      positions.insert(pos++);
     }
+
   return change_count;
 }
 
@@ -5830,6 +5847,13 @@ namespace
 	      update_insns();
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
+	      {
+		XUSE('e');
+		done = 0;
+		update_insns ();
+	      }
+
+	    if (do_elim_dead_assign) while(opt_elim_dead_assign2 (STACK_POINTER_REGNUM))
 	      {
 		XUSE('e');
 		done = 0;

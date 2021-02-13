@@ -946,6 +946,26 @@ public:
     use32 |= 1 << regno;
   }
 
+  /** mark usage here as 32 bit. */
+  inline void
+  mark_myuse (rtx reg)
+  {
+    int regno = REGNO(reg);
+    int sz = GET_MODE_SIZE(GET_MODE(reg));
+    myuse8 |= 1 << regno;
+    use8 |= 1 << regno;
+    if (sz > 1)
+      {
+	myuse16 |= 1 << regno;
+	use16 |= 1 << regno;
+	if (sz > 2)
+	  {
+	    myuse32 |= 1 << regno;
+	    use32 |= 1 << regno;
+	  }
+      }
+  }
+
   /** mark usage as 32 bit. */
   inline void
   mark_use (int regno)
@@ -1022,6 +1042,18 @@ public:
   is_use (int regno) const
   {
     return ((use8 | use16 | use32) & (1 << regno)) != 0;
+  }
+
+  inline unsigned
+  is_use_hi24 (int regno) const
+  {
+    return ((use16 | use32) & (1 << regno)) != 0;
+  }
+
+  inline unsigned
+  is_use32 (int regno) const
+  {
+    return ((use32) & (1 << regno)) != 0;
   }
 
   inline int
@@ -1434,8 +1466,13 @@ insn_info::scan ()
 	  rtx op, reg;
 
 	  if (GET_CODE (op = XEXP (link, 0)) == USE && REG_P(reg = XEXP (op, 0)))
-	    for (unsigned r = REGNO(reg); r < END_REGNO (reg); ++r)
-	      mark_myuse (r);
+	    {
+	      if (REG_NREGS(reg) > 1)
+		for (unsigned r = REGNO(reg); r < END_REGNO (reg); ++r)
+		  mark_myuse (r);
+	      else
+		mark_myuse (reg);
+	    }
 	}
       /* mark stack pointer used. there could be parameters on stack*/
       mark_myuse (15);
@@ -4735,7 +4772,6 @@ opt_elim_dead_assign (int blocked_regno)
       // check for redundant load
       if (ii.get_src_op () == 0 && ii.get_dst_reg ())
 	{
-
 	  if(!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ())
 	    {
 	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src)
@@ -4787,33 +4823,6 @@ opt_elim_dead_assign (int blocked_regno)
 		    }
 		}
 	    }
-	  if (!ii.get_src_reg ())
-	    {
-
-	      insn_info & jj = infos[index + 1];
-	      // eliminate clr if the next insn makes it obsolete.
-	      if (GET_MODE_SIZE(ii.get_mode()) == 4 && CONST_INT_P (SET_SRC (set)) && jj.get_dst_regno() == ii.get_dst_regno())
-		{
-		  unsigned val = INTVAL (SET_SRC (set));
-		  rtx jset = single_set(jj.get_insn());
-		  if (!jset && !MEM_P (SET_SRC(jset)))
-		    continue;
-
-		  if ((jj.get_mode() == QImode && val <= 0xff && track->getMask(ii.get_dst_regno()) <= 0xff)
-		      || (jj.get_mode() == HImode && val <= 0xffff && track->getMask(ii.get_dst_regno()) <= 0xffff))
-		    {
-		      mask |= (1<<ii.get_dst_regno ());
-
-//			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
-//			      debug(jj.get_insn());
-
-		      log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
-		      SET_INSN_DELETED(insn);
-		      ++change_count;
-		      continue;
-		    }
-		}
-	    }
 	}
 
 	// eliminate add dx,dy with dx/dy ==0
@@ -4859,6 +4868,81 @@ opt_elim_dead_assign (int blocked_regno)
 	    }
 	}
     }
+
+  // same but top->down
+  for (int index = infos.size () - 1; index >= 0; --index)
+    {
+      insn_info & ii = infos[index];
+
+      if (ii.is_compare ())
+	{
+	  if (blocked_regno == FIRST_PSEUDO_REGISTER && ii.get_dst_reg())
+	    {
+	      unsigned lmask = ii.get_track_var()->getMask(ii.get_dst_regno());
+	      if (lmask != 0xffffffff)
+		add_reg_note(ii.get_insn(), REG_BIT_MASK, gen_rtx_CONST_INT (SImode, lmask));
+	    }
+	  continue;
+	}
+
+      if (ii.in_proepi () || !ii.get_dst_reg ())
+	continue;
+
+      rtx_insn * insn = ii.get_insn ();
+      rtx set = single_set (insn);
+      if (!set)
+	continue;
+
+      if (!ii.is_dst_reg() || ii.get_dst_regno () == blocked_regno)
+	continue;
+
+      // more than one register set? e.g. side effect move.l (a0)+,d0
+      unsigned def = ii.get_def () & 0xffffff;
+      if ((def - 1) & def)
+	continue;
+
+      if (mask & (1<<ii.get_dst_regno ()))
+	continue;
+
+      track_var * track = ii.get_track_var ();
+      rtx src = SET_SRC(set);
+
+
+      if (ii.get_src_op () == 0 && ii.get_dst_reg ())
+	{
+	  if(!ii.is_myuse (ii.get_dst_regno ()))
+	    {
+	      if (!ii.get_src_reg ())
+		{
+
+		  insn_info & jj = infos[index + 1];
+		  // eliminate clr if the next insn makes it obsolete.
+		  if (GET_MODE_SIZE(ii.get_mode()) == 4 && CONST_INT_P (SET_SRC (set)) && jj.get_dst_regno() == ii.get_dst_regno())
+		    {
+		      unsigned val = INTVAL (SET_SRC (set));
+		      rtx jset = single_set(jj.get_insn());
+		      if (!jset && !MEM_P (SET_SRC(jset)))
+			continue;
+
+		      if ((jj.get_mode() == QImode && val <= 0xff && (!jj.is_use_hi24(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xff))
+		      || (jj.get_mode() == HImode && val <= 0xffff && (!jj.is_use32(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xffff)))
+			{
+			  mask |= (1<<ii.get_dst_regno ());
+
+    //			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
+    //			      debug(jj.get_insn());
+
+			  log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
+			  SET_INSN_DELETED(insn);
+			  ++change_count;
+			  continue;
+			}
+		    }
+		}
+	    }
+	}
+    }
+
   return change_count;
 }
 

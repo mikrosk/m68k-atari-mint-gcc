@@ -161,8 +161,6 @@ class track_var
     switch (GET_CODE(x))
       {
       case CONST_INT:
-	*z = x;
-	return true;
       case CONST_FIXED:
       case CONST_DOUBLE:
       case SYMBOL_REF:
@@ -356,7 +354,15 @@ public:
 	  }
       }
 
-    if (extend (&value[regno], mode, src))
+    if (GET_CODE(src) == CONST_INT && (mode == HImode || mode == QImode))
+      {
+	unsigned mask = andMask[regno];
+	clear (mode, regno, index);
+	andMask[regno] = mask;
+	unsigned iv = UINTVAL(src);
+	setMask(regno, iv, mode);
+      }
+    else if (extend (&value[regno], mode, src))
       {
 	if (GET_CODE(src) == CONST_INT)
 	  {

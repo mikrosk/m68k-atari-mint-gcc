@@ -161,6 +161,8 @@ class track_var
     switch (GET_CODE(x))
       {
       case CONST_INT:
+	*z = x;
+	return true;
       case CONST_FIXED:
       case CONST_DOUBLE:
       case SYMBOL_REF:
@@ -4741,7 +4743,8 @@ opt_elim_dead_assign (int blocked_regno)
 		      nmask &= 0xffff;
 		      lmask &= 0xffff;
 		    }
-
+//printf("%d: and 0x%x, %s : 0x%x\n", index, nmask, reg_names[ii.get_dst_regno ()], lmask);
+//debug(ii.get_insn());
 		  if (lmask == nmask)
 		    {
 		      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
@@ -4890,15 +4893,7 @@ opt_elim_dead_assign2 (int blocked_regno)
       insn_info & ii = infos[index];
 
       if (ii.is_compare ())
-	{
-	  if (blocked_regno == FIRST_PSEUDO_REGISTER && ii.get_dst_reg())
-	    {
-	      unsigned lmask = ii.get_track_var()->getMask(ii.get_dst_regno());
-	      if (lmask != 0xffffffff)
-		add_reg_note(ii.get_insn(), REG_BIT_MASK, gen_rtx_CONST_INT (SImode, lmask));
-	    }
-	  continue;
-	}
+	continue;
 
       if (ii.in_proepi () || !ii.get_dst_reg ())
 	continue;
@@ -4942,8 +4937,8 @@ opt_elim_dead_assign2 (int blocked_regno)
 			{
 			  mask |= (1<<ii.get_dst_regno ());
 
-    //			  if (GET_CODE(SET_DEST(jset)) != STRICT_LOW_PART)
-    //			      debug(jj.get_insn());
+//printf("%d: use24=%d, use32=%d mask=%d\n", index, jj.is_use_hi24(ii.get_dst_regno()), jj.is_use32(ii.get_dst_regno()), track->getMask(ii.get_dst_regno()));
+//debug(jj.get_insn());
 
 			  log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
 			  SET_INSN_DELETED(insn);

@@ -5638,10 +5638,18 @@ opt_insert_move0()
 {
   std::set<unsigned> positions;
 
+  unsigned label = 0;
   unsigned change_count = 0;
   for (unsigned index = 0, pos = 0; index< infos.size(); ++index, ++pos)
     {
       insn_info &ii = infos[index];
+
+      if (ii.is_label())
+	{
+	  label = index;
+	  continue;
+	}
+
 
       if (GET_MODE_SIZE(ii.get_mode()) >= 4)
 	continue;
@@ -5656,6 +5664,39 @@ opt_insert_move0()
       rtx set = single_set(ii.get_insn());
       rtx src = SET_SRC (set);
       if (!MEM_P(src))
+	continue;
+
+      // this is a candidate - check if there is a AND before the next LABEL.
+      // a jump to the last label exits the search.
+      bool ok = true;
+      insn_info * found = 0;
+      int val = GET_MODE_SIZE(ii.get_mode()) == 1 ? 0xff : 0xffff;
+      for (unsigned pos = index + 1; ok && pos < infos.size(); ++pos)
+	{
+	  insn_info & pp = infos[pos];
+	  if (pp.is_label() || ANY_RETURN_P(PATTERN (pp.get_insn())))
+	    break;
+
+	  if (pp.is_jump())
+	    {
+	      for (j2l_iterator i = jump2label.find (pos), k = i; i != jump2label.end () && i->first == k->first; ++i)
+		if (label == i->second)
+		  {
+		    ok = false;
+		    break;
+		  }
+	      continue;
+	    }
+
+	  if (pp.get_dst_regno() == regno)
+	    {
+	      if (pp.get_src_op() == AND && pp.get_src_intval() == val)
+		found = &pp;
+	      break;
+	    }
+	}
+
+      if (!found)
 	continue;
 
       rtx dst = SET_DEST (set);
@@ -5675,7 +5716,7 @@ opt_insert_move0()
 	  log("(0) %d: to strict_low_part,%s\n", index, reg_names[regno]);
         }
 
-      rtx nset = gen_rtx_SET(gen_rtx_REG(SImode, regno), gen_rtx_CONST_INT(SImode, 0));
+      rtx nset = gen_rtx_SET(gen_rtx_REG(found->get_mode(), regno), gen_rtx_CONST_INT(found->get_mode(), 0));
       emit_insn_before (nset, ii.get_insn());
       ++change_count;
 

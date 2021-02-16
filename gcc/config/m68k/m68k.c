@@ -4562,14 +4562,18 @@ output_addsi3 (rtx *operands)
 	      return "subq%.l #8,%0\n\tsubq%.l %2,%0";
 	    }
 	}
-      if (ADDRESS_REG_P (operands[0])
-	  && INTVAL (operands[2]) >= -0x8000
+      if (INTVAL (operands[2]) >= -0x8000
 	  && INTVAL (operands[2]) < 0x8000)
 	{
-	  if (TUNE_68040)
-	    return "add%.w %2,%0";
-	  else
-	    return MOTOROLA ? "lea (%c2,%0),%0" : "lea %0@(%c2),%0";
+	  if (ADDRESS_REG_P (operands[0]))
+	    {
+	      if (TUNE_68040)
+		return "add%.w %2,%0";
+	      else
+		return MOTOROLA ? "lea (%c2,%0),%0" : "lea %0@(%c2),%0";
+	    }
+	  if (TUNE_68080)
+	    return "addiw%.l %2,%0";
 	}
     }
   return "add%.l %2,%0";

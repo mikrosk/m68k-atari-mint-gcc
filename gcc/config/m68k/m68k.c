@@ -974,7 +974,11 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
       if (flag_pic > 2)
 	{
 	  tree attr = lookup_attribute ("saveds", attrs);
-	  if (attr || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4)
+	  if (attr
+#ifdef TARGET_AMIGAOS
+	      || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4
+#endif
+	      )
 	    return true;
 	}
       /* SBF: do not save the PIC_REG with baserel(32) modes.*/
@@ -5922,8 +5926,7 @@ m68k_preferred_reload_class (rtx x, enum reg_class rclass)
   /* Prefer to use moveq for in-range constants.  */
   if (GET_CODE (x) == CONST_INT
       && reg_class_subset_p (DATA_REGS, rclass)
-      && IN_RANGE (INTVAL (x), -0x80, 0x7f)
-      && !TUNE_68080)
+      && IN_RANGE (INTVAL (x), -0x80, 0x7f))
     return DATA_REGS;
 
   /* ??? Do we really need this now?  */

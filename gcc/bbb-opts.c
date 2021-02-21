@@ -77,7 +77,7 @@
 #include <genrtl.h>
 
 //#define XUSE(c) fputc(c, stderr)
-//#define XUSE(c) done = 0
+#define XUSE(c) done = 0
 
 int be_very_verbose;
 bool be_verbose;

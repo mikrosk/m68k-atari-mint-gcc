@@ -77,7 +77,7 @@
 #include <genrtl.h>
 
 //#define XUSE(c) fputc(c, stderr)
-#define XUSE(c) done = 0
+#define XUSE(c) 
 
 int be_very_verbose;
 bool be_verbose;
@@ -5002,7 +5002,7 @@ opt_elim_dead_assign2 (int blocked_regno)
 		    {
 		      unsigned val = INTVAL (SET_SRC (set));
 		      rtx jset = single_set(jj.get_insn());
-		      if (!jset && !MEM_P (SET_SRC(jset)))
+		      if (!jset || !MEM_P (SET_SRC(jset)))
 			continue;
 
 		      track_var * track = infos[index].get_track_var ();
@@ -5732,6 +5732,8 @@ opt_insert_move0()
 	continue;
 
       rtx set = single_set(ii.get_insn());
+      if (!set)
+	continue;
       rtx src = SET_SRC (set);
       if (!MEM_P(src))
 	continue;
@@ -5741,7 +5743,8 @@ opt_insert_move0()
       bool ok = true;
       insn_info * found = 0;
       int val = GET_MODE_SIZE(ii.get_mode()) == 1 ? 0xff : 0xffff;
-      for (unsigned pos = index + 1; ok && pos < infos.size(); ++pos)
+      int to = MIN(pos + 10, infos.size());
+      for (unsigned pos = index + 1; ok && pos < to; ++pos)
 	{
 	  insn_info & pp = infos[pos];
 	  if (pp.is_label() || ANY_RETURN_P(PATTERN (pp.get_insn())))
@@ -5913,16 +5916,17 @@ namespace
 	if (do_opt_final && opt_clear())
 	  update_insns ();
 
+	if (do_opt_0 && opt_insert_move0())
+	  {XUSE('0'); update_insns(); }
+
 	int pass = 0;
 	for (;;)
 	  {
+	    XUSE('+');
 	    ++pass;
 	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", pass);
-
-	    if (do_opt_0 && opt_insert_move0())
-	      update_insns();
 
 	    if (do_opt_strcpy && opt_strcpy ())
 	      {XUSE('s'); done = 0; update_insns (); }
@@ -5941,9 +5945,6 @@ namespace
 
 	    if (do_absolute && opt_absolute ())
 	      {XUSE('b'); done = 0; update_insns (); }
-
-	    if (do_autoinc && opt_autoinc ())
-	      {XUSE('i'); done = 0; update_insns (); }
 
 	    if (do_bb_reg_rename)
 	      while (opt_reg_rename ())
@@ -5966,10 +5967,12 @@ namespace
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign2 (STACK_POINTER_REGNUM))
 	      {
-		XUSE('e2');
-		done = 0;
+		XUSE('E');
 		update_insns ();
 	      }
+
+	    if (do_autoinc && opt_autoinc ())
+	      {XUSE('i'); done = 0; update_insns (); }
 
 	    if (done)
 	      break;

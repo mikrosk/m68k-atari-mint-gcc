@@ -493,6 +493,20 @@ public:
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
     defs[regno] = 1 << FIRST_PSEUDO_REGISTER;
     setMask(regno, 0xffffffff, mode);
+
+    // clear also all using this register.
+    for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+      {
+    // check for cached value using this register
+	if (value[i] && MEM_P(value[i]))
+	  {
+	    rtx pl = XEXP(value[i], 0);
+	    if (REG_P(pl) && REGNO(pl) == i)
+	      value[i] = 0;
+	    else if (GET_CODE(pl) == PLUS && REG_P(XEXP(pl, 0)) && REGNO(XEXP(pl, 0)) == regno)
+	      value[i] = 0;
+	  }
+      }
   }
 
   void
@@ -4622,6 +4636,8 @@ track_regs ()
 	    {
 	      rtx dst = SET_DEST(set);
 	      track->invalidate_mem (dst);
+	      if (ii.get_def())
+		track->clear_for_mask(ii.get_def(), index);
 
 	      // reverse assignment
 	      if (MEM_P(dst) && MEM_IN_STRUCT_P(dst) && ii.get_src_reg())

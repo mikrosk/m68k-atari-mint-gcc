@@ -293,11 +293,27 @@ public:
     return -1;
   }
   void
-  invalidate_mem (rtx dst)
+  invalidate_mem (rtx mem)
   {
     rtx z = 0;
-    if (extend (&z, GET_MODE(dst), dst))
+    if (extend (&z, GET_MODE(mem), mem))
       {
+	rtx reg = 0;
+	int iv = 0;
+	if (MEM_IN_STRUCT_P(mem))
+	  {
+	    rtx x = XEXP(mem, 0);
+	    if (GET_CODE(x) == PLUS)
+	      {
+		rtx creg = XEXP(x, 0);
+		rtx cint = XEXP(x, 1);
+		if (REG_P(creg) && CONST_INT_P(cint))
+		  {
+		    reg = creg;
+		    iv = (int) INTVAL(cint);
+		  }
+	      }
+	  }
 	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	  {
 	    if (rtx_equal_p (z, value[i]))
@@ -305,6 +321,24 @@ public:
 		value[i] = 0;
 		defs[i] = 0;
 		andMask[i] = 0xffffffff;
+		continue;
+	      }
+	    // check for subreg/strict_low: overlap +/-3 -> clear the cache
+	    if (reg && value[i] && MEM_P(value[i]))
+	      {
+		rtx pl = XEXP(value[i], 0);
+		if (GET_CODE (pl) == PLUS)
+		  {
+		    rtx r = XEXP(pl, 0);
+		    rtx v = XEXP(pl, 1);
+		    if (rtx_equal_p (r, reg) && CONST_INT_P(v)
+			&& (INTVAL(v) + 3 <= iv || INTVAL(v) - 3 >= iv))
+		      {
+			value[i] = 0;
+			defs[i] = 0;
+			andMask[i] = 0xffffffff;
+		      }
+		  }
 	      }
 	  }
       }

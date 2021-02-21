@@ -2301,6 +2301,8 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 				  min_align > inherent_align
 				  || total_size > inherent_size ? -1 : 0);
 
+	  MEM_IN_STRUCT_P (x) = 1; // mark as stack slot == restrict
+
 	  stack_slot = x;
 
 	  /* Cancel the big-endian correction done in assign_stack_local.

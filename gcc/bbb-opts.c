@@ -77,7 +77,7 @@
 #include <genrtl.h>
 
 //#define XUSE(c) fputc(c, stderr)
-#define XUSE(c) done = 0
+//#define XUSE(c) done = 0
 
 int be_very_verbose;
 bool be_verbose;
@@ -148,7 +148,7 @@ class track_var
   /*
    * the bitmask of the used registers. needed for invalidation.
    */
-  unsigned usedRegs[FIRST_PSEUDO_REGISTER];
+  unsigned defs[FIRST_PSEUDO_REGISTER];
 
   /**
    * contains the bits containing a value.
@@ -175,7 +175,7 @@ class track_var
       case REG:
 	{
 	  rtx v = value[REGNO(x)];
-	  unsigned v_usedRegs = usedRegs[REGNO(x)];
+	  unsigned v_usedRegs = defs[REGNO(x)];
 	  /* try to expand the register. */
 	  if (v)
 	    {
@@ -211,6 +211,12 @@ class track_var
 	/* memory reads. */
       case MEM:
 	{
+	  // cache restict and stack spills
+	  if (MEM_IN_STRUCT_P(x))
+	    {
+	      *z = x;
+	      return true;
+	    }
 	  rtx m = XEXP(x, 0);
 	  switch (GET_CODE(m))
 	    {
@@ -266,7 +272,7 @@ public:
       for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	{
 	  value[i] = 0;
-	  usedRegs[i] = 0;
+	  defs[i] = 0;
 	  andMask[i] = 0xffffffff;
 	}
   }
@@ -297,7 +303,7 @@ public:
 	    if (rtx_equal_p (z, value[i]))
 	      {
 		value[i] = 0;
-		usedRegs[i] = 0;
+		defs[i] = 0;
 		andMask[i] = 0xffffffff;
 	      }
 	  }
@@ -322,7 +328,7 @@ public:
   }
 
   void
-  set (machine_mode mode, unsigned regno, rtx src, unsigned my_use, unsigned index)
+  set (machine_mode mode, unsigned regno, rtx src, unsigned def, unsigned index)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
@@ -331,8 +337,8 @@ public:
       {
 	rtx hi = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) >> 32);
 	rtx lo = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) & 0xffffffff);
-	set(SImode, regno, hi, my_use, index);
-	set(SImode, regno + 1, lo, my_use, index);
+	set(SImode, regno, hi, def, index);
+	set(SImode, regno + 1, lo, def, index);
 	return;
       }
 
@@ -341,10 +347,10 @@ public:
 
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-	if (usedRegs[i] & (1 << regno))
+	if (defs[i] & (1 << regno))
 	  {
 	    value[i] = 0;
-	    usedRegs[i] = 0;
+	    defs[i] = 0;
 	    if (GET_MODE_SIZE (mode) == 1)
 	      andMask[i] |= 0xff;
 	    else if (GET_MODE_SIZE (mode) == 2)
@@ -374,7 +380,7 @@ public:
 	else
 	  setMask(regno, 0xffffffff, mode);
 
-	usedRegs[regno] = my_use;
+	defs[regno] = def;
 	// convert reg value int regs value.
 	if (REG_P(value[regno]))
 	  {
@@ -386,7 +392,7 @@ public:
 		value[refregno] = val;
 	      }
 	    value[regno] = val;
-	    usedRegs[regno] = usedRegs[refregno];
+	    defs[regno] = defs[refregno];
 	  }
       }
     else
@@ -451,7 +457,7 @@ public:
     if (mode == SFmode && regno < 16)
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
-    usedRegs[regno] = 1 << FIRST_PSEUDO_REGISTER;
+    defs[regno] = 1 << FIRST_PSEUDO_REGISTER;
     setMask(regno, 0xffffffff, mode);
   }
 
@@ -463,7 +469,7 @@ public:
 	if (value[i] && MEM_P(value[i]))
 	  {
 	    value[i] = 0;
-	    usedRegs[i] = 0;
+	    defs[i] = 0;
 	    andMask[i] = 0xffffffff;
 	  }
       }
@@ -494,7 +500,7 @@ public:
     for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
 	value[i] = o->value[i];
-	usedRegs[i] = o->usedRegs[i];
+	defs[i] = o->defs[i];
 	andMask[i] = o->andMask[i];
       }
   }
@@ -508,7 +514,7 @@ public:
 	if (!rtx_equal_p (value[i], o->value[i]))
 	  {
 	    value[i] = o->value[i] = 0;
-	    usedRegs[i] = 0;
+	    defs[i] = 0;
 	  }
 	o->andMask[i] = andMask[i] |= o->andMask[i]; // or the masks
       }
@@ -4580,7 +4586,20 @@ track_regs ()
 
 	  if (dregno < 0)
 	    {
-	      track->invalidate_mem (SET_DEST(set));
+	      rtx dst = SET_DEST(set);
+	      track->invalidate_mem (dst);
+
+	      // reverse assignment
+	      if (MEM_P(dst) && MEM_IN_STRUCT_P(dst) && ii.get_src_reg())
+		{
+		  rtx cache = track->get(ii.get_src_regno());
+		  if (!cache ||
+		      (CONST_INT_P(cache) && (INTVAL(cache) & 0x100000000000000LL)))
+		    {
+		      track->set (ii.get_mode (), ii.get_src_regno(), dst, ii.get_myuse(), index);
+		    }
+		}
+
 	      continue;
 	    }
 
@@ -4660,7 +4679,7 @@ track_regs ()
 	  if (ii.is_src_mem () && src->volatil)
 	    continue;
 
-	  track->set (ii.get_mode (), dregno, src, ii.get_myuse(), index);
+	  track->set (ii.get_mode (), dregno, src, ii.get_def(), index);
 	}
       delete track;
     }
@@ -5689,7 +5708,7 @@ opt_insert_move0()
 	      continue;
 	    }
 
-	  if (pp.get_dst_regno() == regno)
+	  if (!pp.is_compare() && pp.get_dst_regno() == regno)
 	    {
 	      if (pp.get_src_op() == AND && pp.get_src_intval() == val)
 		found = &pp;
@@ -5844,9 +5863,6 @@ namespace
 	if (do_opt_final && opt_clear())
 	  update_insns ();
 
-	if (do_opt_0 && opt_insert_move0())
-	  update_insns();
-
 	int pass = 0;
 	for (;;)
 	  {
@@ -5854,6 +5870,9 @@ namespace
 	    done = 1;
 	    if (be_very_verbose)
 	      log ("pass %d\n", pass);
+
+	    if (do_opt_0 && opt_insert_move0())
+	      update_insns();
 
 	    if (do_opt_strcpy && opt_strcpy ())
 	      {XUSE('s'); done = 0; update_insns (); }
@@ -5886,7 +5905,7 @@ namespace
 
 	    /* convert back to clear before fixing the stack frame plus before tracking registers! */
 	    if (do_opt_final && opt_declear())
-	      update_insns();
+	      { XUSE('f'); update_insns(); }
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign (STACK_POINTER_REGNUM))
 	      {
@@ -5897,7 +5916,7 @@ namespace
 
 	    if (do_elim_dead_assign) while(opt_elim_dead_assign2 (STACK_POINTER_REGNUM))
 	      {
-		XUSE('e');
+		XUSE('e2');
 		done = 0;
 		update_insns ();
 	      }
@@ -5936,6 +5955,7 @@ namespace
     if (be_verbose)
       print_inline_info();
 
+    XUSE('.');
     XUSE('\n');
     return r;
   }

@@ -498,6 +498,7 @@ assign_stack_local_1 (machine_mode mode, HOST_WIDE_INT size,
   x = gen_rtx_MEM (mode, addr);
   set_mem_align (x, alignment_in_bits);
   MEM_NOTRAP_P (x) = 1;
+  MEM_IN_STRUCT_P (x) = 1; // mark as stack slot == restrict
 
   stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, stack_slot_list);

@@ -33,6 +33,7 @@ selftest_m68k_68080_costs (void)
 
   rtx movel_120ia0_d0 = gen_rtx_SET(d0, mem_120ia0);
   TEST(movel_120ia0_d0, 8);
+
 }
 static int run;
 #endif
@@ -77,7 +78,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  *total = 2;
 	else
 	// .b .w *iw.l
-	if (iv >= -32768 && iv <= 32767)
+	if (GET_MODE_SIZE(mode) < 4 && iv >= -32768 && iv <= 32767)
 	  *total = 3;
 	else
 	  *total = 4;
@@ -123,10 +124,6 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
       {
 	OpCost: rtx a = XEXP(x, 0);
 	rtx b = XEXP(x, 1);
-
-	// sub costs for double destination reg
-	if (REG_P(a))
-	  total2 -= 2;
 
 	// reg or mem
 	m68k_68080_costs (a, mode, code, 0, total, speed);
@@ -225,23 +222,45 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 
     case SYMBOL_REF:
     case LABEL_REF:
-      *total = 8;
+      *total = 4;
       return true;
 
     case COMPARE:
     case SET:
       {
 	rtx a = XEXP(x, 0);
+	rtx b = XEXP(x, 1);
 	bool r = m68k_68080_costs (a, mode, code, 0, total, speed);
 	total2 = *total;
 
-	rtx b = XEXP(x, 1);
+	if (code == SET)
+	switch (GET_CODE(b))
+	{
+	  case ASHIFT:
+	  case ASHIFTRT:
+	  case LSHIFTRT:
+	  case PLUS:
+	  case MINUS:
+	  case AND:
+	  case IOR:
+	  case XOR:
+	    total2 = 0;
+	    break;
+	  default:
+	    break;
+	}
+
 	r &= m68k_68080_costs (b, mode, code, 0, total, speed);
 	*total += total2;
 
+	if (GET_CODE(b) == COMPARE)
+	  *total -= 2;
+
 	// lea penalty
 	if (REG_P(a) && GET_CODE(b) == PLUS && XEXP(b, 0) != a)
-	  *total += 2;
+	  *total += 1;
+
+
 
 	return r;
       }

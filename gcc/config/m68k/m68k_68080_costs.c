@@ -85,7 +85,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	}
       if (GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == LABEL_REF || CONST_INT_P(x))
 	{
-	  *total = 2;
+	  *total = 1;
 	  return true;
 	}
       if (GET_CODE(x) == MULT)
@@ -106,7 +106,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  if ((GET_CODE(b) == SYMBOL_REF || GET_CODE(b) == LABEL_REF  || CONST_INT_P(b))
 	      && CONST_INT_P(c))
 	    {
-	      *total = 2; // sym+n
+	      *total = 1; // sym+n
 	      return true;
 	    }
 

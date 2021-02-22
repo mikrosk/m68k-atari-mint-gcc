@@ -12,18 +12,21 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		  int *total, bool speed);
 #if 1
 static int ttotal;
-#define TEST(a,r) {ttotal = 0; m68k_68080_costs(a, SImode, 0, 0, &ttotal, 1); if (ttotal != r) printf("%d <> %d: %s\n", ttotal, r, #a);}
+#define TEST(a,r) {ttotal = 0; m68k_68080_costs(a, SImode, 0, 0, &ttotal, 1); if (ttotal != r) {debug(a);printf("%d <> %d: %s\n", ttotal, r, #a);}}
 
 void
 selftest_m68k_68080_costs (void)
 {
   rtx d0 = gen_rtx_REG (SImode, 0);
   rtx d1 = gen_rtx_REG (SImode, 1);
-  rtx a0 = gen_rtx_REG (SImode, 8);
+  rtx a7 = gen_rtx_REG (SImode, 15);
 
-  rtx c120 = gen_rtx_CONST_INT (VOIDmode, 120);
+  rtx c120 = GEN_INT(120);
 
-  rtx mem_120ia0 = gen_rtx_MEM (SImode, gen_rtx_PLUS(SImode, a0, c120));
+  rtx mem_120ia0 = gen_rtx_MEM (SImode, gen_rtx_PLUS(SImode, a7, c120));
+
+  rtx dummy = gen_rtx_SYMBOL_REF(SImode, "dummy");
+  rtx minusa7 = gen_rtx_MEM(SImode, gen_rtx_PRE_DEC(SImode, a7));
 
   rtx movel_d0_d1 = gen_rtx_SET(d1, d0);
   TEST(movel_d0_d1, 4);
@@ -34,6 +37,20 @@ selftest_m68k_68080_costs (void)
   rtx movel_120ia0_d0 = gen_rtx_SET(d0, mem_120ia0);
   TEST(movel_120ia0_d0, 8);
 
+  rtx ashl_8_d0 = gen_rtx_SET(d0, gen_rtx_ASHIFT(SImode, d0, GEN_INT(8)));
+  TEST(ashl_8_d0, 4);
+
+  rtx pea_sym = gen_rtx_SET(minusa7, dummy);
+  TEST(pea_sym, 9);
+
+  rtx pea_32 = gen_rtx_SET(minusa7, GEN_INT(32));
+  TEST(pea_32, 8);
+
+  rtx addq8sp = gen_rtx_SET(a7, gen_rtx_PLUS(SImode, a7, GEN_INT(8)));
+  TEST(addq8sp, 4);
+
+  rtx cmpd0a7 = gen_rtx_SET(cc0_rtx, gen_rtx_COMPARE(SImode, d0, a7));
+  TEST(cmpd0a7, 4);
 }
 static int run;
 #endif
@@ -121,7 +138,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		{
 		  if (GET_CODE(c) == CONST_INT)
 		    {
-		      *total = INTVAL(c) >= -8 && INTVAL(c) <= 7 ? 3 // 8(An,Xn*S)
+		      *total = INTVAL(c) >= -8 && INTVAL(c) <= 8 ? 3 // 8(An,Xn*S)
 			  :
 			       INTVAL(c) >= -32768 && INTVAL(c) <= 32767 ? 4 // (16,An,Xn*S)
 				   : 5; // (32,An,Xn*S)
@@ -159,21 +176,33 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case CONST_INT:
       {
 	int iv = INTVAL(x);
+	switch (outer_code)
+	{
+	  case SET: // moveq
+	    if (iv >= -0x100 && iv <= 0xff)
+	      break;
+	    goto Defconst;
+	  case PLUS:
+	  case MINUS:
+	    if (iv >= -8 && iv <= 8)
+	      break;
+	    goto Defconst;
+	  case ASHIFT:
+	  case ASHIFTRT:
+	  case LSHIFTRT:
+	    break;
+	  default:
+Defconst:
+	    if (iv == 0) // used in compares
+	      break;
 
-	// moveq
-	if (outer_code == SET && iv >= -0x100 && iv <= 0xff)
-	  ;
-	else
-	// addq
-	if ((outer_code == PLUS || outer_code == MINUS) && iv >= -0x8
-	    && iv <= 0x7)
-	  ;
-	else
-	// .b .w *iw.l
-	if (GET_MODE_SIZE(mode) < 4 && iv >= -32768 && iv <= 32767)
-	  *total = 1;
-	else
-	  *total = 2;
+	    if ((outer_code == MEM || outer_code == COMPARE || outer_code == PLUS ||
+		GET_MODE_SIZE(mode) < 4) && iv >= -32768 && iv <= 32767)
+	      *total = 1;
+	    else
+	      *total = 2;
+	    break;
+	}
       }
       return true;
 
@@ -242,7 +271,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 
     case CALL:
       {
-	bool r = m68k_68080_costs (XEXP(x, 0), mode, ADDRESS, 0, total, speed);
+	bool r = m68k_68080_costs (XEXP(x, 0), mode, code, 0, total, speed);
 	*total += 7;
 	return true;
       }
@@ -257,7 +286,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 
     case SYMBOL_REF:
     case LABEL_REF:
-      *total = 4;
+      *total = 2;
       return true;
 
     case NE:
@@ -299,7 +328,9 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  }
 	if (GET_CODE(dst) == CC0)
 	  {
-	    return m68k_68080_costs (src, mode, code, 0, total, speed);
+	    bool r = m68k_68080_costs (src, mode, code, 0, total, speed);
+	    *total += total2;
+	    return r;
 	  }
 
 	bool r = m68k_68080_costs (dst, mode, code, 0, total, speed);
@@ -326,7 +357,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	    total2 = 4; // reset to base cost
 	  }
 
-	r &= m68k_68080_costs (src, mode, code, 0, total, speed);
+	r &= m68k_68080_costs (src, mode, MEM_P(dst) ? MEM : code, 0, total, speed);
 	*total += total2;
 
 	return r;

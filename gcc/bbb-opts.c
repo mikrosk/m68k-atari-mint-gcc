@@ -4640,7 +4640,7 @@ track_regs ()
 		track->clear_for_mask(ii.get_def(), index);
 
 	      // reverse assignment
-	      if (MEM_P(dst) && MEM_IN_STRUCT_P(dst) && ii.get_src_reg())
+	      if (MEM_P(dst) && MEM_IN_STRUCT_P(dst) && ii.get_src_reg() && !ii.get_src_op())
 		{
 		  rtx cache = track->get(ii.get_src_regno());
 		  if (!cache ||

@@ -303,7 +303,7 @@ public:
 	if (MEM_IN_STRUCT_P(mem))
 	  {
 	    rtx x = XEXP(mem, 0);
-	    if (GET_CODE(x) == PLUS)
+	    if (GET_CODE(x) == PLUS || GET_CODE(x) == MINUS)
 	      {
 		rtx creg = XEXP(x, 0);
 		rtx cint = XEXP(x, 1);
@@ -327,7 +327,7 @@ public:
 	    if (reg && value[i] && MEM_P(value[i]))
 	      {
 		rtx pl = XEXP(value[i], 0);
-		if (GET_CODE (pl) == PLUS)
+		if (GET_CODE (pl) == PLUS || GET_CODE (pl) == MINUS)
 		  {
 		    rtx r = XEXP(pl, 0);
 		    rtx v = XEXP(pl, 1);
@@ -428,6 +428,8 @@ public:
 	    value[regno] = val;
 	    defs[regno] = defs[refregno];
 	  }
+
+	clearRefs(regno);
       }
     else
       {
@@ -494,6 +496,11 @@ public:
     defs[regno] = 1 << FIRST_PSEUDO_REGISTER;
     setMask(regno, 0xffffffff, mode);
 
+    clearRefs(regno);
+  }
+
+  void
+  clearRefs(unsigned regno) {
     // clear also all using this register.
     for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
@@ -501,9 +508,11 @@ public:
 	if (value[i] && MEM_P(value[i]))
 	  {
 	    rtx pl = XEXP(value[i], 0);
-	    if (REG_P(pl) && REGNO(pl) == i)
-	      value[i] = 0;
-	    else if (GET_CODE(pl) == PLUS && REG_P(XEXP(pl, 0)) && REGNO(XEXP(pl, 0)) == regno)
+	    if (GET_CODE(pl) == PLUS || GET_CODE(pl) == MINUS)
+	      pl = XEXP(pl, 0);
+	    if (GET_CODE(pl) == MULT || GET_CODE(pl) == ASHIFT)
+	      pl = XEXP(pl, 0);
+	    if (REG_P(pl) && REGNO(pl) == regno)
 	      value[i] = 0;
 	  }
       }
@@ -5160,7 +5169,7 @@ opt_absolute (void)
 		++k;
 	    }
 	}
-      if (freemask && found.size () > 2)
+      if (freemask && found.size () > (TUNE_68040_60 || TUNE_68080) ? 10 : 2)
 	{
 	  unsigned regno = bit2regno (freemask);
 	  if (with_symbol)
@@ -5945,9 +5954,6 @@ namespace
 	    if (do_merge_add && opt_merge_add ())
 	      {XUSE('m'); done = 0; update_insns(); }
 
-	    if (do_absolute && opt_absolute ())
-	      {XUSE('b'); done = 0; update_insns (); }
-
 	    if (do_bb_reg_rename)
 	      while (opt_reg_rename ())
 		{
@@ -5955,6 +5961,9 @@ namespace
 		  update_insns ();
 		  done = 0;
 		}
+
+	    if (pass < 1 && do_absolute && opt_absolute ())
+	      {XUSE('b'); done = 0; update_insns (); }
 
 	    /* convert back to clear before fixing the stack frame plus before tracking registers! */
 	    if (do_opt_final && opt_declear())

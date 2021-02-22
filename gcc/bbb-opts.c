@@ -2272,6 +2272,8 @@ append_reg_usage (FILE * f, rtx_insn * insn)
       rtx set = single_set(ii.get_insn());
       if (set)
 	cost = rtx_cost(set, GET_MODE(SET_DEST(set)), INSN, 0, true);
+      else if (ii.is_call())
+	cost = rtx_cost(PATTERN(ii.get_insn()), VOIDmode, INSN, 0, true);
       if (be_very_verbose)
 	fprintf (f, "\n\t\t\t\t#%d\t%d %d\t", ii.get_index (), cost, set ? insn_rtx_cost(set, true): 0);
       else

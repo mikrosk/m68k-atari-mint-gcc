@@ -76,8 +76,8 @@
 #include <map>
 #include <genrtl.h>
 
-#define XUSE(c) fputc(c, stderr)
-//#define XUSE(c)
+//#define XUSE(c) fputc(c, stderr)
+#define XUSE(c)
 
 int be_very_verbose;
 bool be_verbose;

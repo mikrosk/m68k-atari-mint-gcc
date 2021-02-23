@@ -5793,11 +5793,14 @@ opt_insert_move0()
 
       if (REG_P (dst))
 	{
-	  // convert to subreg
-	  rtx sup = gen_rtx_SUBREG(GET_MODE (dst), dst, SUBREG_BYTE (dst));
-	  if (!validate_unshare_change(ii.get_insn(), &SET_DEST (set), sup, false))
+	  // convert to strict_low_part
+	  rtx slp = gen_rtx_STRICT_LOW_PART (
+	  //GET_MODE (dst)
+	  VOIDmode
+	  , dst);
+	  if (!validate_unshare_change(ii.get_insn(), &SET_DEST (set), slp, false))
 	    continue;
-	  log("(0) %d: to subreg,%s\n", index, reg_names[regno]);
+	  log("(0) %d: to strict_low_part,%s\n", index, reg_names[regno]);
         }
 
       rtx nset = gen_rtx_SET(gen_rtx_REG(found->get_mode(), regno), gen_rtx_CONST_INT(found->get_mode(), 0));

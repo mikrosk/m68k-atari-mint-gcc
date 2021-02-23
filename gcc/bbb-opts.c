@@ -4739,16 +4739,10 @@ opt_elim_dead_assign (int blocked_regno)
 	      rtx val = tv->get(REGNO(andval));
 	      if (val && GET_CODE(val) == CONST_INT)
 		{
+		  andval = 0;
 		  long long int lli = INTVAL(val);
 		  if (lli < 0x100000000LL)
-		    {
-		      andval = val;
-		    }
-		  else if (lli & 0x100000000000000LL)
-		    {
-		      unsigned refreg = (lli >> 32) & 0xff;
-		      andval = tv->get(refreg);
-		    }
+		    andval = val;
 		}
 	    }
 	  if (andval && GET_CODE(andval) == CONST_INT)

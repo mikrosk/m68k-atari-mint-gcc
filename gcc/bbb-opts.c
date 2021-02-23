@@ -76,8 +76,8 @@
 #include <map>
 #include <genrtl.h>
 
-//#define XUSE(c) fputc(c, stderr)
-#define XUSE(c) 
+#define XUSE(c) fputc(c, stderr)
+//#define XUSE(c)
 
 int be_very_verbose;
 bool be_verbose;
@@ -564,7 +564,7 @@ public:
 
   /* only keep common values in both sides. */
   void
-  merge (track_var * o, unsigned index)
+  merge (track_var * o)
   {
     for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
@@ -1216,11 +1216,15 @@ public:
   }
 
   inline insn_info &
-  make_clobber (machine_mode mode)
+  make_clobber (machine_mode mode )
   {
     hard = use8 = def8 = use8 | def8;
-    use16 = def16 = use16 | def16;
-    use32 = def32 = use32 | def32;
+    if (GET_MODE_SIZE(mode) > 1)
+      {
+	use16 = def16 = use16 | def16;
+	if (GET_MODE_SIZE(mode) > 2)
+	  use32 = def32 = use32 | def32;
+      }
     return *this;
   }
 
@@ -1559,7 +1563,7 @@ insn_info::scan ()
     }
   if (CALL_P(insn) || ANY_RETURN_P(pattern))
     {
-      for (unsigned i = 0, j = 1; i < FIRST_PSEUDO_REGISTER; ++i)
+      for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	if (global_regs[i])
 	  {
 	    mark_hard (i);
@@ -4572,7 +4576,7 @@ track_regs ()
 	    {
 	      if (ii.is_visited ())
 		{
-		  ii.get_track_var ()->merge (track, index);
+		  ii.get_track_var ()->merge (track);
 		}
 	      else
 		{
@@ -4974,7 +4978,7 @@ opt_elim_dead_assign2 (int blocked_regno)
   unsigned change_count = 0;
 
   // same but top->down
-  for (int index = 0; index < infos.size () - 1; ++index)
+  for (unsigned index = 0; index < infos.size () - 1; ++index)
     {
       insn_info & ii = infos[index];
 
@@ -5013,11 +5017,10 @@ opt_elim_dead_assign2 (int blocked_regno)
 		    {
 		      unsigned val = INTVAL (SET_SRC (set));
 		      rtx jset = single_set(jj.get_insn());
-		      if (!jset || !MEM_P (SET_SRC(jset)))
+		      if (!jset )
 			continue;
 
 		      track_var * track = infos[index].get_track_var ();
-
 		      if ((jj.get_mode() == QImode && val <= 0xff && (!jj.is_use_hi24(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xff))
 		      || (jj.get_mode() == HImode && val <= 0xffff && (!jj.is_use32(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xffff)))
 			{
@@ -5147,8 +5150,8 @@ opt_absolute (void)
 		}
 	    }
 	}
-
-      if (freemask && found.size () > 2)
+      unsigned needed = (TUNE_68040_60 || TUNE_68080) ? 10 : 2;
+      if (freemask && found.size () > needed)
 	{
 	  unsigned regno = bit2regno (freemask);
 	  /* check again. */
@@ -5169,7 +5172,7 @@ opt_absolute (void)
 		++k;
 	    }
 	}
-      if (freemask && found.size () > (TUNE_68040_60 || TUNE_68080) ? 10 : 2)
+      if (freemask && found.size () > needed)
 	{
 	  unsigned regno = bit2regno (freemask);
 	  if (with_symbol)
@@ -5754,7 +5757,7 @@ opt_insert_move0()
       bool ok = true;
       insn_info * found = 0;
       int val = GET_MODE_SIZE(ii.get_mode()) == 1 ? 0xff : 0xffff;
-      int to = MIN(pos + 10, infos.size());
+      unsigned to = MIN(pos + 10, infos.size());
       for (unsigned pos = index + 1; ok && pos < to; ++pos)
 	{
 	  insn_info & pp = infos[pos];
@@ -5790,14 +5793,11 @@ opt_insert_move0()
 
       if (REG_P (dst))
 	{
-	  // convert to strict_low_part
-	  rtx slp = gen_rtx_STRICT_LOW_PART (
-	  //GET_MODE (dst)
-	  VOIDmode
-	  , dst);
-	  if (!validate_unshare_change(ii.get_insn(), &SET_DEST (set), slp, false))
+	  // convert to subreg
+	  rtx sup = gen_rtx_SUBREG(GET_MODE (dst), dst, SUBREG_BYTE (dst));
+	  if (!validate_unshare_change(ii.get_insn(), &SET_DEST (set), sup, false))
 	    continue;
-	  log("(0) %d: to strict_low_part,%s\n", index, reg_names[regno]);
+	  log("(0) %d: to subreg,%s\n", index, reg_names[regno]);
         }
 
       rtx nset = gen_rtx_SET(gen_rtx_REG(found->get_mode(), regno), gen_rtx_CONST_INT(found->get_mode(), 0));
@@ -5954,6 +5954,9 @@ namespace
 	    if (do_merge_add && opt_merge_add ())
 	      {XUSE('m'); done = 0; update_insns(); }
 
+	    if (do_absolute && opt_absolute ())
+	      {XUSE('b'); done = 0; update_insns (); }
+
 	    if (do_bb_reg_rename)
 	      while (opt_reg_rename ())
 		{
@@ -5961,9 +5964,6 @@ namespace
 		  update_insns ();
 		  done = 0;
 		}
-
-	    if (pass < 1 && do_absolute && opt_absolute ())
-	      {XUSE('b'); done = 0; update_insns (); }
 
 	    /* convert back to clear before fixing the stack frame plus before tracking registers! */
 	    if (do_opt_final && opt_declear())
@@ -5997,8 +5997,14 @@ namespace
 	  { XUSE('f'); update_insns (); }
 
 	/* elim assignments to the stack pointer last. */
-	if (do_elim_dead_assign && opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
+	if (do_elim_dead_assign) while(opt_elim_dead_assign (FIRST_PSEUDO_REGISTER))
 	  { XUSE('e'); update_insns (); }
+
+	if (do_elim_dead_assign) while(opt_elim_dead_assign2 (FIRST_PSEUDO_REGISTER))
+	  {
+	    XUSE('E');
+	    update_insns ();
+	  }
 
 	if (do_pipeline)
 	  opt_pipeline_insns ();

@@ -88,11 +88,6 @@ optimize_function_for_speed_p (struct function *fun);
 
 extern struct lang_hooks lang_hooks;
 
-static void
-update_insn_infos (void);
-static unsigned
-track_regs ();
-
 /* Lookup of the current function name. */
 extern tree current_function_decl;
 static tree last_function_decl;
@@ -148,7 +143,7 @@ class track_var
   /*
    * the bitmask of the used registers. needed for invalidation.
    */
-  unsigned defs[FIRST_PSEUDO_REGISTER];
+  unsigned used[FIRST_PSEUDO_REGISTER];
 
   /**
    * contains the bits containing a value.
@@ -174,19 +169,7 @@ class track_var
 
       case REG:
 	{
-	  rtx v = value[REGNO(x)];
-	  unsigned v_usedRegs = defs[REGNO(x)];
-	  /* try to expand the register. */
-	  if (v)
-	    {
-	      if (dstMode != GET_MODE(v) && (GET_CODE(v) != CONST_INT || v_usedRegs == (1 << FIRST_PSEUDO_REGISTER)))
-		return false;
-
-	      *z = v;
-	      return true;
-	    }
-
-	  /* store the reg otherwise. */
+	  /* store the reg. */
 	  if (GET_MODE(x) == dstMode)
 	    *z = x;
 	  else
@@ -212,51 +195,12 @@ class track_var
       case MEM:
 	{
 	  // cache restict and stack spills
-	  if (MEM_IN_STRUCT_P(x))
+	  if (MEM_IN_STRUCT_P(x) || MEM_READONLY_P(x))
 	    {
 	      *z = x;
 	      return true;
 	    }
-	  rtx m = XEXP(x, 0);
-	  switch (GET_CODE(m))
-	    {
-	    case SYMBOL_REF:
-	    case LABEL_REF:
-	      /* these can be used directly. */
-	      *z = x;
-	      return true;
-
-	    case REG:
-	      if (!extend (&m, dstMode, m))
-		return false;
-
-	      *z = gen_rtx_MEM (GET_MODE(x), m);
-	      return true;
-
-	    case PLUS:
-	    case MINUS:
-	      // handle only in combination with const
-	      {
-		rtx y = XEXP(m, 0);
-		if (!REG_P(y) && GET_CODE(y) != SYMBOL_REF && GET_CODE(y) == LABEL_REF && amiga_is_const_pic_ref (y))
-		  return false;
-
-		if (REG_P(y))
-		  if (!extend (&y, dstMode, y))
-		    return false;
-
-		if (GET_CODE(x) == PLUS) // create an own plus to be able to modify the constant offset (later).
-		  m = gen_rtx_PLUS(GET_MODE(m), y, XEXP(m, 1));
-		else
-		  m = gen_rtx_MINUS(GET_MODE(m), y, XEXP(m, 1));
-
-		*z = gen_rtx_MEM (GET_MODE(x), m);
-		return true;
-	      }
-	    default:
-	      return false;
-	    }
-	  break;
+	  return false;
 	}
       default:
 	return false;
@@ -272,7 +216,7 @@ public:
       for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	{
 	  value[i] = 0;
-	  defs[i] = 0;
+	  used[i] = 0;
 	  andMask[i] = 0xffffffff;
 	}
   }
@@ -293,7 +237,7 @@ public:
     return -1;
   }
   void
-  invalidate_mem (rtx mem)
+  invalidate_mem (rtx mem, unsigned index)
   {
     rtx z = 0;
     if (extend (&z, GET_MODE(mem), mem))
@@ -314,19 +258,19 @@ public:
 		  }
 	      }
 	  }
-	for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+
+	if (iv) for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	  {
 	    if (rtx_equal_p (z, value[i]))
 	      {
-		value[i] = 0;
-		defs[i] = 0;
-		andMask[i] = 0xffffffff;
+		clear(SImode, i, index);
 		continue;
 	      }
 	    // check for subreg/strict_low: overlap +/-3 -> clear the cache
-	    if (reg && value[i] && MEM_P(value[i]))
+	    rtx mem = value[i];
+	    if (reg && mem && MEM_P(mem) && MEM_IN_STRUCT_P(mem))
 	      {
-		rtx pl = XEXP(value[i], 0);
+		rtx pl = XEXP(mem, 0);
 		if (GET_CODE (pl) == PLUS || GET_CODE (pl) == MINUS)
 		  {
 		    rtx r = XEXP(pl, 0);
@@ -334,9 +278,7 @@ public:
 		    if (rtx_equal_p (r, reg) && CONST_INT_P(v)
 			&& (INTVAL(v) + 3 <= iv || INTVAL(v) - 3 >= iv))
 		      {
-			value[i] = 0;
-			defs[i] = 0;
-			andMask[i] = 0xffffffff;
+			clear(SImode, i, index);
 		      }
 		  }
 	      }
@@ -362,7 +304,7 @@ public:
   }
 
   void
-  set (machine_mode mode, unsigned regno, rtx src, unsigned def, unsigned index)
+  set (machine_mode mode, unsigned regno, rtx src, unsigned usedhere, unsigned index)
   {
     if (regno >= FIRST_PSEUDO_REGISTER)
       return;
@@ -371,36 +313,21 @@ public:
       {
 	rtx hi = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) >> 32);
 	rtx lo = gen_rtx_CONST_INT(VOIDmode, INTVAL(src) & 0xffffffff);
-	set(SImode, regno, hi, def, index);
-	set(SImode, regno + 1, lo, def, index);
+	set(SImode, regno, hi, usedhere, index);
+	set(SImode, regno + 1, lo, usedhere, index);
 	return;
       }
 
     if (mode == SFmode && regno < 16)
       mode = SImode;
 
-    for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-      {
-	if (defs[i] & (1 << regno))
-	  {
-	    value[i] = 0;
-	    defs[i] = 0;
-	    if (GET_MODE_SIZE (mode) == 1)
-	      andMask[i] |= 0xff;
-	    else if (GET_MODE_SIZE (mode) == 2)
-	      andMask[i] |= 0xffff;
-	    else
-	      andMask[i] = 0xffffffff;
-	  }
-      }
-
     if (GET_CODE(src) == CONST_INT && (mode == HImode || mode == QImode))
       {
-	unsigned mask = andMask[regno];
-	clear (mode, regno, index);
-	andMask[regno] = mask;
 	unsigned iv = UINTVAL(src);
 	setMask(regno, iv, mode);
+	value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
+	used[regno] = 1 << FIRST_PSEUDO_REGISTER;
+	clearRefsByMask(1<<regno, index);
       }
     else if (extend (&value[regno], mode, src))
       {
@@ -414,7 +341,7 @@ public:
 	else
 	  setMask(regno, 0xffffffff, mode);
 
-	defs[regno] = def;
+	used[regno] = usedhere;
 	// convert reg value int regs value.
 	if (REG_P(value[regno]))
 	  {
@@ -426,10 +353,10 @@ public:
 		value[refregno] = val;
 	      }
 	    value[regno] = val;
-	    defs[regno] = defs[refregno];
+	    used[regno] = used[refregno];
 	  }
 
-	clearRefs(regno);
+	clearRefsByMask(1<<regno, index);
       }
     else
       {
@@ -493,28 +420,20 @@ public:
     if (mode == SFmode && regno < 16)
       mode = SImode;
     value[regno] = gen_rtx_CONST_INT(mode, 0x100000000000000LL | ((long long int ) (regno) << 32) | index);
-    defs[regno] = 1 << FIRST_PSEUDO_REGISTER;
+    used[regno] = 1 << FIRST_PSEUDO_REGISTER;
     setMask(regno, 0xffffffff, mode);
 
-    clearRefs(regno);
+    clearRefsByMask(1 << regno, index);
   }
 
   void
-  clearRefs(unsigned regno) {
+  clearRefsByMask(unsigned mask, unsigned index) {
     // clear also all using this register.
     for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
-    // check for cached value using this register
-	if (value[i] && MEM_P(value[i]))
-	  {
-	    rtx pl = XEXP(value[i], 0);
-	    if (GET_CODE(pl) == PLUS || GET_CODE(pl) == MINUS)
-	      pl = XEXP(pl, 0);
-	    if (GET_CODE(pl) == MULT || GET_CODE(pl) == ASHIFT)
-	      pl = XEXP(pl, 0);
-	    if (REG_P(pl) && REGNO(pl) == regno)
-	      value[i] = 0;
-	  }
+	if (used[i] & mask) {
+	    clear(SImode, i, index);
+	}
       }
   }
 
@@ -526,7 +445,7 @@ public:
 	if (value[i] && MEM_P(value[i]))
 	  {
 	    value[i] = 0;
-	    defs[i] = 0;
+	    used[i] = 0;
 	    andMask[i] = 0xffffffff;
 	  }
       }
@@ -557,7 +476,7 @@ public:
     for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
       {
 	value[i] = o->value[i];
-	defs[i] = o->defs[i];
+	used[i] = o->used[i];
 	andMask[i] = o->andMask[i];
       }
   }
@@ -571,7 +490,7 @@ public:
 	if (!rtx_equal_p (value[i], o->value[i]))
 	  {
 	    value[i] = o->value[i] = 0;
-	    defs[i] = 0;
+	    used[i] = 0;
 	  }
 	o->andMask[i] = andMask[i] |= o->andMask[i]; // or the masks
       }
@@ -1983,6 +1902,11 @@ static unsigned usable_regs;
 static std::vector<rtx> dstregs;
 
 static void
+update_insn_infos (std::set<unsigned> & todo = scan_starts);
+static unsigned
+track_regs ();
+
+static void
 update_insn2index ()
 {
   infos.reserve (infos.size () * 8 / 7 + 2);
@@ -2384,13 +2308,13 @@ dump_insns (char const * name, bool all)
  * Start at bottom and work upwards. On all labels trigger all jumps referring to this label.
  * A set destination into a register is a def. All other register references are an use.
  * Hard registers cann't be renamed and are mandatory for regparms and asm_operands.
+ *
+ * todo defaults to scan_starts
  */
 static void
-update_insn_infos (void)
+update_insn_infos (std::set<unsigned> & todo)
 {
   /* add all return (jump outs) and start analysis there. */
-  std::set<unsigned> & todo = scan_starts;
-
   if (todo.begin () == todo.end ())
     todo.insert (infos.size () - 1);
 
@@ -2794,6 +2718,7 @@ opt_reg_rename (void)
       /* first = pos to start, second indicates to treat def as use. */
       std::set<unsigned> todo;
       std::set<unsigned> found;
+      std::set<unsigned> endings;
       if (index + 1 < infos.size ())
 	todo.insert (index + 1);
 
@@ -2907,7 +2832,11 @@ opt_reg_rename (void)
 		  /* continue since this pos was added by start search. */
 		}
 	      else if (!(jj.get_use () & rename_regbit))
-		break;
+		{
+		  // search ends here and regrename is still valid.
+		  endings.insert (pos);
+		  break;
+		}
 
 	      /* abort if some insn using this reg uses more than 1 reg. */
 	      if ((jj.get_myuse () & rename_regbit) && GET_MODE_SIZE(jj.get_mode()) > 4)
@@ -3046,6 +2975,18 @@ opt_reg_rename (void)
 		}
 
 	      // continue
+	      ++changes;
+	      break;
+#elif 0
+	      // new variant to partially update the insn_infos.
+	      // reset all visited  insn_infos
+	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
+		{
+		  insn_info & ii = infos[*i];
+		  infos[*i] = insn_info (ii.get_insn(), ii.in_proepi());
+		}
+	      // revisit starting from all endings.
+	      update_insn_infos(endings);
 	      ++changes;
 	      break;
 #else
@@ -4650,20 +4591,13 @@ track_regs ()
 	  if (dregno < 0)
 	    {
 	      rtx dst = SET_DEST(set);
-	      track->invalidate_mem (dst);
+	      track->invalidate_mem (dst, index);
 	      if (ii.get_def())
 		track->clear_for_mask(ii.get_def(), index);
 
 	      // reverse assignment
-	      if (MEM_P(dst) && MEM_IN_STRUCT_P(dst) && ii.get_src_reg() && !ii.get_src_op())
-		{
-		  rtx cache = track->get(ii.get_src_regno());
-		  if (!cache ||
-		      (CONST_INT_P(cache) && (INTVAL(cache) & 0x100000000000000LL)))
-		    {
-		      track->set (ii.get_mode (), ii.get_src_regno(), dst, ii.get_myuse(), index);
-		    }
-		}
+	      if (MEM_P(dst) && (MEM_IN_STRUCT_P(dst) || MEM_READONLY_P(dst)) && ii.get_src_reg() && !ii.get_src_op())
+  	        track->set (ii.get_mode (), ii.get_src_regno(), dst, ii.get_myuse(), index);
 
 	      continue;
 	    }
@@ -4744,7 +4678,7 @@ track_regs ()
 	  if (ii.is_src_mem () && src->volatil)
 	    continue;
 
-	  track->set (ii.get_mode (), dregno, src, ii.get_def(), index);
+	  track->set (ii.get_mode (), dregno, src, ii.get_myuse(), index);
 	}
       delete track;
     }

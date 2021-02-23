@@ -4576,8 +4576,8 @@ output_addsi3 (rtx *operands)
 	      else
 		return MOTOROLA ? "lea (%c2,%0),%0" : "lea %0@(%c2),%0";
 	    }
-//	  if (TUNE_68080 && DATA_REG_P (operands[0]))
-//	    return "addiw%.l %2,%0";
+	  if (TUNE_68080 && DATA_REG_P (operands[0]))
+	    return "addiw%.l %2,%0";
 	}
     }
   return "add%.l %2,%0";

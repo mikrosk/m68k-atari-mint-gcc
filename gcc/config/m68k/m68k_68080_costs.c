@@ -10,6 +10,117 @@
 bool
 m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		  int *total, bool speed);
+
+enum mycosts {
+  cost_base,
+  cost_reg,
+  cost_mem,
+  cost_int_moveq,
+  cost_int_addq,
+  cost_word,
+  cost_long,
+  cost_float,
+  cost_double,
+  cost_extended,
+  cost_addr_ax,
+  cost_addr_nax,
+  cost_addr_symbol,
+  cost_addr_axdx,
+  cost_addr_n8axdx,
+  cost_addr_n16axdx,
+  cost_addr_n32axdx,
+  cost_addr_with_mem,
+  cost_shift,
+  cost_mult,
+  cost_div,
+  cost_call,
+  cost_if,
+  cost_bcc,
+  cost_max
+};
+/*
+static int thecosts0[cost_max] = {
+    0, // set
+    2, // reg
+    5, // mem
+    2, // int moveq
+    2, // int addq
+    2, // int word was 1
+    2, // int long was 2
+    2, // fix/float SF
+    4, // double DF
+    6, // extended XF
+    0, // (ax)
+    0, // (n,ax), was 1
+    1, // symbol, was 1
+    1, // (ax,dy) was 3
+    1, // (n8,ax,dy) was 3
+    1, // (n16,ax,dy) was 4
+    1, // (n32,ax,dy) was 5
+    35, // other address
+    0, // shift
+    8, // mult
+    60, // div
+    7, // call
+    16, // if then else
+    16, // bcc
+};
+
+static int thecosts2[cost_max] = {
+    2, // set
+    1, // reg
+    4, // mem
+    1, // int moveq
+    1, // int addq
+    1, // int word was 1
+    1, // int long was 2
+    3, // fix/float SF
+    5, // double DF
+    7, // extended XF
+    0, // (ax)
+    0, // (n,ax), was 1
+    0, // symbol, was 1
+    0, // (ax,dy) was 3
+    0, // (n8,ax,dy) was 3
+    0, // (n16,ax,dy) was 4
+    0, // (n32,ax,dy) was 5
+    35, // other address
+    0, // shift
+    8, // mult
+    60, // div
+    7, // call
+    16, // if then else
+    16, // bcc
+};
+*/
+static int thecosts[cost_max] = {
+    4, // set
+    0, // reg
+    3, // mem
+    0, // moveq
+    0, // addq
+    0, // word was 1
+    0, // long was 2
+    4, // fix/float SF
+    6, // double DF
+    8, // extended XF
+    0, // ax
+    0, // (n,ax), was 1
+    0, // symbol, was 1
+    0, // (ax,dy) was 3
+    0, // (n8,ax,dy) was 3
+    0, // (n16,ax,dy) was 4
+    0, // (n32,ax,dy) was 5
+    35, // other address
+    0, // shift
+    8, // mult
+    60, // div
+    7, // call
+    16, // if then else
+    16, // bcc
+};
+
+
 #if 1
 static int ttotal;
 #define TEST(a,r) {ttotal = 0; m68k_68080_costs(a, SImode, 0, 0, &ttotal, 1); if (ttotal != r) {debug(a);printf("%d <> %d: %s\n", ttotal, r, #a);}}
@@ -29,31 +140,32 @@ selftest_m68k_68080_costs (void)
   rtx minusa7 = gen_rtx_MEM(SImode, gen_rtx_PRE_DEC(SImode, a7));
 
   rtx movel_d0_d1 = gen_rtx_SET(d1, d0);
-  TEST(movel_d0_d1, 4);
+  TEST(movel_d0_d1, thecosts[cost_base] + thecosts[cost_reg] * 2);
 
   rtx add_d0_d1 = gen_rtx_SET(d1, gen_rtx_PLUS(SImode, d1, d0));
-  TEST(add_d0_d1, 4);
+  TEST(add_d0_d1, thecosts[cost_base] + thecosts[cost_reg] * 2);
 
   rtx movel_120ia0_d0 = gen_rtx_SET(d0, mem_120ia0);
-  TEST(movel_120ia0_d0, 8);
+  TEST(movel_120ia0_d0, thecosts[cost_base] + thecosts[cost_reg]  + thecosts[cost_mem] + thecosts[cost_addr_ax]);
 
   rtx ashl_8_d0 = gen_rtx_SET(d0, gen_rtx_ASHIFT(SImode, d0, GEN_INT(8)));
-  TEST(ashl_8_d0, 4);
+  TEST(ashl_8_d0, thecosts[cost_base] + thecosts[cost_reg] + thecosts[cost_int_addq]);
 
   rtx pea_sym = gen_rtx_SET(minusa7, dummy);
-  TEST(pea_sym, 9);
+  TEST(pea_sym, thecosts[cost_base] + thecosts[cost_long]  + thecosts[cost_mem] + thecosts[cost_addr_ax]);
 
   rtx pea_32 = gen_rtx_SET(minusa7, GEN_INT(32));
-  TEST(pea_32, 8);
+  TEST(pea_32, thecosts[cost_base] + thecosts[cost_reg]  + thecosts[cost_mem] + thecosts[cost_addr_nax]);
 
   rtx addq8sp = gen_rtx_SET(a7, gen_rtx_PLUS(SImode, a7, GEN_INT(8)));
-  TEST(addq8sp, 4);
+  TEST(addq8sp, thecosts[cost_base] + thecosts[cost_reg] * 2);
 
   rtx cmpd0a7 = gen_rtx_SET(cc0_rtx, gen_rtx_COMPARE(SImode, d0, a7));
-  TEST(cmpd0a7, 4);
+  TEST(cmpd0a7, thecosts[cost_base] + thecosts[cost_reg] * 2);
 }
 static int run;
 #endif
+
 
 /**
  * calculate costs for the 68080.
@@ -80,17 +192,17 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	x = XEXP(x, 0);
       if (REG_P(x) || GET_CODE(x) == POST_INC || GET_CODE(x) == PRE_DEC)
 	{
-	  *total = 0; // (ax), (ax)+, -(ax)
+	  *total = thecosts[cost_addr_ax]; // (ax), (ax)+, -(ax)
 	  return true;
 	}
       if (GET_CODE(x) == SYMBOL_REF || GET_CODE(x) == LABEL_REF || CONST_INT_P(x))
 	{
-	  *total = 1;
+	  *total = thecosts[cost_addr_symbol];
 	  return true;
 	}
       if (GET_CODE(x) == MULT)
 	{
-	  *total = 3;
+	  *total = thecosts[cost_addr_axdx];
 	  return true;
 	}
 
@@ -106,27 +218,27 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	  if ((GET_CODE(b) == SYMBOL_REF || GET_CODE(b) == LABEL_REF  || CONST_INT_P(b))
 	      && CONST_INT_P(c))
 	    {
-	      *total = 1; // sym+n
+	      *total = thecosts[cost_addr_symbol]; // sym+n
 	      return true;
 	    }
 
 	  if (REG_P(b) && GET_CODE(c) == CONST_INT && INTVAL(c) >= -32768
 	      && INTVAL(c) <= 37267)
 	    {
-	      *total = 1; // 16(An),Dn
+	      *total = thecosts[cost_addr_nax]; // 16(An),Dn
 	      return true;
 	    }
 	  if (REG_P(b) || GET_CODE(b) == MULT || GET_CODE(b) == ASHIFT)
 	    {
 	      if (REG_P(c))
 		{
-		  *total = 3; // (An,Xn*S)
+		  *total = thecosts[cost_addr_axdx]; // (An,Xn*S)
 		  return true;
 		}
 	      if (REG_P(c) || GET_CODE(c) == SYMBOL_REF
 		  || GET_CODE(c) == CONST_INT)
 		{
-		  *total = 5; // (32,Xn*S)
+		  *total = thecosts[cost_addr_n32axdx]; // (32,Xn*S)
 		  return true;
 		}
 	    }
@@ -138,31 +250,31 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		{
 		  if (GET_CODE(c) == CONST_INT)
 		    {
-		      *total = INTVAL(c) >= -8 && INTVAL(c) <= 8 ? 3 // 8(An,Xn*S)
+		      *total = INTVAL(c) >= -8 && INTVAL(c) <= 8 ? thecosts[cost_addr_n8axdx] // 8(An,Xn*S)
 			  :
-			       INTVAL(c) >= -32768 && INTVAL(c) <= 32767 ? 4 // (16,An,Xn*S)
-				   : 5; // (32,An,Xn*S)
+			       INTVAL(c) >= -32768 && INTVAL(c) <= 32767 ? thecosts[cost_addr_n16axdx] // (16,An,Xn*S)
+				   : thecosts[cost_addr_n32axdx]; // (32,An,Xn*S)
 		      return true;
 		    }
 		  if (GET_CODE(c) == SYMBOL_REF || GET_CODE(c) == LABEL_REF || CONST_INT_P(c))
 		    {
-		      *total = 5;
+		      *total = thecosts[cost_addr_n32axdx];
 		      return true;
 		    }
 		}
 	      if (GET_CODE(b0) == SYMBOL_REF && CONST_INT_P(b1))
 		{
-		  *total = 5;
+		  *total = thecosts[cost_addr_n32axdx];
 		  return true;
 		}
 	    }
 	  if (GET_CODE(c) == PLUS)
 	    {
-	      *total = 5;
+	      *total = thecosts[cost_addr_n32axdx];
 	      return true;
 	    }
 	}
-      *total = 35;
+      *total = thecosts[cost_addr_ax];
       return true;
     }
 
@@ -171,6 +283,7 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case CC0:
     case PC:
     case REG:
+      *total = thecosts[cost_reg];
       return true;
 
     case CONST_INT:
@@ -180,16 +293,23 @@ m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	{
 	  case SET: // moveq
 	    if (iv >= -0x100 && iv <= 0xff)
-	      break;
+	      {
+		*total = thecosts[cost_int_moveq];
+		break;
+	      }
 	    goto Defconst;
 	  case PLUS:
 	  case MINUS:
 	    if (iv >= -8 && iv <= 8)
-	      break;
+	      {
+		*total = thecosts[cost_int_addq];
+		break;
+	      }
 	    goto Defconst;
 	  case ASHIFT:
 	  case ASHIFTRT:
 	  case LSHIFTRT:
+		*total = thecosts[cost_int_addq];
 	    break;
 	  default:
 Defconst:
@@ -198,31 +318,31 @@ Defconst:
 
 	    if ((outer_code == MEM || outer_code == COMPARE || outer_code == PLUS ||
 		GET_MODE_SIZE(mode) < 4) && iv >= -32768 && iv <= 32767)
-	      *total = 1;
+	      *total = thecosts[cost_word];
 	    else
-	      *total = 2;
+	      *total = thecosts[cost_long];
 	    break;
 	}
       }
       return true;
 
     case CONST_DOUBLE:
-      *total = mode == SFmode ? 2 : mode == DFmode ? 4 : 6;
+      *total = mode == SFmode ? thecosts[cost_float] : mode == DFmode ? thecosts[cost_double] : thecosts[cost_extended];
       return true;
 
     case FLOAT:
     case FLOAT_TRUNCATE:
     case FIX:
-      *total = 8; // guessed
+      *total = thecosts[cost_float]; // guessed
       return true;
 
     case MULT:
       {
 	rtx op = XEXP(x, 0);
 	if (CONST_INT_P(op) && exact_log2 (INTVAL(op)))
-	  total2 = 0; // same as shift
+	  total2 = thecosts[cost_shift]; // same as shift
 	else
-	  total2 = 8;
+	  total2 = thecosts[cost_mult];
 	goto OpCost;
       }
       break;
@@ -230,7 +350,7 @@ Defconst:
     case UDIV:
     case MOD:
     case DIV:
-      total2 = 60; // always in a parallel with DIV and MOD -> half costs
+      total2 = thecosts[cost_div]; // always in a parallel with DIV and MOD -> half costs
       goto OpCost;
 
     case ASHIFT:
@@ -272,7 +392,7 @@ Defconst:
     case CALL:
       {
 	bool r = m68k_68080_costs (XEXP(x, 0), mode, code, 0, total, speed);
-	*total += 7;
+	*total += thecosts[cost_call];
 	return true;
       }
 
@@ -280,13 +400,13 @@ Defconst:
       {
 	// ADDRESS cost + 3
 	bool r = m68k_68080_costs (XEXP(x, 0), mode, ADDRESS, 0, total, speed);
-	*total += 3;
+	*total += thecosts[cost_mem];
 	return r;
       }
 
     case SYMBOL_REF:
     case LABEL_REF:
-      *total = 2;
+      *total = thecosts[cost_long];
       return true;
 
     case NE:
@@ -311,7 +431,7 @@ Defconst:
       }
     case SET:
       {
-	total2 = 4;
+	total2 = thecosts[cost_base];
 
 	rtx dst = XEXP(x, 0);
 	rtx src = XEXP(x, 1);
@@ -319,7 +439,7 @@ Defconst:
 	  {
 	    if (GET_CODE(src) == IF_THEN_ELSE)
 	      {
-		*total = 16;
+		*total = thecosts[cost_if];
 		return true;
 	      }
 	    bool r = m68k_68080_costs (src, mode, ADDRESS, 0, total, speed);
@@ -354,7 +474,7 @@ Defconst:
 		  }
 	      }
 	    // modify dst with dst
-	    total2 = 4; // reset to base cost
+	    total2 = thecosts[cost_base]; // reset to base cost
 	  }
 
 	r &= m68k_68080_costs (src, mode, MEM_P(dst) ? MEM : code, 0, total, speed);
@@ -365,7 +485,7 @@ Defconst:
       break;
 
     case IF_THEN_ELSE:
-      *total = 16; // bcc
+      *total = thecosts[cost_bcc]; // bcc
       return true;
 
     case ASM_OPERANDS:

@@ -1951,6 +1951,18 @@ find_reg (struct insn_chain *chain, int order)
 	  SET_HARD_REG_BIT (used_by_other_reload, rld[other].regno + j);
     }
 
+  /* SBF: hack to prevent different registers in auto inc with operation insns:
+   * (set (mem:HI (post_inc:SI (reg:SI 6)))
+   *      (ior:HI (mem:HI (reg:SI 6))
+   *              (reg/v:HI 1)))
+   *
+   * needs a reload into a address register.
+   * => don't reload into two different registers
+   * => use the register of the previos reload.
+   */
+  if (order == 1 && rld->in == rld->out && rld->in == rl->in)
+    best_reg = rld->regno;
+  else
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
 #ifdef REG_ALLOC_ORDER

@@ -1960,8 +1960,10 @@ find_reg (struct insn_chain *chain, int order)
    * => don't reload into two different registers
    * => use the register of the previos reload.
    */
-  if (order == 1 && rld->in == rld->out && rld->in == rl->in)
-    best_reg = rld->regno;
+  if (order == 1 && rld->in == rld->out && rld->in == rl->in
+      && rld->rclass == rl->rclass
+      && rld->when_needed == RELOAD_OTHER && rl->when_needed == RELOAD_FOR_OPERAND_ADDRESS)
+      best_reg = rld->regno;
   else
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {

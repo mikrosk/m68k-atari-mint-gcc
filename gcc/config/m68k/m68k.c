@@ -221,6 +221,8 @@ static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l);
+
+static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label);
 
 /* Initialize the GCC target structure.  */
 
@@ -377,6 +379,12 @@ static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l);
 
 #undef TARGET_LOOP_UNROLL_ADJUST
 #define TARGET_LOOP_UNROLL_ADJUST m68k_loop_unroll_adjust
+
+#undef TARGET_HAVE_DOLOOP_END
+#define TARGET_HAVE_DOLOOP_END hook_bool_void_true
+
+#undef TARGET_GEN_DOLOOP_END
+#define TARGET_GEN_DOLOOP_END m68k_gen_doloop_end
 
 #ifdef TARGET_AMIGA
 #include "amigaos.h"
@@ -5703,8 +5711,8 @@ output_call (rtx x)
 {
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_call;
-  else
-    return flag_pic ? "jbsr %a0" : "jsr %a0";
+
+  return flag_smallcode ? "jbsr %a0" : "jsr %a0";
 }
 
 /* Likewise sibling calls.  */
@@ -5714,8 +5722,8 @@ output_sibcall (rtx x)
 {
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_jump;
-  else
-    return flag_pic ? "jbra %a0" : "jmp %a0";
+
+  return flag_smallcode ? "jbra %a0" : "jmp %a0";
 }
 
 static void
@@ -7394,6 +7402,24 @@ m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_rea
     }
   return 1;
 }
+#if 1
+static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label)
+{
+  rtx x = 0;
+  if (GET_MODE (reg) == SImode)
+    x = gen_dbne_si(reg, label);
+  else if (GET_MODE (reg) == HImode)
+    x = gen_dbne_hi(reg, label);
+  else
+    return 0;
 
+  rtx_insn *seq;
 
+  start_sequence ();
+  emit_jump_insn(x);
+  seq = get_insns ();
+  end_sequence ();
+  return seq;
+}
+#endif
 #include "gt-m68k.h"

@@ -38,7 +38,7 @@ enum mycosts {
   cost_bcc,
   cost_max
 };
-/*
+
 static int thecosts0[cost_max] = {
     0, // set
     2, // reg
@@ -52,7 +52,7 @@ static int thecosts0[cost_max] = {
     6, // extended XF
     0, // (ax)
     0, // (n,ax), was 1
-    1, // symbol, was 1
+    0, // symbol, was 1
     1, // (ax,dy) was 3
     1, // (n8,ax,dy) was 3
     1, // (n16,ax,dy) was 4
@@ -92,8 +92,8 @@ static int thecosts2[cost_max] = {
     16, // if then else
     16, // bcc
 };
-*/
-static int thecosts[cost_max] = {
+
+static int thecosts4[cost_max] = {
     4, // set
     0, // reg
     3, // mem
@@ -104,13 +104,13 @@ static int thecosts[cost_max] = {
     4, // fix/float SF
     6, // double DF
     8, // extended XF
-    0, // ax
+    0, // (ax)
     0, // (n,ax), was 1
     0, // symbol, was 1
-    0, // (ax,dy) was 3
-    0, // (n8,ax,dy) was 3
-    0, // (n16,ax,dy) was 4
-    0, // (n32,ax,dy) was 5
+    4, // (ax,dy) was 3
+    4, // (n8,ax,dy) was 3
+    8, // (n16,ax,dy) was 4
+    8, // (n32,ax,dy) was 5
     35, // other address
     0, // shift
     8, // mult
@@ -120,6 +120,7 @@ static int thecosts[cost_max] = {
     16, // bcc
 };
 
+static int * thecosts = thecosts0;
 
 #if 1
 static int ttotal;

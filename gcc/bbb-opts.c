@@ -6099,7 +6099,7 @@ namespace
 					    UNSPEC_RELOC16);
 	s = gen_rtx_CONST (Pmode, s);
 	s = gen_rtx_PLUS (Pmode, a4reg, s);
-	s = gen_rtx_CONST (Pmode, s);
+//	s = gen_rtx_CONST (Pmode, s);
 
 	// try to use it directly.
 	if (!use_tmp)

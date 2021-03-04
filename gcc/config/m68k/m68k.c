@@ -222,6 +222,7 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l);
 
+static rtx_insn * m68k_gen_doloop_begin(rtx reg, rtx label);
 static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label);
 
 /* Initialize the GCC target structure.  */
@@ -385,6 +386,12 @@ static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label);
 
 #undef TARGET_GEN_DOLOOP_END
 #define TARGET_GEN_DOLOOP_END m68k_gen_doloop_end
+
+#undef TARGET_HAVE_DOLOOP_BEGIN
+#define TARGET_HAVE_DOLOOP_BEGIN hook_bool_void_true
+
+#undef TARGET_GEN_DOLOOP_BEGIN
+#define TARGET_GEN_DOLOOP_BEGIN m68k_gen_doloop_begin
 
 #ifdef TARGET_AMIGA
 #include "amigaos.h"
@@ -7402,7 +7409,23 @@ m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_rea
     }
   return 1;
 }
-#if 1
+
+/**
+ * SBF: add the clobber since peephole2 may undo some shifting.
+ * To avoid effects on regular code, the (clobber (pc)) is emitted.
+ * It does not hurt if it remains in the code.
+ */
+static rtx_insn * m68k_gen_doloop_begin(rtx reg, rtx label)
+{
+  rtx x = gen_rtx_CLOBBER(VOIDmode, pc_rtx);
+  rtx_insn *seq;
+  start_sequence ();
+  emit_insn(x);
+  seq = get_insns ();
+  end_sequence ();
+  return seq;
+}
+
 static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label)
 {
   rtx x = 0;
@@ -7414,12 +7437,11 @@ static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label)
     return 0;
 
   rtx_insn *seq;
-
   start_sequence ();
   emit_jump_insn(x);
   seq = get_insns ();
   end_sequence ();
   return seq;
 }
-#endif
+
 #include "gt-m68k.h"

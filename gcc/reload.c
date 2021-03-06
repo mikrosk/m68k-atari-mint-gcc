@@ -5981,9 +5981,11 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 		  && (regno < FIRST_PSEUDO_REGISTER
 		      || (equiv
 			  && memory_operand (equiv, GET_MODE (equiv))
-			  && ! (icode != CODE_FOR_nothing
-				&& insn_operand_matches (icode, 0, equiv)
-				&& insn_operand_matches (icode, 1, equiv))))
+// SBF: WTF this results in replacing POST_INC with a plain reg...
+//			  && ! (icode != CODE_FOR_nothing
+//				&& insn_operand_matches (icode, 0, equiv)
+//				&& insn_operand_matches (icode, 1, equiv))
+				))
 		  /* Using RELOAD_OTHER means we emit this and the reload we
 		     made earlier in the wrong order.  */
 		  && !reloaded_inner_of_autoinc)

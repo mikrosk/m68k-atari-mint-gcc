@@ -4881,15 +4881,6 @@ ira_color (void)
     {
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
       ALLOCNO_UPDATED_CLASS_COST (a) = ALLOCNO_CLASS_COST (a);
-#ifdef TARGET_AMIGAOS
-      if (reg_preferred_class (a->regno) == ADDR_REGS)
-	{
-	  rtx_insn * def = df->def_regs[ALLOCNO_REGNO (a)]->reg_chain->base.insn_info->insn;
-	  rtx set = single_set(def);
-	  if (!(set && REG_P (SET_SRC (set)) && REGNO (SET_SRC (set)) < FIRST_PSEUDO_REGISTER))
-	    ALLOCNO_CLASS (a) = ADDR_REGS; //reg_preferred_class (a->regno);
-	}
-#endif
     }
   if (ira_conflicts_p)
     color ();

@@ -3276,22 +3276,26 @@ opt_propagate_moves ()
 
 				  for (unsigned k = 0; k < jump_out.size (); ++k)
 				    {
+				      rtx_def * lbl = jump_out[k];
+				      // search next no debug insn
+				      rtx_def * before = next_nonnote_nondebug_insn (lbl);
+				      debug(before);
 				      if ((REGNO(dsti) < 8 || REGNO(dstj) < 8) && REGNO(dsti) != REGNO(dstj))
 					{
+					  rtx move = gen_rtx_SET(dstj, dsti);
+					  emit_insn_before (move, before);
 					  if (fixups[k])
 					    {
 					      rtx neu = gen_rtx_SET(
 						  dstj, gen_rtx_PLUS (Pmode, dstj, gen_rtx_CONST_INT (Pmode, fixups[k])));
-					      emit_insn_after (neu, jump_out[k]);
+					      emit_insn_before (neu, before);
 					    }
-					  rtx move = gen_rtx_SET(dstj, dsti);
-					  emit_insn_after (move, jump_out[k]);
 					}
 				      else if (fixups[k])
 					{
 					  rtx neu = gen_rtx_SET(
 					      dstj, gen_rtx_PLUS (Pmode, dsti, gen_rtx_CONST_INT (Pmode, fixups[k])));
-					  emit_insn_after (neu, jump_out[k]);
+					  emit_insn_before (neu, before);
 					}
 				    }
 				}

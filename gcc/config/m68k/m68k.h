@@ -1093,7 +1093,7 @@ struct m68k_address {
   rtx outer_offset;
 };
 
-int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p);
+int decompose_mem(int reach, rtx * x, struct m68k_address * address, int strict_p);
 
 
 const char *

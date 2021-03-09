@@ -860,6 +860,18 @@ public:
     multi_reg = o.multi_reg;
   }
 
+  inline void
+  reset_use ()
+  {
+    visited = false;
+    use8 = use16 = use32 = 0;
+    def8 = def16 = def32 = 0;
+    myuse8 = myuse16 = myuse32 = 0;
+    hard = 0;
+    multi_reg = 0;
+  }
+
+
   inline rtx_insn *
   get_insn () const
   {
@@ -1670,7 +1682,7 @@ void
 insn_info::fledder_src_mem (rtx src)
 {
   src_mem = true;
-  decompose_mem (GET_MODE_SIZE(mode), src, &src_addr, 1);
+  decompose_mem (GET_MODE_SIZE(mode), &XEXP(src, 0), &src_addr, 1);
   src_autoinc = src_addr.code != 0 && src_addr.code != MEM;
 }
 
@@ -1706,7 +1718,7 @@ insn_info::fledder (rtx set)
   else if (MEM_P(dst))
     {
       dst_mem = true;
-      decompose_mem (GET_MODE_SIZE(mode), dst, &dst_addr, 1);
+      decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
       dst_autoinc = dst_addr.code != 0 && dst_addr.code != MEM;
     }
 
@@ -1989,7 +2001,8 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 
 	  if (apply)
 	    {
-	      decompose_mem (GET_MODE_SIZE(mode), XEXP(dst, 0), &dst_addr, 1);
+	      memset(&dst_addr, 0, sizeof(dst_addr));
+	      decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
 	    }
 	}
     }
@@ -2020,7 +2033,8 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 
 	  if (apply)
 	    {
-	      decompose_mem (GET_MODE_SIZE(mode), XEXP(src, 0), &src_addr, 1);
+	      memset(&src_addr, 0, sizeof(src_addr));
+	      decompose_mem (GET_MODE_SIZE(mode), &XEXP(src, 0), &src_addr, 1);
 	    }
 	}
     }
@@ -2634,6 +2648,12 @@ opt_reg_rename (void)
 
       mask &= usable_regs;
 
+      // do not change reg class
+      if (rename_regno < 8)
+	mask &= 0xff;
+      else
+	mask &= 0xff00;
+
       /* do not use a4 if compiling baserel */
       if (flag_pic >= 3)
 	mask &= ~(1 << PIC_REG);
@@ -2908,10 +2928,7 @@ opt_reg_rename (void)
 	      // new variant to partially update the insn_infos.
 	      // reset all visited  insn_infos
 	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
-		{
-		  insn_info & ii = infos[*i];
-		  infos[*i] = insn_info (ii.get_insn(), ii.in_proepi());
-		}
+		infos[*i].reset_use();
 	      // revisit starting from all endings.
 	      update_insn_infos(endings);
 	      ++changes;
@@ -4305,7 +4322,7 @@ opt_shrink_stack_frame (void)
 		{
 		  log ("(f) adjusting exit sp\n");
 		  rtx pattern = gen_rtx_SET(
-		      a7, gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, -ii.get_sp_offset ())));
+		      a7, gen_rtx_PLUS (SImode, a7, gen_rtx_CONST_INT (SImode, ii.get_sp_offset ())));
 		  emit_insn_before (pattern, ii.get_insn ());
 		}
 	    }

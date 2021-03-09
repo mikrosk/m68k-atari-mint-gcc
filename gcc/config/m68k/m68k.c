@@ -2306,10 +2306,12 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
   return false;
 }
 
-int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
+int decompose_mem(int reach, rtx *_x, struct m68k_address * address, int strict_p)
 {
   struct m68k_address_part ap_data[5];
   memset(ap_data, 0, sizeof(ap_data));
+
+  rtx x = *_x;
 
   // not an address
   if (GET_CODE(x) == SIGN_EXTEND)
@@ -2318,9 +2320,18 @@ int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p)
   struct m68k_address_part * ap = &ap_data[0];
   bool r = true;
 
+  if (PRE_DEC == GET_CODE(x) || POST_INC == GET_CODE(x))
+    {
+      address->code = GET_CODE(x);
+      address->base_loc = &XEXP(x, 0);
+      address->base = XEXP(x, 0);
+      return m68k_legitimate_base_reg_p(x, strict_p);
+    }
+
+
   static int n;
 //  fprintf(stderr, "%d ", n++);
-  r &= decompose_one(&x, ap);
+  r &= decompose_one(_x, ap);
   if (!r)
       return false;
 
@@ -2508,7 +2519,7 @@ extern bool m68k_is_SI_memory_operand_to_HI_allowed(rtx x)
 {
   struct m68k_address address;
   memset (&address, 0, sizeof (address));
-  return decompose_mem(4, x, &address, true);
+  return decompose_mem(4, &x, &address, true);
 
 }
 
@@ -2546,7 +2557,7 @@ extern rtx m68k_SI_memory_operand_to_HI(rtx x)
 {
   struct m68k_address address;
   memset (&address, 0, sizeof (address));
-  if (!decompose_mem(4, x, &address, true))
+  if (!decompose_mem(4, &x, &address, true))
     return 0;
 
   rtx * p = address.code == MEM ? address.outer_index_loc : address.index_loc;
@@ -2658,7 +2669,7 @@ m68k_decompose_address (machine_mode mode, rtx x,
      (bd,An,Xn.SIZE*SCALE) addresses.  */
   /* SBF: or with all other addresses which can be handled by 68020+ ^^ */
 
-  return decompose_mem(reach, x, address, strict_p);
+  return decompose_mem(reach, &x, address, strict_p);
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.

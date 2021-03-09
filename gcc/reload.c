@@ -5026,7 +5026,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
       struct m68k_address address;
       memset(&address, 0, sizeof(address));
-      bool r = decompose_mem(GET_MODE_SIZE(mode), ad, &address, true);
+      bool r = decompose_mem(GET_MODE_SIZE(mode), &ad, &address, true);
       if (DX) fprintf(stderr, "insn %d %d %d\t", insn->u2.insn_uid, r, address.code);
 
 //      gcc_assert(address.code != POST_MODIFY);

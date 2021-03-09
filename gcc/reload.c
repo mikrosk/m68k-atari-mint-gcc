@@ -106,24 +106,6 @@ a register with any other reload.  */
 #include "addresses.h"
 #include "params.h"
 
-#ifdef TARGET_AMIGA
-
-struct m68k_address {
-  enum rtx_code code;
-  rtx * mem_loc;
-  rtx base;
-  rtx * base_loc;
-  rtx index;
-  rtx * index_loc;
-  int scale;
-  rtx offset;
-  rtx outer_index;
-  rtx * outer_index_loc;
-  int outer_scale;
-  rtx outer_offset;
-};
-
-#endif
 /* True if X is a constant that can be forced into the constant pool.
    MODE is the mode of the operand, or VOIDmode if not known.  */
 #define CONST_POOL_OK_P(MODE, X)		\
@@ -5049,8 +5031,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
 //      gcc_assert(address.code != POST_MODIFY);
 
-      int base_regno = -1;
-      int index_regno = -1;
       enum reload_type utype = type == RELOAD_FOR_INPUT ? RELOAD_FOR_INPUT_ADDRESS : type;
       int fixed = 0;
 

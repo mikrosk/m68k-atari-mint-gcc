@@ -536,8 +536,8 @@ class insn_info
   bool compare;
   bool dst_mem;
   bool src_mem;
-  bool dst_plus;
   bool src_plus;
+  int src_intval;
   rtx_code src_op;
   bool src_ee;
   bool src_2nd;
@@ -546,14 +546,10 @@ class insn_info
   machine_mode mode;
 
   rtx dst_reg;
-  rtx dst_mem_reg;
-  rtx dst_symbol;
   rtx src_reg;
-  rtx src_mem_reg;
-  rtx src_symbol;
-  int dst_mem_addr;
-  int src_intval;
-  int src_mem_addr;
+
+  struct m68k_address src_addr;
+  struct m68k_address dst_addr;
 
   bool visited;
 
@@ -573,10 +569,11 @@ public:
       use8 (0), use16(0), use32(0),
       def8 (0), def16(0), def32(0),
       hard (0), proepi (p), stack (false), label (false), jump (false), call (false), compare (false), dst_mem (false), src_mem (false),
-      dst_plus (false), src_plus (false), src_op ((rtx_code) 0),  src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode),
-      dst_reg (0), dst_mem_reg (0), dst_symbol (0), src_reg (0), src_mem_reg (0), src_symbol (0), dst_mem_addr (0), src_intval (0), src_mem_addr (
-	  0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
+      src_plus (false), src_intval(0), src_op ((rtx_code) 0),  src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode),
+      dst_reg (0), src_reg (0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
   {
+    memset(&src_addr, 0, sizeof(src_addr));
+    memset(&dst_addr, 0, sizeof(dst_addr));
   }
 
   unsigned
@@ -648,36 +645,48 @@ public:
   inline bool
   has_dst_memreg () const
   {
-    return dst_mem_reg;
+    return dst_addr.base_loc;
   }
 
   inline bool
   has_src_memreg () const
   {
-    return src_mem_reg;
+    return src_addr.base_loc;
+  }
+
+  inline rtx_code
+  get_src_mem_mem () const
+  {
+    return (rtx_code)src_addr.code;
+  }
+
+  inline rtx_code
+  get_dst_mem_mem () const
+  {
+    return (rtx_code)dst_addr.code;
   }
 
   inline rtx
   get_dst_symbol () const
   {
-    return dst_symbol;
+    return dst_addr.offset && GET_CODE (dst_addr.offset) == SYMBOL_REF ? dst_addr.offset : 0;
   }
 
   inline rtx
   get_src_symbol () const
   {
-    return src_symbol;
+    return src_addr.offset && GET_CODE (src_addr.offset) == SYMBOL_REF ? src_addr.offset : 0;
   }
   inline bool
   has_dst_addr () const
   {
-    return dst_mem_addr;
+    return dst_addr.offset && CONST_INT_P (dst_addr.offset) ? dst_addr.offset : 0;
   }
 
   inline bool
   has_src_addr () const
   {
-    return src_mem_addr;
+    return src_addr.offset && CONST_INT_P (src_addr.offset) ? src_addr.offset : 0;
   }
 
   inline bool
@@ -701,13 +710,13 @@ public:
   inline int
   get_dst_mem_addr () const
   {
-    return dst_mem_addr;
+    return dst_addr.offset && CONST_INT_P (dst_addr.offset) ? INTVAL(dst_addr.offset) : 0;
   }
 
   inline int
   get_src_mem_addr () const
   {
-    return src_mem_addr;
+    return src_addr.offset && CONST_INT_P (src_addr.offset) ? INTVAL(src_addr.offset) : 0;
   }
 
   inline bool
@@ -726,18 +735,6 @@ public:
   is_src_ee () const
   {
     return src_ee;
-  }
-
-  inline bool
-  is_src_mem_plus () const
-  {
-    return src_mem && src_plus;
-  }
-
-  inline bool
-  is_dst_mem_plus () const
-  {
-    return dst_mem && dst_plus;
   }
 
   inline int
@@ -767,37 +764,55 @@ public:
   inline int
   get_src_mem_regno () const
   {
-    return src_mem_reg ? REGNO(src_mem_reg) : -1;
+    return src_addr.base_loc ? REGNO (*src_addr.base_loc): -1;
+  }
+
+  inline int
+  get_src_mem2_regno () const
+  {
+    return src_addr.index_loc ? REGNO (*src_addr.index_loc): -1;
   }
 
   inline int
   get_dst_mem_regno () const
   {
-    return dst_mem_reg ? REGNO(dst_mem_reg) : -1;
+    return dst_addr.base_loc ? REGNO (*dst_addr.base_loc): -1;
+  }
+
+  inline int
+  get_dst_mem2_regno () const
+  {
+    return dst_addr.index_loc ? REGNO (*dst_addr.index_loc): -1;
   }
 
   inline rtx
   get_src_mem_reg () const
   {
-    return src_mem_reg;
+    return src_addr.base_loc ? *src_addr.base_loc: 0;
+  }
+
+  inline rtx
+  get_src_mem2_reg () const
+  {
+    return src_addr.index_loc ? *src_addr.index_loc: 0;
   }
 
   inline rtx
   get_dst_mem_reg () const
   {
-    return dst_mem_reg;
+    return dst_addr.base_loc ? *dst_addr.base_loc: 0;
+  }
+
+  inline rtx
+  get_dst_mem2_reg () const
+  {
+    return dst_addr.index_loc ? *dst_addr.index_loc: 0;
   }
 
   inline int
   get_src_intval () const
   {
     return src_intval;
-  }
-
-  inline int
-  get_dst_intval () const
-  {
-    return dst_mem_addr;
   }
 
   inline bool
@@ -883,7 +898,6 @@ public:
     compare = false;
     dst_mem = false;
     src_mem = false;
-    dst_plus = false;
     src_plus = false;
     src_op = (rtx_code) 0;
     src_ee = false;
@@ -892,18 +906,15 @@ public:
     mode = VOIDmode;
 
     dst_reg = 0;
-    dst_mem_reg = 0;
-    dst_symbol = 0;
     src_reg = 0;
-    src_mem_reg = 0;
-    src_symbol = 0;
-    dst_mem_addr = 0;
 
     src_intval = 0;
-    src_mem_addr = 0;
 
     dst_autoinc = 0;
     src_autoinc = 0;
+
+    memset(&src_addr, 0, sizeof(src_addr));
+    memset(&dst_addr, 0, sizeof(dst_addr));
   }
 
   inline int
@@ -1395,27 +1406,21 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
     }
   else if (get_src_mem_regno () == regno)
     {
-      src_mem_addr -= size * addend;
-      patch_mem_offsets(SET_SRC(set), src_mem_addr);
-      if (src_mem_addr == 0)
-	{
-	  src_mem_addr = 0;
-	  src_plus = false;
-	  src_op = (rtx_code)0;
-	}
+      int offset = get_src_mem_addr() - size * addend;
+      patch_mem_offsets(SET_SRC(set), offset);
+      if (offset == 0)
+	src_addr.offset = 0;
+      else
+        src_addr.offset = GEN_INT(offset);
     }
   if (get_dst_mem_regno () == regno)
     {
-      rtx mem = SET_DEST(set);
-      rtx plus = XEXP(mem, 0);
-      if (dst_mem_addr == size * addend)
-	{
-	  XEXP(mem, 0) = XEXP(plus, 0);
-	  dst_mem_addr = 0;
-	  dst_plus = false;
-	}
+      int offset = get_dst_mem_addr() - size * addend;
+      patch_mem_offsets(SET_DEST(set), offset);
+      if (offset == 0)
+	dst_addr.offset = 0;
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, dst_mem_addr -= size * addend);
+        dst_addr.offset = GEN_INT(offset);
     }
 
   rtx pattern = add_clobbers (insn);
@@ -1554,23 +1559,23 @@ insn_info::scan_rtx (rtx x)
       scan_rtx (dst);
       if (REG_P(dst) || ((GET_CODE(dst) == STRICT_LOW_PART || GET_CODE(dst) == SUBREG) && REG_P(XEXP(dst, 0))))
 	{
-
-	  def8  |= use8;
+	  def8 |= use8;
 	  def16 |= use16;
 	  def32 |= use32;
 
-	  use8  = u8;
-	  myuse8  = mu8;
-      use16 = u16;
-      myuse16 = mu16;
-      use32 = u32;
-      myuse32 = mu32;
+	  use8 = u8;
+	  myuse8 = mu8;
+	  use16 = u16;
+	  myuse16 = mu16;
+	  use32 = u32;
+	  myuse32 = mu32;
 	}
 
       // avoid side effects from myuse -> def, e.g. adding the dst reg to def by src auto inc
       mu8 = myuse8;
       mu16 = myuse16;
       mu32 = myuse32;
+
       myuse8 = 0;
       myuse16 = 0;
       myuse32 = 0;
@@ -1665,45 +1670,8 @@ void
 insn_info::fledder_src_mem (rtx src)
 {
   src_mem = true;
-  rtx mem = XEXP(src, 0);
-
-  if (GET_CODE(mem) == POST_INC)
-    src_autoinc = 1, mem = XEXP(mem, 0);
-  else if (GET_CODE(mem) == PRE_DEC)
-    src_autoinc = -1, mem = XEXP(mem, 0);
-
-  if (REG_P(mem))
-    src_mem_reg = mem;
-  else if (GET_CODE(mem) == CONST_INT)
-    src_mem_addr = INTVAL(mem);
-  else if (GET_CODE(mem) == SYMBOL_REF)
-    src_symbol = mem;
-  else if (GET_CODE(mem) == PLUS)
-    {
-      src_plus = true;
-      rtx reg = XEXP(mem, 0);
-      rtx konst = XEXP(mem, 1);
-      if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
-	{
-	  src_mem_reg = reg;
-	  src_const = true;
-	  src_mem_addr = INTVAL(konst);
-	}
-    }
-  else if (GET_CODE(mem) == CONST)
-    {
-      mem = XEXP(mem, 0);
-      if (GET_CODE(mem) == PLUS)
-	{
-	  rtx sym = XEXP(mem, 0);
-	  if (GET_CODE(sym) == SYMBOL_REF)
-	    {
-	      src_plus = true;
-	      src_symbol = sym;
-	      src_mem_addr = INTVAL(XEXP(mem, 1));
-	    }
-	}
-    }
+  decompose_mem (GET_MODE_SIZE(mode), src, &src_addr, 1);
+  src_autoinc = src_addr.code != 0 && src_addr.code != MEM;
 }
 
 /* read the set and grab infos */
@@ -1738,44 +1706,8 @@ insn_info::fledder (rtx set)
   else if (MEM_P(dst))
     {
       dst_mem = true;
-      rtx mem = XEXP(dst, 0);
-
-      if (GET_CODE(mem) == POST_INC)
-	dst_autoinc = 1, mem = XEXP(mem, 0);
-      else if (GET_CODE(mem) == PRE_DEC)
-	dst_autoinc = -1, mem = XEXP(mem, 0);
-
-      if (REG_P(mem))
-	dst_mem_reg = mem;
-      else if (GET_CODE(mem) == CONST_INT)
-	dst_mem_addr = INTVAL(mem);
-      else if (GET_CODE(mem) == SYMBOL_REF)
-	dst_symbol = mem;
-      else if (GET_CODE(mem) == PLUS)
-	{
-	  dst_plus = true;
-	  rtx reg = XEXP(mem, 0);
-	  rtx konst = XEXP(mem, 1);
-	  if (REG_P(reg) && GET_CODE(konst) == CONST_INT)
-	    {
-	      dst_mem_reg = reg;
-	      dst_mem_addr = INTVAL(konst);
-	    }
-	}
-      else if (GET_CODE(mem) == CONST)
-	{
-	  mem = XEXP(mem, 0);
-	  if (GET_CODE(mem) == PLUS)
-	    {
-	      rtx sym = XEXP(mem, 0);
-	      if (GET_CODE(sym) == SYMBOL_REF)
-		{
-		  dst_plus = true;
-		  dst_symbol = sym;
-		  dst_mem_addr = INTVAL(XEXP(mem, 1));
-		}
-	    }
-	}
+      decompose_mem (GET_MODE_SIZE(mode), dst, &dst_addr, 1);
+      dst_autoinc = dst_addr.code != 0 && dst_addr.code != MEM;
     }
 
   /* It' some kind of operation, e.g. PLUS, XOR, NEG, ... */
@@ -1845,7 +1777,7 @@ copy_reg (rtx reg, int newregno)
 
 /* Rename the register plus track all locs to undo these changes. */
 static void
-find_reg_modes_by_no (rtx x, unsigned oldregno,std::set<machine_mode> & modes)
+find_regs_by_no (rtx x, unsigned oldregno,std::set<rtx *> & regs)
 {
   if (!x)
     return;
@@ -1861,16 +1793,16 @@ find_reg_modes_by_no (rtx x, unsigned oldregno,std::set<machine_mode> & modes)
 	  if (REG_P(y))
 	    {
 	      if (REGNO(y) == oldregno)
-		modes.insert(GET_MODE(y));
+		regs.insert(&XEXP(x, i));
 	    }
 	  else
-	    find_reg_modes_by_no (y, oldregno, modes);
+	    find_regs_by_no (y, oldregno, regs);
 	}
       else if (fmt[i] == 'E')
 	for (int j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  {
 	    rtx z = XVECEXP(x, i, j);
-	    find_reg_modes_by_no (z, oldregno, modes);
+	    find_regs_by_no (z, oldregno, regs);
 	  }
     }
 }
@@ -2013,7 +1945,7 @@ replace_reg (rtx x, unsigned regno, rtx newreg, int offset)
 void
 insn_info::a5_to_a7 (rtx a7, int add)
 {
-  if (proepi == IN_EPILOGUE && src_mem_reg && get_src_mem_regno () == FRAME_POINTER_REGNUM)
+  if (proepi == IN_EPILOGUE && get_src_mem_regno () == FRAME_POINTER_REGNUM)
     {
       rtx set = single_set (insn);
       if (set)
@@ -2044,7 +1976,7 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
   rtx reg = gen_raw_REG (SImode, regno);
   bool vola = src->volatil;
 
-  if (is_dst_mem () && (has_dst_addr () || get_dst_symbol ()) && !has_dst_memreg () && get_dst_symbol () == with_symbol)
+  if (is_dst_mem () && (has_dst_addr () || get_dst_symbol ()) && !has_dst_memreg () && get_dst_mem_mem() == 0 && get_dst_symbol () == with_symbol)
     {
       unsigned addr = get_dst_mem_addr ();
       unsigned offset = addr - base;
@@ -2057,15 +1989,12 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 
 	  if (apply)
 	    {
-	      dst_mem_reg = reg;
-	      dst_mem = true;
-	      dst_mem_addr = offset;
-	      dst_plus = offset != 0;
+	      decompose_mem (GET_MODE_SIZE(mode), XEXP(dst, 0), &dst_addr, 1);
 	    }
 	}
     }
 
-  if (is_src_mem () && (has_src_addr () || get_src_symbol ()) && !has_src_memreg () && get_src_symbol () == with_symbol)
+  if (is_src_mem () && (has_src_addr () || get_src_symbol ()) && !has_src_memreg () && get_src_mem_mem() == 0 && get_src_symbol () == with_symbol)
     {
       unsigned addr = get_src_mem_addr ();
       unsigned offset = addr - base;
@@ -2091,10 +2020,7 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 
 	  if (apply)
 	    {
-	      src_mem_reg = reg;
-	      src_mem = true;
-	      src_mem_addr = offset;
-	      src_plus = offset != 0;
+	      decompose_mem (GET_MODE_SIZE(mode), XEXP(src, 0), &src_addr, 1);
 	    }
 	}
     }
@@ -2712,6 +2638,7 @@ opt_reg_rename (void)
       if (flag_pic >= 3)
 	mask &= ~(1 << PIC_REG);
 
+
       if (!mask)
 	continue;
 
@@ -2765,12 +2692,12 @@ opt_reg_rename (void)
 			}
 
 		      unsigned startat = j->second->get_index ();
-		      if (found.find (startat) != found.end () || !infos[startat].is_use (rename_regno))
-			continue;
-
-		      unsigned start = find_start (startat, rename_regno);
-//		      printf ("label %d <- jump %d : start %d\n", pos, startat, start); fflush (stdout);
-		      todo.insert (start);
+		      if (found.find (startat) == found.end () && infos[startat].is_use (rename_regno))
+			{
+			  unsigned start = find_start (startat, rename_regno);
+    //		      printf ("label %d <- jump %d : start %d\n", pos, startat, start); fflush (stdout);
+			  todo.insert (start);
+			}
 		    }
 
 		  /* if this label is at a start, check if it is reachable from the previous insn,
@@ -2780,8 +2707,9 @@ opt_reg_rename (void)
 		      insn_info & bb = infos[pos - 1];
 		      rtx set = single_set (bb.get_insn ());
 		      if (ANY_RETURN_P(bb.get_insn ())
-			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
-			  || (!set && PATTERN(bb.get_insn()) && GET_CODE(PATTERN(bb.get_insn())) == PARALLEL && (GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0)))) != IF_THEN_ELSE))
+//			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
+//			  || (!set && PATTERN(bb.get_insn()) && GET_CODE(PATTERN(bb.get_insn())) == PARALLEL && (GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0)))) != IF_THEN_ELSE)
+			  )
 
 			continue;
 
@@ -2908,7 +2836,7 @@ opt_reg_rename (void)
 
 	  /* check the renamed insns. */
 	  std::vector<unsigned> positions;
-	  std::set<machine_mode> modes;
+	  std::set<rtx *> regs;
 //	  bool ok = true;
 	  for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 	    {
@@ -2925,17 +2853,16 @@ opt_reg_rename (void)
 	      rtx_insn * insn = rr.get_insn ();
 
 	      /* get rename modes. */
-	      modes.clear();
-	      find_reg_modes_by_no (PATTERN (insn), oldregno, modes);
-	      if (modes.size() > 0)
+	      regs.clear();
+	      find_regs_by_no(PATTERN (insn), oldregno, regs);
+	      if (regs.size() > 0)
 		{
-		  for (std::set<machine_mode>::iterator m = modes.begin(); m != modes.end(); ++m)
+		  for (std::set<rtx *>::iterator m = regs.begin(); m != regs.end(); ++m)
 		    {
-		      machine_mode mode = *m;
-		      rtx to = gen_raw_REG (mode, newregno);
-		      rtx from = gen_raw_REG (mode, oldregno);
+		      rtx *x = *m;
+		      rtx to = gen_raw_REG (GET_MODE(*x), newregno);
 
-		      validate_replace_rtx_group (from, to, insn);
+		      validate_unshare_change(insn, x, to, true);
 		    }
 		  positions.push_back (*i);
 		}
@@ -3279,7 +3206,7 @@ opt_propagate_moves ()
 				      rtx_def * lbl = jump_out[k];
 				      // search next no debug insn
 				      rtx_def * before = next_nonnote_nondebug_insn (lbl);
-				      debug(before);
+				      //debug(before);
 				      if ((REGNO(dsti) < 8 || REGNO(dstj) < 8) && REGNO(dsti) != REGNO(dstj))
 					{
 					  rtx move = gen_rtx_SET(dstj, dsti);
@@ -3456,7 +3383,7 @@ opt_commute_add_move (void)
       insn_info & jj = infos[index + 1];
 
       if (!jj.get_dst_mem_reg () || jj.get_dst_mem_regno () != ii.get_src_regno () || jj.get_dst_mem_addr() || jj.get_dst_autoinc()
-	  || jj.get_src_regno () == ii.get_dst_regno () || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval ())
+	  || jj.get_src_regno () == ii.get_dst_regno () || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval () || jj.get_dst_mem_mem() != 0)
 	continue;
 
       rtx_insn * insn = ii.get_insn ();
@@ -5031,12 +4958,13 @@ opt_absolute (void)
 	  if (jj.get_mode () == VOIDmode || jj.is_compare ())
 	    continue;
 
+	  // ???
 	  if (jj.get_src_op () && jj.is_src_ee () && !jj.get_src_intval ())
 	    continue;
 
-	  bool j_dst = jj.is_dst_mem () && (jj.has_dst_addr () || jj.get_dst_symbol ()) && !jj.has_dst_memreg ()
+	  bool j_dst = jj.is_dst_mem () && jj.get_dst_mem_mem() == 0 && (jj.has_dst_addr () || jj.get_dst_symbol ()) && !jj.has_dst_memreg ()
 	      && jj.get_dst_symbol () == with_symbol;
-	  bool j_src = jj.is_src_mem () && (jj.has_src_addr () || jj.get_src_symbol ()) && !jj.has_src_memreg ()
+	  bool j_src = jj.is_src_mem () && jj.get_src_mem_mem() == 0 && (jj.has_src_addr () || jj.get_src_symbol ()) && !jj.has_src_memreg ()
 	      && jj.get_src_symbol () == with_symbol;
 
 	  /* exclude operations on that symbol. */
@@ -5269,10 +5197,15 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (jj.get_dst_regno () == regno)
 		return 0;
 
+	      // no index register
+	      if (jj.get_src_mem2_reg())
+		return 0;
+
 	      if (jj.get_src_mem_addr () * addend < size)
 		return 0;
 
-	      if (jj.get_src_autoinc())
+	      // no inc, no double indirect
+	      if (jj.get_src_mem_mem() != 0)
 		return 0;
 
 	      fix = true;
@@ -5282,15 +5215,21 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (jj.get_src_regno () == regno)
 		return 0;
 
+	      // no index register
+	      if (jj.get_dst_mem2_reg())
+		return 0;
+
 	      if (jj.get_dst_mem_addr () * addend < size)
 		return 0;
 
-	      if (jj.get_src_autoinc())
+	      // no inc, no double indirect
+	      if (jj.get_dst_mem_mem () != 0)
 		return 0;
 
 	      fix = true;
 	    }
 
+	  // direct add
 	  if (jj.get_src_regno() == jj.get_dst_regno() && jj.get_src_op() == PLUS && jj.get_src_intval() >= size)
 	    fix = true;
 
@@ -5375,9 +5314,13 @@ opt_autoinc ()
       if (ii.is_src_mem() && GET_CODE(SET_SRC(set)) == SIGN_EXTEND)
         ssize /= 2;
 
+      // neither INC or nested MEM is allowed
       // check if src is a mem which can be converted into an auto inc
-      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && !ii.get_src_autoinc ()
-	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_mem_regno () != ii.get_dst_regno ())
+      if (ii.is_src_mem() && ii.get_src_mem_regno () >= 8 && ii.get_src_mem_mem () == 0
+	  && ii.get_src_mem_regno () != ii.get_dst_regno ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem2_regno ()
+	  && ii.get_src_mem_regno () != ii.get_src_mem2_regno ())
 	{
 	  if (!ii.get_src_mem_addr ())
 	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, 1);
@@ -5385,14 +5328,18 @@ opt_autoinc ()
 	  if (ii.get_src_mem_addr () == -ssize)
 	    change_count += try_auto_inc (index, ii, ii.get_src_mem_reg (), ssize, -1);
 	}
+      // neither INC or nested MEM is allowed
       // check if dst is a mem which can be converted into an auto inc
-      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && !ii.get_dst_autoinc ()
-	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno () && ii.get_src_regno () != ii.get_dst_mem_regno ())
+      if (ii.is_dst_mem() && ii.get_dst_mem_regno () >= 8 && ii.get_dst_mem_mem () == 0
+	  && ii.get_src_regno () != ii.get_dst_mem_regno ()
+	  && ii.get_src_mem_regno () != ii.get_dst_mem_regno ()
+	  && ii.get_src_mem2_regno () != ii.get_dst_mem_regno ()
+	  && ii.get_dst_mem2_regno () != ii.get_dst_mem_regno ())
 	{
-	  if (!ii.get_dst_intval ())
+	  if (!ii.get_dst_mem_addr())
 	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, 1);
 	  else
-	  if (ii.get_dst_intval () == -dsize)
+	  if (ii.get_dst_mem_addr () == -dsize)
 	    change_count += try_auto_inc (index, ii, ii.get_dst_mem_reg (), dsize, -1);
 	}
     }
@@ -5415,7 +5362,7 @@ opt_final()
       insn_info &ii = infos[index];
 
       // cmp #0,ax
-      if (ii.is_compare() && ii.get_dst_reg() && ii.get_dst_regno() >= 8 && ii.get_dst_regno() <= 15 && !ii.get_src_mem_reg() && ii.is_src_const() && ii.get_src_intval() == 0)
+      if (ii.is_compare() && ii.get_dst_reg() && ii.get_dst_regno() >= 8 && ii.get_dst_regno() <= 15 && !ii.is_src_mem() && ii.is_src_const() && ii.get_src_intval() == 0)
 	{
 	  // if there is a free dx register use a move
 	  unsigned avail_dx = (usable_regs & ~ii.get_use()) & 0xff;

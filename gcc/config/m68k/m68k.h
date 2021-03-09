@@ -448,8 +448,8 @@ along with GCC; see the file COPYING3.  If not see
 /* The m68k has three kinds of registers, so eight classes would be
    a complete set.  One of them is not needed.  */
 enum reg_class {
-  NO_REGS, DATA_REGS, D0_REGS,
-  ADDR_REGS, A0_REGS, FP_REGS,
+  NO_REGS, DATA_REGS,
+  ADDR_REGS, FP_REGS,
   GENERAL_REGS, DATA_OR_FP_REGS,
   ADDR_OR_FP_REGS, ALL_REGS,
   LIM_REG_CLASSES };
@@ -457,8 +457,8 @@ enum reg_class {
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 #define REG_CLASS_NAMES \
- { "NO_REGS", "DATA_REGS", "D0_REGS"              \
-   "ADDR_REGS", "A0_REGS", "FP_REGS",              \
+ { "NO_REGS", "DATA_REGS", \
+   "ADDR_REGS", "FP_REGS",              \
    "GENERAL_REGS", "DATA_OR_FP_REGS",   \
    "ADDR_OR_FP_REGS", "ALL_REGS" }
 
@@ -466,9 +466,7 @@ enum reg_class {
 {					\
   {0x00000000},  /* NO_REGS */		\
   {0x000000ff},  /* DATA_REGS */	\
-  {0x00000001},  /* D0_REGS */	\
   {0x0100ff00},  /* ADDR_REGS */	\
-  {0x00000100},  /* A0_REGS */	\
   {0x00ff0000},  /* FP_REGS */		\
   {0x0100ffff},  /* GENERAL_REGS */	\
   {0x00ff00ff},  /* DATA_OR_FP_REGS */	\
@@ -1055,9 +1053,50 @@ extern void default_stabs_asm_out_constructor (rtx, int);
 extern void default_stabs_asm_out_destructor (rtx, int);
 #endif
 
-struct m68k_address;
+/* Structure describing an m68k address.
+
+   If CODE is UNKNOWN, the address is BASE + INDEX * SCALE + OFFSET,
+   with null fields evaluating to 0.  Here:
+
+   - BASE satisfies m68k_legitimate_base_reg_p
+   - INDEX satisfies m68k_legitimate_index_reg_p
+   - OFFSET satisfies m68k_legitimate_constant_address_p
+   - OUTER_INDEX satisfies m68k_legitimate_index_reg_p
+   - OUTER_OFFSET satisfies m68k_legitimate_constant_address_p
+
+   INDEX is either HImode or SImode.  The other fields are SImode.
+
+   If CODE is PRE_DEC, the address is -(BASE).  If CODE is POST_INC,
+   the address is (BASE)+.
+
+   If CODE is MEM, then it's a double indirect address
+   and the outer_index or outer_offset may be used.
+
+   MEM_LOC contains the address of the inner MEM. This is needed by reload
+   if reload needs to reload the inner MEM, if OFFSET plus OUTER_OFFSET are in use.
+
+   BASE_LOC contains the address of BASE - needed by reload.
+   INDEX_LOC contains the address of INDEX - also needed by reload.
+*/
+struct m68k_address {
+  int code;
+  rtx * mem_loc;
+  rtx base;
+  rtx * base_loc;
+  rtx index;
+  rtx * index_loc;
+  int scale;
+  rtx offset;
+  rtx outer_index;
+  rtx * outer_index_loc;
+  int outer_scale;
+  rtx outer_offset;
+};
+
 int decompose_mem(int reach, rtx x, struct m68k_address * address, int strict_p);
 
 
 const char *
 print_fp_const(const char * cmd, const char * prec, rtx x);
+
+

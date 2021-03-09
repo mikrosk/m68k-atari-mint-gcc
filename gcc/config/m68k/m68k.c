@@ -121,46 +121,6 @@ struct m68k_frame
 /* Current frame information calculated by m68k_compute_frame_layout().  */
 struct m68k_frame current_frame;
 
-/* Structure describing an m68k address.
-
-   If CODE is UNKNOWN, the address is BASE + INDEX * SCALE + OFFSET,
-   with null fields evaluating to 0.  Here:
-
-   - BASE satisfies m68k_legitimate_base_reg_p
-   - INDEX satisfies m68k_legitimate_index_reg_p
-   - OFFSET satisfies m68k_legitimate_constant_address_p
-   - OUTER_INDEX satisfies m68k_legitimate_index_reg_p
-   - OUTER_OFFSET satisfies m68k_legitimate_constant_address_p
-
-   INDEX is either HImode or SImode.  The other fields are SImode.
-
-   If CODE is PRE_DEC, the address is -(BASE).  If CODE is POST_INC,
-   the address is (BASE)+.
-
-   If CODE is MEM, then it's a double indirect address
-   and the outer_index or outer_offset may be used.
-
-   MEM_LOC contains the address of the inner MEM. This is needed by reload
-   if reload needs to reload the inner MEM, if OFFSET plus OUTER_OFFSET are in use.
-
-   BASE_LOC contains the address of BASE - needed by reload.
-   INDEX_LOC contains the address of INDEX - also needed by reload.
-*/
-struct m68k_address {
-  enum rtx_code code;
-  rtx * mem_loc;
-  rtx base;
-  rtx * base_loc;
-  rtx index;
-  rtx * index_loc;
-  int scale;
-  rtx offset;
-  rtx outer_index;
-  rtx * outer_index_loc;
-  int outer_scale;
-  rtx outer_offset;
-};
-
 struct m68k_address_part {
   rtx * mem_loc;
   rtx * base_loc;
@@ -2773,8 +2733,6 @@ m68k_get_gp (void)
   if (pic_offset_table_rtx == NULL_RTX)
     pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_REG);
 
-//  debug_rtx(pic_offset_table_rtx);
-
   crtl->uses_pic_offset_table = 1;
 
   return pic_offset_table_rtx;
@@ -3389,19 +3347,25 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		int opno,
 		int *total, bool speed )
 {
+  bool r;
   if (TUNE_68000_10)
-    return m68k_68000_10_costs(x, mode, outer_code, opno, total, speed);
-
+    r =  m68k_68000_10_costs(x, mode, outer_code, opno, total, speed);
+  else
   if (m68k_tune == u68020)
-    return m68k_68020_costs(x, mode, outer_code, opno, total, speed);
-
+    r = m68k_68020_costs(x, mode, outer_code, opno, total, speed);
+  else
   if (m68k_tune == u68030)
-    return m68k_68030_costs(x, mode, outer_code, opno, total, speed);
-
+    r = m68k_68030_costs(x, mode, outer_code, opno, total, speed);
+  else
   if (m68k_tune == u68040 || m68k_tune == u68020_40)
-    return m68k_68040_costs(x, mode, outer_code, opno, total, speed);
+    r = m68k_68040_costs(x, mode, outer_code, opno, total, speed);
+  else
+    r = m68k_68080_costs(x, mode, outer_code, opno, total, speed);
 
-  return m68k_68080_costs(x, mode, outer_code, opno, total, speed);
+//  fprintf(stderr, "cost: %d\t", *total);
+//  debug(x);
+
+  return r;
 }
 
 int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed)

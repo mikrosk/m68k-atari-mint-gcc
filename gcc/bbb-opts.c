@@ -2648,16 +2648,9 @@ opt_reg_rename (void)
 
       mask &= usable_regs;
 
-      // do not change reg class
-      if (rename_regno < 8)
-	mask &= 0xff;
-      else
-	mask &= 0xff00;
-
       /* do not use a4 if compiling baserel */
       if (flag_pic >= 3)
 	mask &= ~(1 << PIC_REG);
-
 
       if (!mask)
 	continue;
@@ -4711,7 +4704,7 @@ opt_elim_dead_assign (int blocked_regno)
 		    }
 //printf("%d: and 0x%x, %s : 0x%x\n", index, nmask, reg_names[ii.get_dst_regno ()], lmask);
 //debug(ii.get_insn());
-		  if (lmask == nmask)
+		  if ((lmask & nmask) == lmask)
 		    {
 		      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
 			   index, reg_names[ii.get_dst_regno ()], lmask, nmask);

@@ -645,13 +645,13 @@ public:
   inline bool
   has_dst_memreg () const
   {
-    return dst_addr.base_loc;
+    return dst_addr.base_loc || dst_addr.index_loc;
   }
 
   inline bool
   has_src_memreg () const
   {
-    return src_addr.base_loc;
+    return src_addr.base_loc || src_addr.index_loc;
   }
 
   inline rtx_code

@@ -1745,7 +1745,7 @@ insn_info::fledder_src_mem (rtx src)
   decompose_mem (GET_MODE_SIZE(mode), &XEXP(src, 0), &src_addr, 1);
   src_autoinc = src_addr.code != 0 && src_addr.code != MEM;
 
-  if (src_addr.offset && ! SYMBOL_REF_P(src_addr.offset) && GET_CODE(src_addr.offset) != LABEL_REF)
+  if (src_addr.offset && ! SYMBOL_REF_P(src_addr.offset) && GET_CODE(src_addr.offset) != LABEL_REF && GET_CODE(src_addr.offset) != UNSPEC)
     {
       if (CONST_INT_P(src_addr.offset))
 	{
@@ -1769,7 +1769,7 @@ insn_info::fledder_dst_mem (rtx dst)
   decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
   dst_autoinc = dst_addr.code != 0 && dst_addr.code != MEM;
 
-  if (dst_addr.offset && ! SYMBOL_REF_P(dst_addr.offset) && GET_CODE(dst_addr.offset) != LABEL_REF)
+  if (dst_addr.offset && ! SYMBOL_REF_P(dst_addr.offset) && GET_CODE(dst_addr.offset) != LABEL_REF && GET_CODE(dst_addr.offset) != UNSPEC)
     {
       if (CONST_INT_P(dst_addr.offset))
 	{

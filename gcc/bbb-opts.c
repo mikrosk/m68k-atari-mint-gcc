@@ -4869,8 +4869,8 @@ opt_elim_dead_assign (int blocked_regno)
 		      mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
 
 		      log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
-		      validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0);
-		      ++change_count;
+		      if (validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0))
+			++change_count;
 		      continue;
 		    }
 		}

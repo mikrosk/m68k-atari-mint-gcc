@@ -81,6 +81,7 @@
 
 int be_very_verbose;
 bool be_verbose;
+static int pass;
 
 bool optimize_this_for_speed_p;
 extern bool
@@ -549,7 +550,9 @@ class insn_info
   rtx src_reg;
 
   struct m68k_address src_addr;
+  int src_mem_addr;
   struct m68k_address dst_addr;
+  int dst_mem_addr;
 
   bool visited;
 
@@ -570,7 +573,7 @@ public:
       def8 (0), def16(0), def32(0),
       hard (0), proepi (p), stack (false), label (false), jump (false), call (false), compare (false), dst_mem (false), src_mem (false),
       src_plus (false), src_intval(0), src_op ((rtx_code) 0),  src_ee (false), src_2nd (false), src_const (false), mode (VOIDmode),
-      dst_reg (0), src_reg (0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
+      dst_reg (0), src_reg (0), src_mem_addr(0), dst_mem_addr(0), visited (false), sp_offset (0), dst_autoinc (0), src_autoinc (0), multi_reg(0), track (0)
   {
     memset(&src_addr, 0, sizeof(src_addr));
     memset(&dst_addr, 0, sizeof(dst_addr));
@@ -669,24 +672,24 @@ public:
   inline rtx
   get_dst_symbol () const
   {
-    return dst_addr.offset && GET_CODE (dst_addr.offset) == SYMBOL_REF ? dst_addr.offset : 0;
+    return dst_addr.offset;
   }
 
   inline rtx
   get_src_symbol () const
   {
-    return src_addr.offset && GET_CODE (src_addr.offset) == SYMBOL_REF ? src_addr.offset : 0;
+    return src_addr.offset;
   }
   inline bool
   has_dst_addr () const
   {
-    return dst_addr.offset && CONST_INT_P (dst_addr.offset) ? dst_addr.offset : 0;
+    return dst_mem_addr;
   }
 
   inline bool
   has_src_addr () const
   {
-    return src_addr.offset && CONST_INT_P (src_addr.offset) ? src_addr.offset : 0;
+    return src_mem_addr;
   }
 
   inline bool
@@ -710,13 +713,13 @@ public:
   inline int
   get_dst_mem_addr () const
   {
-    return dst_addr.offset && CONST_INT_P (dst_addr.offset) ? INTVAL(dst_addr.offset) : 0;
+    return dst_mem_addr;
   }
 
   inline int
   get_src_mem_addr () const
   {
-    return src_addr.offset && CONST_INT_P (src_addr.offset) ? INTVAL(src_addr.offset) : 0;
+    return src_mem_addr;
   }
 
   inline bool
@@ -842,6 +845,9 @@ public:
 
   void
   fledder_src_mem (rtx src);
+
+  void
+  fledder_dst_mem (rtx src);
 
   /* update usage. */
   void
@@ -1100,6 +1106,59 @@ public:
     def8 = 0;
     def16 = 0;
     def32 = 0;
+  }
+
+  inline void
+  rename (unsigned oldbit, unsigned newbit)
+  {
+    if (def8 & oldbit)
+      {
+	def8 |= newbit;
+	def8 &= ~oldbit;
+	if (def16 & oldbit)
+	  {
+	    def16 |= newbit;
+	    def16 &= ~oldbit;
+	  }
+	if (def32 & oldbit)
+	  {
+	    def32 |= newbit;
+	    def32 &= ~oldbit;
+	  }
+      }
+    else
+      {
+	if (use8 & oldbit)
+	  {
+	    use8 |= newbit;
+	    use8 &= ~oldbit;
+	  }
+	if (use16 & oldbit)
+	  {
+	    use16 |= newbit;
+	    use16 &= ~oldbit;
+	  }
+	if (use32 & oldbit)
+	  {
+	    use32 |= newbit;
+	    use32 &= ~oldbit;
+	  }
+	if (myuse8 & oldbit)
+	  {
+	    myuse8 |= newbit;
+	    myuse8 &= ~oldbit;
+	  }
+	if (myuse16 & oldbit)
+	  {
+	    myuse16 |= newbit;
+	    myuse16 &= ~oldbit;
+	  }
+	if (myuse32 & oldbit)
+	  {
+	    myuse32 |= newbit;
+	    myuse32 &= ~oldbit;
+	  }
+      }
   }
 
   /*
@@ -1681,9 +1740,48 @@ insn_info::scan_rtx (rtx x)
 void
 insn_info::fledder_src_mem (rtx src)
 {
+  memset(&src_addr, 0, sizeof(dst_addr));
   src_mem = true;
   decompose_mem (GET_MODE_SIZE(mode), &XEXP(src, 0), &src_addr, 1);
   src_autoinc = src_addr.code != 0 && src_addr.code != MEM;
+
+  if (src_addr.offset && ! SYMBOL_REF_P(src_addr.offset) && GET_CODE(src_addr.offset) != LABEL_REF)
+    {
+      if (CONST_INT_P(src_addr.offset))
+	{
+	  src_mem_addr = INTVAL(src_addr.offset);
+	  src_addr.offset = 0;
+	}
+      else // PLUS
+	{
+	  debug(src_addr.offset);
+	  src_mem_addr = INTVAL(XEXP(src_addr.offset, 1));
+	  src_addr.offset = XEXP(src_addr.offset, 0);
+	}
+    }
+}
+
+void
+insn_info::fledder_dst_mem (rtx dst)
+{
+  memset(&dst_addr, 0, sizeof(dst_addr));
+  dst_mem = true;
+  decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
+  dst_autoinc = dst_addr.code != 0 && dst_addr.code != MEM;
+
+  if (dst_addr.offset && ! SYMBOL_REF_P(dst_addr.offset) && GET_CODE(dst_addr.offset) != LABEL_REF)
+    {
+      if (CONST_INT_P(dst_addr.offset))
+	{
+	  dst_mem_addr = INTVAL(dst_addr.offset);
+	  dst_addr.offset = 0;
+	}
+      else // PLUS
+	{
+	  dst_mem_addr = INTVAL(XEXP(dst_addr.offset, 1));
+	  dst_addr.offset = XEXP(dst_addr.offset, 0);
+	}
+    }
 }
 
 /* read the set and grab infos */
@@ -1717,9 +1815,7 @@ insn_info::fledder (rtx set)
     }
   else if (MEM_P(dst))
     {
-      dst_mem = true;
-      decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
-      dst_autoinc = dst_addr.code != 0 && dst_addr.code != MEM;
+      fledder_dst_mem(dst);
     }
 
   /* It' some kind of operation, e.g. PLUS, XOR, NEG, ... */
@@ -2000,10 +2096,7 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 	    dst = gen_rtx_MEM (mode, gen_rtx_PLUS(SImode, reg, gen_rtx_CONST_INT (SImode, offset)));
 
 	  if (apply)
-	    {
-	      memset(&dst_addr, 0, sizeof(dst_addr));
-	      decompose_mem (GET_MODE_SIZE(mode), &XEXP(dst, 0), &dst_addr, 1);
-	    }
+	    fledder_dst_mem (dst);
 	}
     }
 
@@ -2032,10 +2125,7 @@ insn_info::make_absolute2base (unsigned regno, unsigned base, rtx with_symbol, b
 	    }
 
 	  if (apply)
-	    {
-	      memset(&src_addr, 0, sizeof(src_addr));
-	      decompose_mem (GET_MODE_SIZE(mode), &XEXP(src, 0), &src_addr, 1);
-	    }
+	    fledder_src_mem(src);
 	}
     }
 
@@ -2608,6 +2698,18 @@ find_start (unsigned start, unsigned rename_regno)
   return start;
 }
 
+static void
+rus(char const * title)
+{
+  fputs(title, stderr);
+  fputs("\n", stderr);
+  for (unsigned index = 0; index < infos.size (); ++index)
+    {
+      fprintf(stderr, "%d\t", index);
+      append_reg_usage(stderr, infos[index].get_insn());
+    }
+}
+
 /*
  * Always prefer lower register numbers within the class.
  */
@@ -2620,6 +2722,8 @@ opt_reg_rename (void)
     return 0;
 
   unsigned changes = 0;
+
+//  rus("opt_reg_rename");
 
 //  dump_insns ("rename", 1);
   for (unsigned index = 0; index < infos.size (); ++index)
@@ -2638,12 +2742,17 @@ opt_reg_rename (void)
 	continue;
 
       /* get the mask for free registers. */
-      unsigned mask = ii.get_free_mask ();
+      unsigned mask = ii.get_free_mask () & (rename_regbit - 1);
+
+      /* no rename from ax to dy. */
+      if (rename_regno > 7)
+	mask &= 0xff00;
 
       /* If it's a full register assignment, add the source register.
-       * Add this register anyway and track it's modification too. */
+       * Add this register anyway and track it's modification too.
+       * But only during first pass to avoid endless renames. */
       unsigned reusemask = 0;
-      if (ii.is_src_reg() && ii.get_mode() == SImode)
+      if (pass == 1 && ii.is_src_reg() && ii.get_mode() == SImode)
         mask |= reusemask = 1 << ii.get_src_regno ();
 
       mask &= usable_regs;
@@ -2896,35 +3005,13 @@ opt_reg_rename (void)
 #if 0
 	      unsigned oldbit = 1 << oldregno;
 	      unsigned newbit = 1 << newregno;
+	      // does not work yet: TODO: distinguish between, def, myuse and use!
 	      // update the insn_infos
-	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
-		{
-		  insn_info & pp = infos[*i];
-		  if (pp.get_def() & oldbit)
-		    {
-		      pp.set_def((pp.get_def() & ~oldbit) | newbit);
-		    }
-		  if (pp.get_use() & oldbit)
-		    {
-		      pp.set_use((pp.get_use() & ~oldbit) | newbit);
-		    }
-		  if (pp.get_myuse() & oldbit)
-		    {
-		      pp.set_myuse((pp.get_myuse() & ~oldbit) | newbit);
-		    }
-		}
+	      for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
+		infos[*i].rename(oldbit, newbit);
 
-	      // continue
-	      ++changes;
-	      break;
-#elif 0
-	      // new variant to partially update the insn_infos.
-	      // reset all visited  insn_infos
-	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
-		infos[*i].reset_use();
-	      // revisit starting from all endings.
-	      update_insn_infos(endings);
-	      ++changes;
+//	      rus("quick update");
+
 	      break;
 #else
 	      return 1;
@@ -5822,7 +5909,7 @@ namespace
 	if (do_opt_0 && opt_insert_move0())
 	  {XUSE('0'); update_insns(); }
 
-	int pass = 0;
+	pass = 0;
 	for (;;)
 	  {
 	    XUSE('+');
@@ -5850,7 +5937,7 @@ namespace
 	      {XUSE('b'); done = 0; update_insns (); }
 
 	    if (do_bb_reg_rename)
-	      while (opt_reg_rename ())
+	      if (opt_reg_rename ())
 		{
 		  XUSE('r');
 		  update_insns ();

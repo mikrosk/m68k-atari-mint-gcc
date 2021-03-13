@@ -1754,7 +1754,6 @@ insn_info::fledder_src_mem (rtx src)
 	}
       else // PLUS
 	{
-	  debug(src_addr.offset);
 	  src_mem_addr = INTVAL(XEXP(src_addr.offset, 1));
 	  src_addr.offset = XEXP(src_addr.offset, 0);
 	}

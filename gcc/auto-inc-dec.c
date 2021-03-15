@@ -1046,6 +1046,9 @@ find_inc (bool first_try)
 	  /* check that there is no further use with PLUS. */
 	  for(ref = DF_REG_USE_CHAIN(REGNO(inc_insn.reg0));ref; ref = DF_REF_NEXT_REG (ref))
 	    {
+	      if (!ref->base.insn_info)
+		continue;
+
 	      if (ref->base.insn_info->insn == inc_insn.insn)
 		break;
 

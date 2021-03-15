@@ -3635,7 +3635,7 @@ fold_rtx (rtx x, rtx_insn *insn)
 	      inner_const = equiv_constant (fold_rtx (XEXP (y, 1), 0));
 	      if (!inner_const || !CONST_INT_P (inner_const))
 		break;
-
+#if 0
 	      /* Don't associate these operations if they are a PLUS with the
 		 same constant and it is a power of two.  These might be doable
 		 with a pre- or post-increment.  Similarly for two subtracts of
@@ -3651,7 +3651,7 @@ fold_rtx (rtx x, rtx_insn *insn)
 		      || (HAVE_POST_DECREMENT
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
 		break;
-
+#endif
 	      /* ??? Vector mode shifts by scalar
 		 shift operand are not supported yet.  */
 	      if (is_shift && VECTOR_MODE_P (mode))

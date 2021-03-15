@@ -1039,6 +1039,32 @@ find_inc (bool first_try)
 	    fprintf (dump_file, "base reg replacement failure.\n");
 	  return false;
 	}
+
+      if (REG_P (inc_insn.reg0))
+	{
+	  df_ref ref;
+	  /* check that there is no further use with PLUS. */
+	  for(ref = DF_REG_USE_CHAIN(REGNO(inc_insn.reg0));ref; ref = DF_REF_NEXT_REG (ref))
+	    {
+	      if (ref->base.insn_info->insn == inc_insn.insn)
+		break;
+
+	      rtx set = single_set (ref->base.insn_info->insn);
+	      if (!set)
+		continue;
+
+	      rtx src = SET_SRC (set);
+	      if (GET_CODE (src) != PLUS)
+		continue;
+
+	      if (CONST_INT_P (XEXP (src, 1)))
+		{
+		  if (dump_file)
+		    fprintf (dump_file, "2nd plus use detected in insn %d.\n", INSN_UID(ref->base.insn_info->insn));
+		  return false;
+		}
+	    }
+	}
     }
 
   if (mem_insn.reg1_is_const)

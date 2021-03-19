@@ -631,9 +631,104 @@ try_merge (void)
      reference.  If it is, do not do the combination.  */
   if (find_regno_note (last_insn, REG_DEAD, REGNO (inc_reg)))
     {
-      if (dump_file)
-	fprintf (dump_file, "dead failure %d\n", REGNO (inc_reg));
-      return false;
+      /* SBF: check if a next insn using the inc_insn's src matches.*/
+      bool converted = false;
+      if (CONST_INT_P(inc_insn.reg1) && last_insn == mem_insn.insn)
+	{
+	  rtx set;
+	  rtx_insn * insn, * next;
+	  for (insn = NEXT_INSN(mem_insn.insn); insn; insn = next)
+	    {
+	      next = NEXT_INSN(insn);
+	      if (DEBUG_INSN_P(insn))
+		continue;
+	      if (LABEL_P(insn) || JUMP_P(insn) || CALL_P(insn))
+		{ insn = 0; break; }
+
+	      set = PATTERN (insn);
+	      if (GET_CODE (set) != SET)
+		{ insn = 0; break; }
+
+	      rtx reg = SET_DEST(set);
+	      if (REG_P(reg) && REGNO(reg) == REGNO(inc_insn.reg0))
+		break;
+
+	      df_insn_info * insn_info = DF_INSN_INFO_GET (insn);
+	      df_ref def, use;
+
+	      /* Need to update next use.  */
+	      FOR_EACH_INSN_INFO_DEF (def, insn_info)
+		{
+		  if (DF_REF_REG (def) == inc_insn.reg0)
+		    goto Found;
+		}
+
+	      FOR_EACH_INSN_INFO_USE (use, insn_info)
+		{
+		  if (DF_REF_REG (use) == inc_insn.reg0)
+		    { insn = 0; goto Found;  }
+		}
+	    }
+
+Found:
+	  if (insn && SET_DEST(set) == inc_insn.reg0)
+	    {
+	      rtx src = SET_SRC(set);
+	      if (GET_CODE(src) == PLUS && XEXP(src, 0) == inc_insn.reg0 && CONST_INT_P(XEXP (src, 1)))
+		{
+		  int add2 = INTVAL (XEXP (src, 1));
+		  int add1 = INTVAL (inc_insn.reg1);
+		  if (add1 + size == add2)
+		    {
+		      /* SBF: there is an add after the mem use which matches:
+		       * replace the tmp register with the found register
+		       * let the inc_insn to use that register.
+		       * and the post_inc is modified to use the mode size.
+		       * the sum stays the same
+		       *
+		       * b = a + x
+		       * *b = ...
+		       * a = a + x + 4
+		       * ->
+		       * a = a + x
+		       * *a = ...
+		       * a = a + 4
+		       *
+		       * that's a post_inc now
+		       */
+
+		      rtx_insn * iinsn = inc_insn.insn;
+		      rtx mint = GEN_INT(size);
+
+		      validate_change(iinsn, &SET_DEST(PATTERN(iinsn)), inc_insn.reg0, true);
+		      validate_change(mem_insn.insn, &XEXP(*mem_insn.mem_loc, 0), inc_insn.reg0, true);
+		      validate_change(insn, &SET_SRC(set), gen_rtx_PLUS(SImode, inc_insn.reg0, mint), true);
+
+		      if (apply_change_group())
+			{
+			  inc_reg = inc_insn.reg0;
+			  mem_insn.reg0 = inc_reg;
+
+			  inc_insn.insn = insn;
+			  inc_insn.pat = set;
+			  inc_insn.reg1 = mint;
+			  inc_insn.reg1_val = size;
+			  inc_insn.form = FORM_POST_INC;
+			  last_insn = insn;
+
+			  converted = true;
+			}
+		    }
+		}
+	    }
+	}
+
+      if (!converted)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "dead failure %d\n", REGNO (inc_reg));
+	  return false;
+	}
     }
 
   mem_insn.reg1_state = (mem_insn.reg1_is_const)
@@ -1038,35 +1133,6 @@ find_inc (bool first_try)
 	  if (dump_file)
 	    fprintf (dump_file, "base reg replacement failure.\n");
 	  return false;
-	}
-
-      if (REG_P (inc_insn.reg0))
-	{
-	  df_ref ref;
-	  /* check that there is no further use with PLUS. */
-	  for(ref = DF_REG_USE_CHAIN(REGNO(inc_insn.reg0));ref; ref = DF_REF_NEXT_REG (ref))
-	    {
-	      if (!ref->base.insn_info)
-		continue;
-
-	      if (ref->base.insn_info->insn == inc_insn.insn)
-		break;
-
-	      rtx set = single_set (ref->base.insn_info->insn);
-	      if (!set)
-		continue;
-
-	      rtx src = SET_SRC (set);
-	      if (GET_CODE (src) != PLUS)
-		continue;
-
-	      if (CONST_INT_P (XEXP (src, 1)))
-		{
-		  if (dump_file)
-		    fprintf (dump_file, "2nd plus use detected in insn %d.\n", INSN_UID(ref->base.insn_info->insn));
-		  return false;
-		}
-	    }
 	}
     }
 

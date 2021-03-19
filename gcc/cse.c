@@ -3635,12 +3635,10 @@ fold_rtx (rtx x, rtx_insn *insn)
 	      inner_const = equiv_constant (fold_rtx (XEXP (y, 1), 0));
 	      if (!inner_const || !CONST_INT_P (inner_const))
 		break;
-#if 0
 	      /* Don't associate these operations if they are a PLUS with the
 		 same constant and it is a power of two.  These might be doable
 		 with a pre- or post-increment.  Similarly for two subtracts of
 		 identical powers of two with post decrement.  */
-
 	      if (code == PLUS && const_arg1 == inner_const
 		  && ((HAVE_PRE_INCREMENT
 			  && exact_log2 (INTVAL (const_arg1)) >= 0)
@@ -3650,8 +3648,11 @@ fold_rtx (rtx x, rtx_insn *insn)
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)
 		      || (HAVE_POST_DECREMENT
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
-		break;
-#endif
+		{
+		  /* SBF: fold if defined once and multiple uses. */
+		  if (DF_REG_USE_COUNT(REGNO(folded_arg0)) <= 2 || DF_REG_DEF_COUNT(REGNO(folded_arg0)) > 1)
+		    break;
+		}
 	      /* ??? Vector mode shifts by scalar
 		 shift operand are not supported yet.  */
 	      if (is_shift && VECTOR_MODE_P (mode))

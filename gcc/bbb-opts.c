@@ -1453,7 +1453,7 @@ void insn_info::patch_mem_offsets(rtx x, int size)
 void
 insn_info::auto_inc_fixup (int regno, int size, int addend)
 {
-//  debug_rtx (insn);
+  // fprintf(stderr, ":::"); debug_rtx (insn);
   rtx set0 = single_set (insn);
   rtx set = set0;
   if (is_compare ())
@@ -1480,18 +1480,18 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
       int offset = get_src_mem_addr() - size * addend;
       patch_mem_offsets(SET_SRC(set), offset);
       if (offset == 0)
-	src_addr.offset = 0;
+	src_mem_addr = 0;
       else
-        src_addr.offset = GEN_INT(offset);
+	src_mem_addr = offset;
     }
   if (get_dst_mem_regno () == regno)
     {
       int offset = get_dst_mem_addr() - size * addend;
       patch_mem_offsets(SET_DEST(set), offset);
       if (offset == 0)
-	dst_addr.offset = 0;
+	dst_mem_addr = 0;
       else
-        dst_addr.offset = GEN_INT(offset);
+	dst_mem_addr = offset;
     }
 
   rtx pattern = add_clobbers (insn);
@@ -5675,17 +5675,20 @@ opt_pipeline_insns()
       // swap da insns
       rtx_insn * head = PREV_INSN(hh.get_insn());
       rtx_insn * tail = NEXT_INSN(ii.get_insn());
+      if (BLOCK_FOR_INSN(head) == BLOCK_FOR_INSN(tail))
+	{
+	  rtx_insn * i = ii.get_insn();
+	  rtx_insn * h = hh.get_insn();
 
-      SET_NEXT_INSN(head) = ii.get_insn();
-      SET_NEXT_INSN(ii.get_insn()) = hh.get_insn();
-      SET_NEXT_INSN(hh.get_insn()) = tail;
+	  remove_insn(i);
+	  remove_insn(h);
 
-      SET_PREV_INSN(tail) = hh.get_insn();
-      SET_PREV_INSN(hh.get_insn()) = ii.get_insn();
-      SET_PREV_INSN(ii.get_insn()) = head;
+	  add_insn_after(i, head, BLOCK_FOR_INSN(head));
+	  add_insn_before(h, tail, BLOCK_FOR_INSN(tail));
 
-      std::swap(infos[index], infos[index - 1]);
-      log("(n) reordered insn %d<->%d\n", index - 1, index);
+	  std::swap(infos[index], infos[index - 1]);
+	  log("(n) reordered insn %d<->%d\n", index - 1, index);
+	}
     }
 }
 
@@ -6005,6 +6008,15 @@ namespace
 
     XUSE('.');
     XUSE('\n');
+
+/*
+    std::vector<insn_info>().swap(infos);
+    std::multimap<int, rtx_insn *>().swap(label2jump);
+    std::multimap<unsigned, unsigned>().swap(jump2label);
+    std::map<rtx_insn *, insn_info *>().swap(insn2info);
+    std::set<unsigned>().swap(scan_starts);
+    std::vector<rtx>().swap(dstregs);
+*/
     return r;
   }
 

@@ -695,7 +695,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 #define AMIGA_FAR_SECTION_NAME  ".datafar"
 
 void
-amiga_insert_attribute (tree decl, tree * attr)
+amigaos_insert_attribute (tree decl, tree * attr)
 {
   tree t1;
   for (t1 = *attr;t1; t1 = TREE_CHAIN (t1))
@@ -745,7 +745,7 @@ amiga_insert_attribute (tree decl, tree * attr)
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 #ifndef TARGET_AMIGAOS_VASM
 extern void
-amiga_named_section (const char *name, unsigned int flags, tree decl )
+amiga_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED, tree decl )
 {
   // only one code section - TODO: with amiga hunk this is no longer mandatory.
   if (0 == strncmp (".text", name, 5))
@@ -873,12 +873,6 @@ read_only_operand (rtx operand)
 }
 
 rtx
-amigaos_struct_value_rtx (tree fntype, int incoming ATTRIBUTE_UNUSED)
-{
-    return gen_rtx_REG (Pmode, M68K_STRUCT_VALUE_REGNUM);
-}
-
-rtx
 amigaos_static_chain_rtx (const_tree decl, bool incoming ATTRIBUTE_UNUSED)
 {
   if (!decl || !DECL_STATIC_CHAIN(decl))
@@ -996,7 +990,7 @@ amigaos_restore_a4 (void)
   }
 
 void
-amigaos_alternate_frame_setup_f (int fsize)
+amigaos_alternate_frame_setup_f (int fsize ATTRIBUTE_UNUSED)
   {
 #if 0
     if (fsize < 128)
@@ -1017,7 +1011,7 @@ amigaos_alternate_frame_setup_f (int fsize)
   }
 
 void
-amigaos_alternate_frame_setup (int fsize)
+amigaos_alternate_frame_setup (int fsize ATTRIBUTE_UNUSED)
   {
 #if 0
     if (!fsize)

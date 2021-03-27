@@ -450,12 +450,6 @@ while (0)
 
 #define GOT_SYMBOL_NAME ""
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX amigaos_struct_value_rtx
-rtx
-amigaos_struct_value_rtx(tree fntype,
-			       int incoming ATTRIBUTE_UNUSED);
-
 #undef TARGET_STATIC_CHAIN
 #define TARGET_STATIC_CHAIN amigaos_static_chain_rtx
 rtx
@@ -487,10 +481,10 @@ amigaos_alternate_frame_setup (int fsize);
   (amigaos_alternate_frame_setup ((FSIZE)))
 
 #undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES amiga_insert_attribute
+#define TARGET_INSERT_ATTRIBUTES amigaos_insert_attribute
 
 void
-amiga_insert_attribute (tree decl, tree * attr);
+amigaos_insert_attribute (tree decl, tree * attr);
 
 
 #undef TARGET_FUNCTION_VALUE

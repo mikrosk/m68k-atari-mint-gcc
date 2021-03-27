@@ -1099,8 +1099,8 @@ int decompose_mem(int reach, rtx * x, struct m68k_address * address, int strict_
 const char *
 print_fp_const(const char * cmd, const char * prec, rtx x);
 
-bool
+int
 m68k_emit_movmemsi(rtx dest, rtx src, rtx length, rtx alignment);
 
-bool
+int
 m68k_emit_setmemsi(rtx dest, rtx val, rtx length, rtx alignment);

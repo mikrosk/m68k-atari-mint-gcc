@@ -7438,7 +7438,7 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
   return size * 8 / align <= 1;
 }
 
-bool
+int
 m68k_emit_setmemsi (rtx blkdest, rtx val, rtx length, rtx alignment)
 {
   rtx src, dst;
@@ -7539,7 +7539,7 @@ m68k_emit_setmemsi (rtx blkdest, rtx val, rtx length, rtx alignment)
 /*
  * SBF: emit compact code for memcpy and friends.
  */
-bool
+int
 m68k_emit_movmemsi (rtx blkdest, rtx blksrc, rtx length, rtx alignment)
 {
   rtx src, dst;

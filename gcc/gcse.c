@@ -2268,6 +2268,13 @@ pre_insert_copy_insn (struct gcse_expr *expr, rtx_insn *insn)
         new_insn = emit_insn_after (new_insn, insn);
     }
 
+  /* SBF: move reg_inc note. */
+  if (NEXT_INSN(insn) == new_insn && find_reg_note(insn, REG_INC, old_reg))
+    {
+      remove_note(insn, find_reg_note(insn, REG_INC, old_reg));
+      add_reg_note (new_insn, REG_INC, old_reg);
+    }
+
   gcse_create_count++;
 
   if (dump_file)
@@ -2469,7 +2476,8 @@ pre_delete (void)
 	    /* We only delete insns that have a single_set.  */
 	    if (bitmap_bit_p (pre_delete_map[bb->index], indx)
 		&& (set = single_set (insn)) != 0
-                && dbg_cnt (pre_insn))
+                && dbg_cnt (pre_insn)
+		&& !find_reg_note(insn, REG_INC, SET_DEST (set)))
 	      {
 		/* Create a pseudo-reg to store the result of reaching
 		   expressions into.  Get the mode for the new pseudo from

@@ -190,7 +190,7 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     unsigned int align,
 				     enum by_pieces_operation op,
 				     bool speed_p);
-
+
 /* Initialize the GCC target structure.  */
 
 #if INT_OP_GROUP == INT_OP_DOT_WORD
@@ -392,7 +392,7 @@ m68k_target_sched_reorder (FILE *, int, rtx_insn **, int *, int);
 #define TARGET_SCHED_REORDER2 m68k_target_sched_reorder
 
 struct gcc_target targetm = TARGET_INITIALIZER;
-
+
 /* Base flags for 68k ISAs.  */
 #define FL_FOR_isa_00    FL_ISA_68000
 #define FL_FOR_isa_10    (FL_FOR_isa_00 | FL_ISA_68010)
@@ -492,7 +492,7 @@ static const struct m68k_target_selection all_microarchs[] =
 #undef M68K_MICROARCH
   { NULL,       unk_device, NULL,  unk_arch,  isa_max, 0 }
 };
-
+
 /* The entries associated with the -mcpu, -march and -mtune settings,
    or null for options that have not been used.  */
 const struct m68k_target_selection *m68k_cpu_entry;
@@ -523,7 +523,7 @@ const char *m68k_symbolic_jump;
 /* Enum variable that corresponds to m68k_symbolic_call values.  */
 enum M68K_SYMBOLIC_CALL m68k_symbolic_call_var;
 
-
+
 /* Implement TARGET_OPTION_OVERRIDE.  */
 
 static void
@@ -788,7 +788,7 @@ m68k_cpp_cpu_family (const char *prefix)
     return NULL;
   return concat ("__m", prefix, "_family_", m68k_cpu_entry->family, NULL);
 }
-
+
 /* Return m68k_fk_interrupt_handler if FUNC has an "interrupt" or
    "interrupt_handler" attribute and interrupt_thread if FUNC has an
    "interrupt_thread" attribute.  Otherwise, return
@@ -800,7 +800,7 @@ m68k_get_function_kind (tree func)
   tree a;
 
   gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
-  
+
   a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
   if (a != NULL_TREE)
     return m68k_fk_interrupt_handler;
@@ -1251,7 +1251,7 @@ m68k_expand_prologue (void)
   amigaos_restore_a4 ();
 #endif
 }
-
+
 /* Return true if a simple (return) instruction is sufficient for this
    instruction (i.e. if no epilogue is needed).  */
 
@@ -1434,15 +1434,15 @@ m68k_expand_epilogue (bool sibcall_p)
   if (!sibcall_p)
     emit_jump_insn (ret_rtx);
 }
-
-/* Return true if X is a valid comparison operator for the dbcc 
-   instruction.  
+
+/* Return true if X is a valid comparison operator for the dbcc
+   instruction.
 
    Note it rejects floating point comparison operators.
    (In the future we could use Fdbcc).
 
    It also rejects some comparisons when CC_NO_OVERFLOW is set.  */
-   
+
 int
 valid_dbcc_comparison_p_2 (rtx x, machine_mode mode ATTRIBUTE_UNUSED)
 {
@@ -1541,7 +1541,7 @@ m68k_ok_for_sibcall_p (tree decl, tree exp)
      the same.  */
   if (decl && m68k_get_function_kind (decl) == kind)
     return true;
-  
+
   return false;
 }
 
@@ -1673,8 +1673,8 @@ m68k_legitimize_address (rtx x, rtx oldx, machine_mode mode)
   return x;
 }
 
- 
-/* Output a dbCC; jCC sequence.  Note we do not handle the 
+
+/* Output a dbCC; jCC sequence.  Note we do not handle the
    floating point version of this sequence (Fdbcc).  We also
    do not handle alternative conditions when CC_NO_OVERFLOW is
    set.  It is assumed that valid_dbcc_comparison_p and flags_in_68881 will
@@ -1990,7 +1990,7 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx_insn *insn, int signpos
 	    return "move%.w %1,%%ccr";
 #else
 	    return "move%.w %1,ccr";
-#endif	    
+#endif
 	    }
 	  if (count == 2 && DATA_REG_P (operands[1])
 	      && next_insn_tests_no_inequality (insn))
@@ -2000,7 +2000,7 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx_insn *insn, int signpos
 	    return "move%.w %1,%%ccr";
 #else
 	    return "move%.w %1,ccr";
-#endif	    
+#endif
 	    }
 	  /* count == 1 followed by bvc/bvs and
 	     count == 0 followed by bcc/bcs are also possible, but need
@@ -2011,7 +2011,7 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx_insn *insn, int signpos
     }
   return "btst %0,%1";
 }
-
+
 /* Return true if X is a legitimate base register.  STRICT_P says
    whether we need strict checking.  */
 
@@ -2973,19 +2973,19 @@ m68k_wrap_symbol_into_got_ref (rtx x, enum m68k_reloc reloc, rtx temp_reg)
 /* Legitimize PIC addresses.  If the address is already
    position-independent, we return ORIG.  Newly generated
    position-independent addresses go to REG.  If we need more
-   than one register, we lose.  
+   than one register, we lose.
 
    An address is legitimized by making an indirect reference
    through the Global Offset Table with the name of the symbol
-   used as an offset.  
+   used as an offset.
 
-   The assembler and linker are responsible for placing the 
+   The assembler and linker are responsible for placing the
    address of the symbol in the GOT.  The function prologue
    is responsible for initializing a5 to the starting address
    of the GOT.
 
    The assembler is also responsible for translating a symbol name
-   into a constant displacement from the start of the GOT.  
+   into a constant displacement from the start of the GOT.
 
    A quick example may make things a little clearer:
 
@@ -3005,9 +3005,9 @@ m68k_wrap_symbol_into_got_ref (rtx x, enum m68k_reloc reloc, rtx temp_reg)
 
 	movel   a5@(_foo:w), a0
 	movel   #12345, a0@
-   
 
-   That (in a nutshell) is how *all* symbol and label references are 
+
+   That (in a nutshell) is how *all* symbol and label references are
    handled.  */
 
 rtx
@@ -3037,7 +3037,7 @@ legitimize_pic_address (rtx orig, machine_mode mode ATTRIBUTE_UNUSED,
 
       /* legitimize both operands of the PLUS */
       gcc_assert (GET_CODE (XEXP (orig, 0)) == PLUS);
-      
+
       base = legitimize_pic_address (XEXP (XEXP (orig, 0), 0), Pmode, reg);
       orig = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
 				     base == reg ? 0 : reg);
@@ -3097,13 +3097,13 @@ m68k_call_tls_get_addr (rtx x, rtx eqv, enum m68k_reloc reloc)
      is the simpliest way of generating a call.  The difference between
      __tls_get_addr() and libcall is that the result is returned in D0
      instead of A0.  To workaround this, we use m68k_libcall_value_in_a0_p
-     which temporarily switches returning the result to A0.  */ 
+     which temporarily switches returning the result to A0.  */
 
   m68k_libcall_value_in_a0_p = true;
   a0 = emit_library_call_value (m68k_get_tls_get_addr (), NULL_RTX, LCT_PURE,
 				Pmode, 1, x, Pmode);
   m68k_libcall_value_in_a0_p = false;
-  
+
   insns = get_insns ();
   end_sequence ();
 
@@ -3131,7 +3131,7 @@ m68k_get_m68k_read_tp (void)
 /* Emit instruction sequence that calls __m68k_read_tp.
    A pseudo register with result of __m68k_read_tp call is returned.  */
 
-static rtx 
+static rtx
 m68k_call_m68k_read_tp (void)
 {
   rtx a0;
@@ -3145,7 +3145,7 @@ m68k_call_m68k_read_tp (void)
      is the simpliest way of generating a call.  The difference between
      __m68k_read_tp() and libcall is that the result is returned in D0
      instead of A0.  To workaround this, we use m68k_libcall_value_in_a0_p
-     which temporarily switches returning the result to A0.  */ 
+     which temporarily switches returning the result to A0.  */
 
   /* Emit the call sequence.  */
   m68k_libcall_value_in_a0_p = true;
@@ -3184,7 +3184,7 @@ m68k_legitimize_tls_address (rtx orig)
 	rtx eqv;
 	rtx a0;
 	rtx x;
- 
+
 	/* Attach a unique REG_EQUIV, to allow the RTL optimizers to
 	   share the LDM result with other LD model accesses.  */
 	eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
@@ -3291,7 +3291,7 @@ m68k_tls_reference_p (rtx x, bool legitimate_p)
     }
 }
 
-
+
 
 #define USE_MOVQ(i)	((unsigned) ((i) + 128) <= 255)
 
@@ -3536,7 +3536,7 @@ output_move_qimode (rtx *operands)
 {
   /* 68k family always modifies the stack pointer by at least 2, even for
      byte pushes.  The 5200 (ColdFire) does not do this.  */
-  
+
   /* This case is generated by pushqi1 pattern now.  */
   gcc_assert (!(GET_CODE (operands[0]) == MEM
 		&& GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
@@ -4578,7 +4578,7 @@ output_addsi3 (rtx *operands)
     }
   return "add%.l %2,%0";
 }
-
+
 /* Store in cc_status the expressions that the condition codes will
    describe after execution of an instruction whose pattern is EXP.
    Do not alter them if the instruction would not alter the cc's.  */
@@ -4679,7 +4679,7 @@ notice_update_cc (rtx exp, rtx insn)
 	   ends with a move insn moving r2 in r2's mode.
 	   Thus, the cc's are set for r2.
 	   This can set N bit spuriously.  */
-	cc_status.flags |= CC_NOT_NEGATIVE; 
+	cc_status.flags |= CC_NOT_NEGATIVE;
 
       default:
 	break;
@@ -4707,7 +4707,7 @@ notice_update_cc (rtx exp, rtx insn)
 	cc_status.flags |= CC_REVERSED;
     }
 }
-
+
 const char *
 print_fp_const(const char * cmd, const char * prec, rtx x)
 {
@@ -4775,7 +4775,7 @@ output_move_const_single (rtx *operands)
    to get the desired constant.  */
 
 /* This code has been fixed for cross-compilation.  */
-  
+
 static int inited_68881_table = 0;
 
 static const char *const strings_68881[7] = {
@@ -4843,7 +4843,7 @@ standard_68881_constant_p (rtx x)
       if (real_identical (r, &values_68881[i]))
         return (codes_68881[i]);
     }
-  
+
   if (GET_MODE (x) == SFmode)
     return 0;
 
@@ -4877,7 +4877,7 @@ floating_exact_log2 (rtx x)
 
   return 0;
 }
-
+
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand X.  X is an RTL
    expression.
@@ -5050,14 +5050,14 @@ print_operand (FILE *file, rtx op, int letter)
 #ifndef TARGET_AMIGAOS_VASM
       asm_fprintf (file, "%I0x%lx", l & 0xFFFFFFFF);
 #else
-      asm_fprintf (file, "%I$%lx", l & 0xFFFFFFFF);      
+      asm_fprintf (file, "%I$%lx", l & 0xFFFFFFFF);
 #endif
     }
   else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == XFmode)
     {
       long l[3];
       REAL_VALUE_TO_TARGET_LONG_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);
-#ifndef TARGET_AMIGAOS_VASM      
+#ifndef TARGET_AMIGAOS_VASM
       asm_fprintf (file, "%I0x%lx%08lx%08lx", l[0] & 0xFFFFFFFF,
 		   l[1] & 0xFFFFFFFF, l[2] & 0xFFFFFFFF);
 #else
@@ -5069,7 +5069,7 @@ print_operand (FILE *file, rtx op, int letter)
     {
       long l[2];
       REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);
-#ifndef TARGET_AMIGAOS_VASM      
+#ifndef TARGET_AMIGAOS_VASM
       asm_fprintf (file, "%I0x%lx%08lx", l[0] & 0xFFFFFFFF, l[1] & 0xFFFFFFFF);
 #else
       asm_fprintf (file, "%I$%lx%08lx", l[0] & 0xFFFFFFFF, l[1] & 0xFFFFFFFF);
@@ -5224,7 +5224,7 @@ m68k_delegitimize_address (rtx orig_x)
   unspec = XEXP (addr.offset, 0);
   if (GET_CODE (unspec) == PLUS && CONST_INT_P (XEXP (unspec, 1)))
     unspec = XEXP (unspec, 0);
-  if (GET_CODE (unspec) != UNSPEC 
+  if (GET_CODE (unspec) != UNSPEC
       || (XINT (unspec, 1) != UNSPEC_RELOC16
 	  && XINT (unspec, 1) != UNSPEC_RELOC32))
     return orig_x;
@@ -5245,8 +5245,8 @@ m68k_delegitimize_address (rtx orig_x)
     x = replace_equiv_address_nv (orig_x, x);
   return x;
 }
-  
-
+
+
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
    reference whose address is ADDR.  ADDR is an RTL expression.
@@ -5259,7 +5259,7 @@ m68k_delegitimize_address (rtx orig_x)
    It is possible for PIC to generate a (plus (label_ref...) (reg...))
    and we handle that just like we would a (plus (symbol_ref...) (reg...)).
 
-   This routine is responsible for distinguishing between -fpic and -fPIC 
+   This routine is responsible for distinguishing between -fpic and -fPIC
    style relocations in an address.  When generating -fpic code the
    offset is output in word mode (e.g. movel a5@(_foo:w), a0).  When generating
    -fPIC code the offset is output in long mode (e.g. movel a5@(_foo:l), a0) */
@@ -5461,7 +5461,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	}
     }
 }
-
+
 /* Check for cases where a clr insns can be omitted from code using
    strict_low_part sets.  For example, the second clrl here is not needed:
    clrl d0; movw a0@+,d0; use d0; clrl d0; movw a0@+; use d0; ...
@@ -5831,7 +5831,7 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 
 /* Value is true if hard register REGNO can hold a value of machine-mode
    MODE.  On the 68000, we let the cpu registers can hold any mode, but
-   restrict the 68881 registers to floating-point modes.  
+   restrict the 68881 registers to floating-point modes.
    SBF: Disallow the frame pointer register, if the frame pointer is used.
    */
 
@@ -5873,7 +5873,7 @@ m68k_secondary_reload_class (enum reg_class rclass,
 			     machine_mode mode, rtx x)
 {
   int regno;
-#ifdef TARGET_AMIGA  
+#ifdef TARGET_AMIGA
   /* SBF: check for baserel's const pic_ref
    * and return ADDR_REGS or NO_REGS
    */
@@ -6734,7 +6734,7 @@ m68k_sched_variable_issue (FILE *sched_dump ATTRIBUTE_UNUSED,
 
 	case CPU_CFV3:
 	  insn_size = sched_get_attr_size_int (insn);
-	  
+
 	  /* ColdFire V3 and V4 cores have instruction buffers that can
 	     accumulate up to 8 instructions regardless of instructions'
 	     sizes.  So we should take care not to "prefetch" 24 one-word
@@ -7431,152 +7431,150 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     enum by_pieces_operation op ATTRIBUTE_UNUSED,
 				     bool speed_p ATTRIBUTE_UNUSED)
 {
-  if (size > 32768)
-    return true;
-
   /* no need for small items. */
-  return size * 8 / align <= 1;
+  return size * 8 / align < 1;
 }
 
 int
-m68k_emit_setmemsi (rtx blkdest, rtx val, rtx length, rtx alignment)
+m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
 {
-  rtx src, dst;
-  rtx regdst = XEXP(blkdest, 0);
   int align = INTVAL(alignment);
   int size = INTVAL(length);
   int n = optimize_size ? 4 : 16;
+  rtx regdst = XEXP(blkdest, 0);
+  rtx src, dst;
   int rest = 0;
 
   int value = INTVAL(val) & 0xff;
-  if (value != 0 && value != -1)
+  if (value != 0)
     {
       if (align == 1 && TUNE_68000_10)
-	{
-	  src = gen_reg_rtx (QImode);
-	  emit_move_insn (src, GEN_INT((char )value));
-	}
+        {
+	  src = gen_reg_rtx(QImode);
+	  emit_move_insn(src, val);
+        }
       else
 	{
-	  src = gen_reg_rtx (SImode);
-	  emit_move_insn (src, GEN_INT(value * 0x1010101));
+	  src = gen_reg_rtx(SImode);
+	  emit_move_insn(src, GEN_INT(value * 0x1010101));
 	}
     }
   else
     src = val;
 
-  /* SBF: allocate tmp regs.
-   * auto-inc-dec may benefit - maybe not.
-   */
-  dst = gen_reg_rtx (SImode);
-  rtx_insn *dinsn = emit_move_insn (dst, regdst);
+  // tmp regs for auto inc
+  dst = gen_reg_rtx(SImode);
+  rtx_insn * dinsn = emit_move_insn(dst, regdst);
   add_reg_note (dinsn, REG_INC, dst);
 
   regdst = dst;
 
-  machine_mode mode;
   /* move bytes. */
   if (align == 1 && TUNE_68000_10)
-    mode = QImode;
+    {
+      dst = gen_rtx_MEM(QImode, gen_rtx_POST_INC(SImode, regdst));
+    }
   else
     {
-      align = 4;
-      mode = SImode;
       rest = size % 4;
       size /= 4;
+      dst = gen_rtx_MEM(SImode, gen_rtx_POST_INC(SImode, regdst));
     }
-  dst = gen_rtx_MEM (mode, regdst);
 
   int nloops = size / n - 1;
-  int single = size % n;
 
-  rtx add = GEN_INT(align);
+  if (nloops > 160)
+    return false;
+
+  int single = size % n;
 
   if (nloops == 0)
     single += n;
   else if (nloops > 0)
     {
-      rtx counter = gen_reg_rtx (HImode);
+      rtx counter = gen_reg_rtx (nloops < 0x10000 ? HImode : SImode);
       rtx looplabel = gen_label_rtx ();
-      emit_move_insn (counter, GEN_INT(nloops));
+      emit_move_insn (counter,
+		      GEN_INT(nloops < 0x10000 ? (short )nloops : nloops));
       emit_label (looplabel);
       while (n-- > 0)
 	{
-	  emit_move_insn (dst, src);
-	  emit_move_insn (regdst, gen_rtx_PLUS(SImode, regdst, add));
+	  rtx_insn *insn = emit_move_insn (dst, src);
+	  add_reg_note (insn, REG_INC, regdst);
 	}
-      emit_jump_insn (gen_dbne_hi (counter, looplabel));
+      emit_jump_insn (
+	  nloops < 0x10000 ?
+	      gen_dbne_hi (counter, looplabel) :
+	      gen_dbne_si (counter, looplabel));
     }
 
-  int offset = 0;
-#if 0
-  while(single-- > 0)
+  while (single-- > 0)
     {
-      emit_move_insn(dst, src);
-      emit_move_insn(regdst, gen_rtx_PLUS(SImode, regdst, add));
+      rtx_insn *insn = emit_move_insn (dst, src);
+      add_reg_note (insn, REG_INC, regdst);
     }
-#else
-  /* this version is handled by auto-inc-dec. */
-  for (; offset < single; ++offset)
-    emit_move_insn (adjust_address(dst, mode, offset * align), src);
 
-  offset *= align;
-#endif
-
-  /* move trailing data. */
+  // move trailing data
   if (rest & 2)
     {
-      emit_move_insn (adjust_address(dst, HImode, offset),
-		      GEN_INT(value + (char )value * 0x100));
-      offset += 2;
+      dst = gen_rtx_MEM (HImode, gen_rtx_POST_INC(SImode, regdst));
+      rtx_insn *insn = emit_move_insn (dst,
+				       GEN_INT(value + (char )value * 0x100));
+      add_reg_note (insn, REG_INC, regdst);
     }
   if (rest & 1)
-    emit_move_insn (adjust_address(dst, QImode, offset), GEN_INT((char )value));
+    {
+      dst = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regdst));
+      rtx_insn *insn = emit_move_insn (dst, GEN_INT((char )value));
+      add_reg_note (insn, REG_INC, regdst);
+    }
 
   return true;
 }
 
-/*
- * SBF: emit compact code for memcpy and friends.
- */
 int
-m68k_emit_movmemsi (rtx blkdest, rtx blksrc, rtx length, rtx alignment)
+m68k_emit_movmemsi(rtx blkdest, rtx blksrc, rtx length, rtx alignment)
 {
-  rtx src, dst;
-  rtx regsrc = XEXP(blksrc, 0);
-  rtx regdst = XEXP(blkdest, 0);
   int align = INTVAL(alignment);
   int size = INTVAL(length);
   int n = optimize_size ? 4 : 16;
+
+  rtx regsrc = XEXP(blksrc, 0);
+  rtx regdst = XEXP(blkdest, 0);
+  rtx src, dst;
   int rest = 0;
 
-  /* SBF: allocate tmp regs.
-   * auto-inc-dec may benefit - maybe not.
-   */
+  // tmp regs for auto inc
   src = gen_reg_rtx (SImode);
-  emit_move_insn (src, regsrc);
+  rtx_insn *sinsn = emit_move_insn (src, regsrc);
+  add_reg_note (sinsn, REG_INC, src);
   regsrc = src;
 
   dst = gen_reg_rtx (SImode);
-  emit_move_insn (dst, regdst);
+  rtx_insn *dinsn = emit_move_insn (dst, regdst);
+  add_reg_note (dinsn, REG_INC, dst);
   regdst = dst;
 
-  machine_mode mode;
   /* move bytes. */
   if (align == 1 && TUNE_68000_10)
-    mode = QImode;
+    {
+      src = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regsrc));
+      dst = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regdst));
+    }
   else
     {
       align = 4;
-      mode = SImode;
       rest = size % 4;
       size /= 4;
+      src = gen_rtx_MEM (SImode, gen_rtx_POST_INC(SImode, regsrc));
+      dst = gen_rtx_MEM (SImode, gen_rtx_POST_INC(SImode, regdst));
     }
 
-  src = gen_rtx_MEM (mode, regsrc);
-  dst = gen_rtx_MEM (mode, regdst);
-
   int nloops = size / n - 1;
+
+  if (nloops > 160)
+    return false;
+
   int single = size % n;
 
   rtx add = GEN_INT(align);
@@ -7585,47 +7583,48 @@ m68k_emit_movmemsi (rtx blkdest, rtx blksrc, rtx length, rtx alignment)
     single += n;
   else if (nloops > 0)
     {
-      rtx counter = gen_reg_rtx (HImode);
+      rtx counter = gen_reg_rtx (nloops < 0x10000 ? HImode : SImode);
       rtx looplabel = gen_label_rtx ();
-      emit_move_insn (counter, GEN_INT(nloops));
+      emit_move_insn (counter,
+		      GEN_INT(nloops < 0x10000 ? (short )nloops : nloops));
       emit_label (looplabel);
       while (n-- > 0)
 	{
-	  emit_move_insn (dst, src);
-	  emit_move_insn (regdst, gen_rtx_PLUS(SImode, regdst, add));
-	  emit_move_insn (regsrc, gen_rtx_PLUS(SImode, regsrc, add));
+	  rtx_insn *insn = emit_move_insn (dst, src);
+	  add_reg_note (insn, REG_INC, regsrc);
+	  add_reg_note (insn, REG_INC, regdst);
 	}
-      emit_jump_insn (gen_dbne_hi (counter, looplabel));
+      emit_jump_insn (
+	  nloops < 0x10000 ?
+	      gen_dbne_hi (counter, looplabel) :
+	      gen_dbne_si (counter, looplabel));
     }
 
-  int offset = 0;
-#if 0
-  while(single-- > 0)
+  while (single-- > 0)
     {
-      emit_move_insn(dst, src);
-      emit_move_insn(regdst, gen_rtx_PLUS(SImode, regdst, add));
-      emit_move_insn(regsrc, gen_rtx_PLUS(SImode, regsrc, add));
+      rtx_insn *insn = emit_move_insn (dst, src);
+      add_reg_note (insn, REG_INC, regsrc);
+      add_reg_note (insn, REG_INC, regdst);
     }
-#else    
-  /* this version is handled by auto-inc-dec. */
-  for (; offset < single; ++offset)
-    emit_move_insn (adjust_address(dst, mode, offset * align),
-		    adjust_address(src, mode, offset * align));
 
-  offset *= align;
-#endif
-  /* move trailing data. */
+  // move trailing data
   if (rest & 2)
     {
-      emit_move_insn (adjust_address(dst, HImode, offset),
-		      adjust_address(src, HImode, offset));
-      offset += 2;
+      src = gen_rtx_MEM (HImode, gen_rtx_POST_INC(SImode, regsrc));
+      dst = gen_rtx_MEM (HImode, gen_rtx_POST_INC(SImode, regdst));
+      rtx_insn *insn = emit_move_insn (dst, src);
+      add_reg_note (insn, REG_INC, regsrc);
+      add_reg_note (insn, REG_INC, regdst);
     }
   if (rest & 1)
-    emit_move_insn (adjust_address(dst, QImode, offset),
-		    adjust_address(src, QImode, offset));
+    {
+      src = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regsrc));
+      dst = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regdst));
+      rtx_insn *insn = emit_move_insn (dst, src);
+      add_reg_note (insn, REG_INC, regsrc);
+      add_reg_note (insn, REG_INC, regdst);
+    }
 
   return true;
 }
-
 #include "gt-m68k.h"

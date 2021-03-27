@@ -625,7 +625,10 @@ convert_to_post_inc (rtx_insn *last_insn, rtx *inc_reg, int size)
       if (LABEL_P(insn) || JUMP_P(insn))
 	return false;
 
-      set = PATTERN (insn);
+      set = single_set (insn);
+      if (!set)
+	return false;
+
       if (GET_CODE (set) != SET)
 	return false;
 
@@ -639,6 +642,9 @@ convert_to_post_inc (rtx_insn *last_insn, rtx *inc_reg, int size)
 	if (DF_REF_REG (use) == inc_insn.reg0)
 	  return false;
     }
+  /* found nothing. */
+  if (!insn)
+    return false;
 
   /* src must be PLUS (reg, const_int). */
   src = SET_SRC(set);

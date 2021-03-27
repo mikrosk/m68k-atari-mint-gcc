@@ -2829,6 +2829,8 @@ canon_reg (rtx x, rtx_insn *insn)
     case LABEL_REF:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
+    case POST_INC:
+    case PRE_DEC:
       return x;
 
     case REG:
@@ -5876,6 +5878,11 @@ cse_insn (rtx_insn *insn)
 	  dest = SUBREG_REG (XEXP (dest, 0));
 
 	if (REG_P (dest) || GET_CODE (dest) == SUBREG)
+
+	  /* SBF: Must not be used as alias. */
+	  if (find_reg_note (insn, REG_INC, dest))
+	    continue;
+
 	  /* Registers must also be inserted into chains for quantities.  */
 	  if (insert_regs (dest, sets[i].src_elt, 1))
 	    {

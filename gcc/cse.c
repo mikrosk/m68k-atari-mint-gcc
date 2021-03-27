@@ -5425,7 +5425,9 @@ cse_insn (rtx_insn *insn)
 
 	  /* Record the actual constant value in a REG_EQUAL note,
 	     making a new one if one does not already exist.  */
-	  set_unique_reg_note (insn, REG_EQUAL, src_const);
+	  /* SBF: no REG_EQUAL on REG_INC regs. */
+	  if (!find_reg_note(insn, REG_INC, dest))
+	    set_unique_reg_note (insn, REG_EQUAL, src_const);
 	  df_notes_rescan (insn);
 	}
 

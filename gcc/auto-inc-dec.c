@@ -584,6 +584,117 @@ attempt_change (rtx new_addr, rtx inc_reg)
   return true;
 }
 
+/* SBF: Search an add after the mem use which matches:
+ * replace the tmp register with the found register
+ * let the inc_insn to use that register.
+ * and the post_inc is modified to use the mode size.
+ * the sum stays the same
+ *
+ * b = a + x
+ * *b = ...
+ * a = a + x + 4
+ * ->
+ * a = a + x
+ * *a = ...
+ * a = a + 4
+ *
+ * that's a post_inc now
+ */
+
+static bool
+convert_to_post_inc (rtx_insn *last_insn, rtx *inc_reg, int size)
+{
+  int add1, add2;
+  rtx set, reg, src, mint;
+  rtx_insn *insn, *next;
+
+  /* SBF: check if a next insn using the inc_insn's src matches.*/
+  if (!CONST_INT_P(inc_insn.reg1) || last_insn != mem_insn.insn)
+    return false;
+
+  for (insn = NEXT_INSN (mem_insn.insn); insn; insn = next)
+    {
+      df_insn_info *insn_info;
+      df_ref use;
+
+      next = NEXT_INSN (insn);
+      if (DEBUG_INSN_P(insn) || NOTE_P(insn))
+	continue;
+
+      /* stop at label, jump. */
+      if (LABEL_P(insn) || JUMP_P(insn))
+	return false;
+
+      set = PATTERN (insn);
+      if (GET_CODE (set) != SET)
+	return false;
+
+      reg = SET_DEST(set);
+      if (REG_P(reg) && REGNO(reg) == REGNO(inc_insn.reg0))
+	break;
+
+      /* must not use the reg. */
+      insn_info = DF_INSN_INFO_GET(insn);
+      FOR_EACH_INSN_INFO_USE (use, insn_info)
+	if (DF_REF_REG (use) == inc_insn.reg0)
+	  return false;
+    }
+
+  /* src must be PLUS (reg, const_int). */
+  src = SET_SRC(set);
+  if (GET_CODE(src) != PLUS || XEXP(src, 0) != inc_insn.reg0
+      || !CONST_INT_P(XEXP (src, 1)))
+    return false;
+
+  add2 = INTVAL(XEXP (src, 1));
+  add1 = INTVAL(inc_insn.reg1);
+  if (add1 + size != add2)
+    return false;
+
+
+  /* found a candidate. */
+  if (dump_file)
+    {
+      fprintf(dump_file, "converting from PRE_ADD:\n");
+      dump_insn_slim (dump_file, inc_insn.insn);
+      dump_insn_slim (dump_file, mem_insn.insn);
+      dump_insn_slim (dump_file, insn);
+    }
+
+  mint = GEN_INT(size);
+
+  validate_change (inc_insn.insn, &SET_DEST(PATTERN (inc_insn.insn)), inc_insn.reg0,
+		   true);
+  validate_change (mem_insn.insn, &XEXP(*mem_insn.mem_loc, 0),
+		   inc_insn.reg0, true);
+  validate_change (insn, &SET_SRC(set),
+		   gen_rtx_PLUS(SImode, inc_insn.reg0, mint), true);
+
+  if (!apply_change_group ())
+    return false;
+
+
+
+  if (dump_file)
+    {
+      fprintf(dump_file, "converted to POST_INC:\n");
+      dump_insn_slim (dump_file, inc_insn.insn);
+      dump_insn_slim (dump_file, mem_insn.insn);
+      dump_insn_slim (dump_file, insn);
+    }
+
+  *inc_reg = mem_insn.reg0 = inc_insn.reg0;
+
+  inc_insn.insn = insn;
+  inc_insn.pat = set;
+  inc_insn.reg1 = mint;
+  inc_insn.reg1_val = size;
+  inc_insn.form = FORM_POST_INC;
+  last_insn = insn;
+
+  return true;
+}
+
 
 /* Try to combine the instruction in INC_INSN with the instruction in
    MEM_INSN.  First the form is determined using the DECISION_TABLE
@@ -629,106 +740,12 @@ try_merge (void)
 
   /* Look to see if the inc register is dead after the memory
      reference.  If it is, do not do the combination.  */
-  if (find_regno_note (last_insn, REG_DEAD, REGNO (inc_reg)))
+  if (find_regno_note (last_insn, REG_DEAD, REGNO (inc_reg))
+      && !convert_to_post_inc (last_insn, &inc_reg, size))
     {
-      /* SBF: check if a next insn using the inc_insn's src matches.*/
-      bool converted = false;
-      if (CONST_INT_P(inc_insn.reg1) && last_insn == mem_insn.insn)
-	{
-	  rtx set;
-	  rtx_insn * insn, * next;
-	  for (insn = NEXT_INSN(mem_insn.insn); insn; insn = next)
-	    {
-	      next = NEXT_INSN(insn);
-	      if (DEBUG_INSN_P(insn))
-		continue;
-	      if (LABEL_P(insn) || JUMP_P(insn) || CALL_P(insn))
-		{ insn = 0; break; }
-
-	      set = PATTERN (insn);
-	      if (GET_CODE (set) != SET)
-		{ insn = 0; break; }
-
-	      rtx reg = SET_DEST(set);
-	      if (REG_P(reg) && REGNO(reg) == REGNO(inc_insn.reg0))
-		break;
-
-	      df_insn_info * insn_info = DF_INSN_INFO_GET (insn);
-	      df_ref def, use;
-
-	      /* Need to update next use.  */
-	      FOR_EACH_INSN_INFO_DEF (def, insn_info)
-		{
-		  if (DF_REF_REG (def) == inc_insn.reg0)
-		    goto Found;
-		}
-
-	      FOR_EACH_INSN_INFO_USE (use, insn_info)
-		{
-		  if (DF_REF_REG (use) == inc_insn.reg0)
-		    { insn = 0; goto Found;  }
-		}
-	    }
-
-Found:
-	  if (insn && SET_DEST(set) == inc_insn.reg0)
-	    {
-	      rtx src = SET_SRC(set);
-	      if (GET_CODE(src) == PLUS && XEXP(src, 0) == inc_insn.reg0 && CONST_INT_P(XEXP (src, 1)))
-		{
-		  int add2 = INTVAL (XEXP (src, 1));
-		  int add1 = INTVAL (inc_insn.reg1);
-		  if (add1 + size == add2)
-		    {
-		      /* SBF: there is an add after the mem use which matches:
-		       * replace the tmp register with the found register
-		       * let the inc_insn to use that register.
-		       * and the post_inc is modified to use the mode size.
-		       * the sum stays the same
-		       *
-		       * b = a + x
-		       * *b = ...
-		       * a = a + x + 4
-		       * ->
-		       * a = a + x
-		       * *a = ...
-		       * a = a + 4
-		       *
-		       * that's a post_inc now
-		       */
-
-		      rtx_insn * iinsn = inc_insn.insn;
-		      rtx mint = GEN_INT(size);
-
-		      validate_change(iinsn, &SET_DEST(PATTERN(iinsn)), inc_insn.reg0, true);
-		      validate_change(mem_insn.insn, &XEXP(*mem_insn.mem_loc, 0), inc_insn.reg0, true);
-		      validate_change(insn, &SET_SRC(set), gen_rtx_PLUS(SImode, inc_insn.reg0, mint), true);
-
-		      if (apply_change_group())
-			{
-			  inc_reg = inc_insn.reg0;
-			  mem_insn.reg0 = inc_reg;
-
-			  inc_insn.insn = insn;
-			  inc_insn.pat = set;
-			  inc_insn.reg1 = mint;
-			  inc_insn.reg1_val = size;
-			  inc_insn.form = FORM_POST_INC;
-			  last_insn = insn;
-
-			  converted = true;
-			}
-		    }
-		}
-	    }
-	}
-
-      if (!converted)
-	{
-	  if (dump_file)
-	    fprintf (dump_file, "dead failure %d\n", REGNO (inc_reg));
-	  return false;
-	}
+      if (dump_file)
+	fprintf (dump_file, "dead failure %d\n", REGNO (inc_reg));
+      return false;
     }
 
   mem_insn.reg1_state = (mem_insn.reg1_is_const)
@@ -838,6 +855,236 @@ get_next_ref (int regno, basic_block bb, rtx_insn **next_array)
   return insn;
 }
 
+/*
+ * Convert the form mem[a+x] to something more useful.
+ * This is the case if a was not yet seen and there is a ladder at least
+ * N matching offets.
+ *   [a+z]
+ *   [a+z+i]
+ *   [a+z+i+j]
+ *   [a+z+i+j+k]
+ *   where i,j,k, ... are candidates for post_inc.
+ *
+ *   if a is not reg_dead or z is not 0, introduce a tmp reg b
+ *   b = a+z
+ *   [b]
+ *   [b+i]
+ *   [b+i+j]
+ *   [b+i+j+k]
+ *
+ *   then convert it into
+ *   [b]
+ *   b = b + i
+ *   [b]
+ *   b = b + j
+ *   [b]
+ *   b = b + k
+ *   [b]
+ *
+ *   try dest first, a 2nd pass will try src
+ */
+#define AUTO_INC_CONVERSION_THRESHOLD 3
+#define MAX_STACK 1000
+#define MAX_ADD_REGS 32
+static int regs_added;
+
+static void
+convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
+{
+  rtx_insn *insn_stack[MAX_STACK];
+  rtx *loc_stack[MAX_STACK];
+  rtx *x;
+  rtx reg, pat;
+  int offset, count;
+
+  if (regs_added == MAX_ADD_REGS)
+    return;
+
+  pat = single_set (insn);
+  if (!pat)
+    return;
+
+  x = &SET_DEST(pat);
+  if (use_src || !MEM_P(*x) || GET_CODE (XEXP (*x, 0)) != PLUS
+  || !REG_P (reg = XEXP(XEXP (*x, 0), 0))
+  || !CONST_INT_P(XEXP(XEXP (*x, 0), 1)))
+    {
+      x = &SET_SRC(pat);
+      if (!MEM_P(*x) || GET_CODE (XEXP (*x, 0)) != PLUS
+      || !REG_P (reg = XEXP(XEXP (*x, 0), 0))
+      || !CONST_INT_P(XEXP(XEXP (*x, 0), 1)))
+	return;
+      use_src = true;
+    }
+
+  /* do nothing if there is an overlap. */
+  if (reg_overlap_mentioned_p (
+      reg, x == &SET_DEST(pat) ? SET_SRC(pat) : SET_DEST(pat)))
+    return;
+
+  offset = INTVAL(XEXP (XEXP (*x, 0), 1));
+  insn_stack[0] = insn;
+  loc_stack[0] = x;
+  count = 1;
+
+  /* search backwards matching candidates. */
+  while (count < MAX_STACK)
+    {
+      int prev_offset;
+
+      insn = PREV_INSN (insn);
+      if (!insn || BLOCK_FOR_INSN (insn) != bb)
+	break;
+
+      if (!NONDEBUG_INSN_P(insn))
+	continue;
+
+      /* Do not modify stuff across JUMP/LABEL. */
+      if (JUMP_P (insn) || LABEL_P(insn))
+	break;
+
+      /* no need to inspect insns not mentioning the reg. */
+      pat = PATTERN (insn);
+      if (!reg_overlap_mentioned_p (reg, pat))
+	continue;
+
+      pat = single_set (insn);
+      if (!pat)
+	break;
+
+      /* find the matching side: SRC or DEST. */
+      if (reg_overlap_mentioned_p (reg, SET_SRC(pat)))
+	{
+	  /* used on both sides -> can't handle. */
+	  if (reg_overlap_mentioned_p (reg, SET_DEST(pat)))
+	    break;
+
+	  x = &SET_SRC(pat);
+	}
+      else
+	x = &SET_DEST(pat);
+
+      /* same form: [a + x] ? */
+      if (!MEM_P(*x) || GET_CODE (XEXP (*x, 0)) != PLUS
+      || !REG_P (reg = XEXP(XEXP (*x, 0), 0))
+      || !CONST_INT_P(XEXP(XEXP (*x, 0), 1)))
+	break;
+
+      prev_offset = INTVAL(XEXP (XEXP (*x, 0), 1));
+
+      /* candidate for post_inc ? */
+      if (prev_offset + GET_MODE_SIZE(GET_MODE (*x)) != offset)
+	break;
+
+      /* record insn and location. */
+      insn_stack[count] = insn;
+      loc_stack[count] = x;
+      ++count;
+      offset = prev_offset;
+    }
+
+  if (count == 1)
+    return;
+
+  /* we have a valid list of insns with locations in the local stack. */
+
+  /* is an additional register needed?
+   * it's needed if the offset does not start at 0
+   * or the register is not dead at end.
+   */
+  insn = insn_stack[0];
+  if (offset != 0 || !find_regno_note (insn, REG_DEAD, REGNO(reg))
+      || get_next_ref (REGNO(reg), bb, reg_next_use))
+    {
+      rtx new_reg, move;
+
+      if (count < AUTO_INC_CONVERSION_THRESHOLD)
+	{
+	  /* not enough beef... but try handle the other side.*/
+	  if (!use_src)
+	    convert_mem_offset_to_add (insn, bb, true);
+	  return;
+	}
+
+      /* introduce a new temp register. */
+      new_reg = gen_reg_rtx (SImode);
+
+      if (dump_file)
+	fprintf (dump_file, "use new reg %d\n", REGNO(new_reg));
+
+      /* prepend the move. */
+      if (offset == 0)
+	move = gen_rtx_SET(new_reg, reg);
+      else
+	move = gen_rtx_SET(new_reg,
+			   gen_rtx_PLUS (SImode, reg, GEN_INT (offset)));
+
+      if (dump_file)
+	{
+	  fprintf (dump_file, "from:\n");
+	  for (int i = count - 1; i >= 0; --i)
+	    dump_insn_slim (dump_file, insn_stack[i]);
+	}
+
+      /* last get's the plane register into the MEM. */
+      validate_change (insn_stack[count - 1], loc_stack[count - 1],
+		       gen_rtx_MEM (GET_MODE(*loc_stack[count - 1]), new_reg),
+		       true);
+
+      /* update all insns. */
+      for (int i = 0; i < count - 1; ++i)
+	validate_change (insn_stack[i], loc_stack[i],
+			 gen_rtx_MEM ( GET_MODE(*loc_stack[i]),
+				       gen_rtx_PLUS(SImode, new_reg,
+						    GEN_INT(INTVAL (XEXP (XEXP (*loc_stack[i], 0), 1)) - offset))), true);
+
+      if (!apply_change_group ())
+	return;
+
+      /* update reg and add reg_dead. */
+      reg = new_reg;
+
+      add_reg_note (insn_stack[0], REG_DEAD, reg);
+
+      insn = emit_insn_before (move, insn_stack[count - 1]);
+
+      if (dump_file)
+	{
+	  fprintf (dump_file, "intermediate:");
+	  dump_insn_slim (dump_file, insn);
+	  for (int i = count - 1; i >= 0; --i)
+	    dump_insn_slim (dump_file, insn_stack[i]);
+	}
+      ++regs_added;
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "converted:\n");
+  /* reg is a reg_dead register and
+   * at the first insn == insn_stack[count - 1], the offset is 0.
+   * convert the insn to use the register direct and append a PLUS.
+   */
+  for (int i = count - 1; i >= 0; --i)
+    {
+      machine_mode mode = GET_MODE(*loc_stack[i]);
+      if (i < count - 1)
+	validate_change (insn_stack[i], loc_stack[i], gen_rtx_MEM (mode, reg),
+			 false);
+      if (i > 0)
+	insn = emit_insn_after (
+	    gen_rtx_SET(
+		reg, gen_rtx_PLUS(SImode, reg, GEN_INT (GET_MODE_SIZE (mode)))),
+	    insn_stack[i]);
+      if (dump_file)
+	{
+	  dump_insn_slim (dump_file, insn_stack[i]);
+	  dump_insn_slim (dump_file, insn);
+	}
+    }
+
+  if (!use_src)
+    convert_mem_offset_to_add (insn, bb, true);
+}
 
 /* Return true if INSN is of a form "a = b op c" where a and b are
    regs.  op is + if c is a reg and +|- if c is a const.  Fill in
@@ -1418,6 +1665,8 @@ merge_in_block (int max_reg, basic_block bb)
       if (dump_file)
 	dump_insn_slim (dump_file, insn);
 
+      convert_mem_offset_to_add(insn, bb, false);
+
       /* Does this instruction increment or decrement a register?  */
       if (parse_add_or_inc (insn, true))
 	{
@@ -1512,9 +1761,25 @@ merge_in_block (int max_reg, basic_block bb)
     {
       /* In this case, we must clear these vectors since the trick of
 	 testing if the stale insn in the block will not work.  */
-      memset (reg_next_use, 0, max_reg * sizeof (rtx));
-      memset (reg_next_inc_use, 0, max_reg * sizeof (rtx));
-      memset (reg_next_def, 0, max_reg * sizeof (rtx));
+
+      if (regs_added)
+	{
+	  regs_added = 0;
+	  max_reg = max_reg_num () + MAX_ADD_REGS;
+	  free (reg_next_use);
+	  free (reg_next_inc_use);
+	  free (reg_next_def);
+
+	  reg_next_use = XCNEWVEC (rtx_insn *, max_reg);
+	  reg_next_inc_use = XCNEWVEC (rtx_insn *, max_reg);
+	  reg_next_def = XCNEWVEC (rtx_insn *, max_reg);
+	}
+      else
+	{
+	  memset (reg_next_use, 0, max_reg * sizeof (rtx));
+	  memset (reg_next_inc_use, 0, max_reg * sizeof (rtx));
+	  memset (reg_next_def, 0, max_reg * sizeof (rtx));
+	}
       df_recompute_luids (bb);
       merge_in_block (max_reg, bb);
     }
@@ -1565,7 +1830,7 @@ pass_inc_dec::execute (function *fun ATTRIBUTE_UNUSED)
     return 0;
 
   basic_block bb;
-  int max_reg = max_reg_num ();
+  int max_reg = max_reg_num () + MAX_ADD_REGS;
 
   if (!initialized)
     init_decision_table ();

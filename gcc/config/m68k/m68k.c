@@ -184,6 +184,12 @@ static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l);
 
 static rtx_insn * m68k_gen_doloop_begin(rtx reg, rtx label);
 static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label);
+
+static bool
+m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
+				     unsigned int align,
+				     enum by_pieces_operation op,
+				     bool speed_p);
 
 /* Initialize the GCC target structure.  */
 
@@ -226,6 +232,9 @@ static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label);
 
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
+
+#undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
+#define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P m68k_use_by_pieces_infrastructure_p
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS m68k_legitimize_address
@@ -2328,9 +2337,6 @@ int decompose_mem(int reach, rtx *_x, struct m68k_address * address, int strict_
       return m68k_legitimate_base_reg_p(x, strict_p);
     }
 
-
-  static int n;
-//  fprintf(stderr, "%d ", n++);
   r &= decompose_one(_x, ap);
   if (!r)
       return false;
@@ -3379,7 +3385,7 @@ m68k_rtx_costs (rtx x, machine_mode mode, int outer_code,
   return r;
 }
 
-int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t, bool speed)
+int m68k_address_cost(rtx x, machine_mode mode, addr_space_t t ATTRIBUTE_UNUSED, bool speed)
 {
   static class rtx_def mem;
   mem.code = MEM;
@@ -4728,7 +4734,7 @@ print_fp_const(const char * cmd, const char * prec, rtx x)
 
   if (p[0] != 's' && real_isinteger(r, &i) && i - (int)i == 0)
     {
-      sprintf (buf, "%sl #%d,%%0", cmd, (long)i);
+      sprintf (buf, "%sl #%ld,%%0", cmd, (long)i);
       return buf;
     }
 
@@ -4928,7 +4934,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[regno]);
+	      fprintf (file, "%s", reg_names[regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -4942,7 +4948,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[regno]);
+	      fprintf (file, "%s", reg_names[regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -4956,7 +4962,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[FP0_REG + 7 - regno]);
+	      fprintf (file, "%s", reg_names[FP0_REG + 7 - regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -4970,7 +4976,7 @@ print_operand (FILE *file, rtx op, int letter)
 	{
 	  if (regbits & 1)
 	    {
-	      fprintf (file, reg_names[FP0_REG + 7 - regno]);
+	      fprintf (file, "%s", reg_names[FP0_REG + 7 - regno]);
 	      if (regbits > 1)
 		fprintf (file, "/");
 	    }
@@ -5004,7 +5010,7 @@ print_operand (FILE *file, rtx op, int letter)
   else if (letter == '/')
     asm_fprintf (file, "%R");
   else if (letter == '?')
-    asm_fprintf (file, m68k_library_id_string);
+    asm_fprintf (file, "%s", m68k_library_id_string);
   else if (letter == 'p')
     {
       output_addr_const (file, op);
@@ -5116,7 +5122,6 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
             return "";
 
 #endif
-
 	}
 	if (MOTOROLA)
 	{
@@ -5125,21 +5130,17 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
 	  else
 	    return "@GOT";
 	}
-      else
-	{
-	  if (TARGET_68020)
+	if (TARGET_68020)
+	  switch (flag_pic)
 	    {
-	      switch (flag_pic)
-		{
-		case 1:
-		  return ":w";
-		case 2:
-		  return ":l";
-		default:
-		  return "";
-		}
+	    case 1:
+	      return ":w";
+	    case 2:
+	      return ":l";
+	    default:
+	      break;
 	    }
-	}
+	return "";
 
     case RELOC_TLSGD:
       return "@TLSGD";
@@ -7258,7 +7259,7 @@ m68k_epilogue_uses (int regno ATTRIBUTE_UNUSED)
 	      == m68k_fk_interrupt_handler));
 }
 
-static unsigned m68k_loop_unroll_adjust(unsigned n, struct loop * l) {
+static unsigned m68k_loop_unroll_adjust(unsigned n ATTRIBUTE_UNUSED, struct loop * l ATTRIBUTE_UNUSED) {
 #if 0
   /* count float mul/div operations, since these have a delay */
   rtx_insn * insn;
@@ -7326,7 +7327,7 @@ is_ea_insn(rtx set)
  * otherwise return 1.
  */
 static int
-m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_readyp, int clock)
+m68k_target_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED, rtx_insn **ready, int *n_readyp, int clock ATTRIBUTE_UNUSED)
 {
   int n = *n_readyp;
   if (n > 1)
@@ -7365,7 +7366,7 @@ m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_rea
 		  rtx set = single_set(ready[i]);
 		  if (!set)
 		    continue;
-		  machine_mode mode = GET_MODE(SET_DEST(set));
+		  //machine_mode mode = GET_MODE(SET_DEST(set));
 		  if (is_ea_insn(set))
 		    {
 		      if (i != n)
@@ -7390,7 +7391,8 @@ m68k_target_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_rea
  * To avoid effects on regular code, the (clobber (pc)) is emitted.
  * It does not hurt if it remains in the code.
  */
-static rtx_insn * m68k_gen_doloop_begin(rtx reg, rtx label)
+static rtx_insn *
+m68k_gen_doloop_begin(rtx reg ATTRIBUTE_UNUSED, rtx label ATTRIBUTE_UNUSED)
 {
   rtx x = gen_rtx_CLOBBER(VOIDmode, pc_rtx);
   rtx_insn *seq;
@@ -7401,7 +7403,8 @@ static rtx_insn * m68k_gen_doloop_begin(rtx reg, rtx label)
   return seq;
 }
 
-static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label)
+static rtx_insn *
+m68k_gen_doloop_end(rtx reg, rtx label)
 {
   rtx x = 0;
   if (GET_MODE (reg) == SImode)
@@ -7417,6 +7420,212 @@ static rtx_insn * m68k_gen_doloop_end(rtx reg, rtx label)
   seq = get_insns ();
   end_sequence ();
   return seq;
+}
+
+
+/* Implement TARGET_USE_MOVE_BY_PIECES_INFRASTRUCTURE_P.
+ */
+static bool
+m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
+				     unsigned int align ATTRIBUTE_UNUSED,
+				     enum by_pieces_operation op ATTRIBUTE_UNUSED,
+				     bool speed_p ATTRIBUTE_UNUSED)
+{
+  if (size > 32768)
+    return true;
+
+  /* no need for small items. */
+  return size * 8 / align <= 1;
+}
+
+bool
+m68k_emit_setmemsi (rtx blkdest, rtx val, rtx length, rtx alignment)
+{
+  rtx src, dst;
+  rtx regdst = XEXP(blkdest, 0);
+  int align = INTVAL(alignment);
+  int size = INTVAL(length);
+  int n = optimize_size ? 4 : 16;
+  int rest = 0;
+
+  int value = INTVAL(val) & 0xff;
+  if (value != 0 && value != -1)
+    {
+      if (align == 1 && TUNE_68000_10)
+	{
+	  src = gen_reg_rtx (QImode);
+	  emit_move_insn (src, GEN_INT((char )value));
+	}
+      else
+	{
+	  src = gen_reg_rtx (SImode);
+	  emit_move_insn (src, GEN_INT(value * 0x1010101));
+	}
+    }
+  else
+    src = val;
+
+  /* SBF: allocate tmp regs.
+   * auto-inc-dec may benefit - maybe not.
+   */
+  dst = gen_reg_rtx (SImode);
+  rtx_insn *dinsn = emit_move_insn (dst, regdst);
+  add_reg_note (dinsn, REG_INC, dst);
+
+  regdst = dst;
+
+  machine_mode mode;
+  /* move bytes. */
+  if (align == 1 && TUNE_68000_10)
+    mode = QImode;
+  else
+    {
+      align = 4;
+      mode = SImode;
+      rest = size % 4;
+      size /= 4;
+    }
+  dst = gen_rtx_MEM (mode, regdst);
+
+  int nloops = size / n - 1;
+  int single = size % n;
+
+  rtx add = GEN_INT(align);
+
+  if (nloops == 0)
+    single += n;
+  else if (nloops > 0)
+    {
+      rtx counter = gen_reg_rtx (HImode);
+      rtx looplabel = gen_label_rtx ();
+      emit_move_insn (counter, GEN_INT(nloops));
+      emit_label (looplabel);
+      while (n-- > 0)
+	{
+	  emit_move_insn (dst, src);
+	  emit_move_insn (regdst, gen_rtx_PLUS(SImode, regdst, add));
+	}
+      emit_jump_insn (gen_dbne_hi (counter, looplabel));
+    }
+
+  int offset = 0;
+#if 0
+  while(single-- > 0)
+    {
+      emit_move_insn(dst, src);
+      emit_move_insn(regdst, gen_rtx_PLUS(SImode, regdst, add));
+    }
+#else
+  /* this version is handled by auto-inc-dec. */
+  for (; offset < single; ++offset)
+    emit_move_insn (adjust_address(dst, mode, offset * align), src);
+
+  offset *= align;
+#endif
+
+  /* move trailing data. */
+  if (rest & 2)
+    {
+      emit_move_insn (adjust_address(dst, HImode, offset),
+		      GEN_INT(value + (char )value * 0x100));
+      offset += 2;
+    }
+  if (rest & 1)
+    emit_move_insn (adjust_address(dst, QImode, offset), GEN_INT((char )value));
+
+  return true;
+}
+
+/*
+ * SBF: emit compact code for memcpy and friends.
+ */
+bool
+m68k_emit_movmemsi (rtx blkdest, rtx blksrc, rtx length, rtx alignment)
+{
+  rtx src, dst;
+  rtx regsrc = XEXP(blksrc, 0);
+  rtx regdst = XEXP(blkdest, 0);
+  int align = INTVAL(alignment);
+  int size = INTVAL(length);
+  int n = optimize_size ? 4 : 16;
+  int rest = 0;
+
+  /* SBF: allocate tmp regs.
+   * auto-inc-dec may benefit - maybe not.
+   */
+  src = gen_reg_rtx (SImode);
+  emit_move_insn (src, regsrc);
+  regsrc = src;
+
+  dst = gen_reg_rtx (SImode);
+  emit_move_insn (dst, regdst);
+  regdst = dst;
+
+  machine_mode mode;
+  /* move bytes. */
+  if (align == 1 && TUNE_68000_10)
+    mode = QImode;
+  else
+    {
+      align = 4;
+      mode = SImode;
+      rest = size % 4;
+      size /= 4;
+    }
+
+  src = gen_rtx_MEM (mode, regsrc);
+  dst = gen_rtx_MEM (mode, regdst);
+
+  int nloops = size / n - 1;
+  int single = size % n;
+
+  rtx add = GEN_INT(align);
+
+  if (nloops == 0)
+    single += n;
+  else if (nloops > 0)
+    {
+      rtx counter = gen_reg_rtx (HImode);
+      rtx looplabel = gen_label_rtx ();
+      emit_move_insn (counter, GEN_INT(nloops));
+      emit_label (looplabel);
+      while (n-- > 0)
+	{
+	  emit_move_insn (dst, src);
+	  emit_move_insn (regdst, gen_rtx_PLUS(SImode, regdst, add));
+	  emit_move_insn (regsrc, gen_rtx_PLUS(SImode, regsrc, add));
+	}
+      emit_jump_insn (gen_dbne_hi (counter, looplabel));
+    }
+
+  int offset = 0;
+#if 0
+  while(single-- > 0)
+    {
+      emit_move_insn(dst, src);
+      emit_move_insn(regdst, gen_rtx_PLUS(SImode, regdst, add));
+      emit_move_insn(regsrc, gen_rtx_PLUS(SImode, regsrc, add));
+    }
+#else    
+  /* this version is handled by auto-inc-dec. */
+  for (; offset < single; ++offset)
+    emit_move_insn (adjust_address(dst, mode, offset * align),
+		    adjust_address(src, mode, offset * align));
+
+  offset *= align;
+#endif
+  /* move trailing data. */
+  if (rest & 2)
+    {
+      emit_move_insn (adjust_address(dst, HImode, offset),
+		      adjust_address(src, HImode, offset));
+      offset += 2;
+    }
+  if (rest & 1)
+    emit_move_insn (adjust_address(dst, QImode, offset),
+		    adjust_address(src, QImode, offset));
+
+  return true;
 }
 
 #include "gt-m68k.h"

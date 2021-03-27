@@ -7446,23 +7446,25 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
   int rest = 0;
 
   int value = INTVAL(val) & 0xff;
-  if (value != 0)
+  if (value != 0 && value != -1)
     {
       if (align == 1 && TUNE_68000_10)
         {
 	  src = gen_reg_rtx(QImode);
-	  emit_move_insn(src, val);
+	  emit_move_insn (src, GEN_INT((char )value));
         }
       else
 	{
 	  src = gen_reg_rtx(SImode);
-	  emit_move_insn(src, GEN_INT(value * 0x1010101));
+	  emit_move_insn(src, GEN_INT((char)value * 0x1010101));
 	}
     }
   else
     src = val;
 
-  // tmp regs for auto inc
+  /* SBF: allocate tmp reg.
+   * auto-inc-dec may benefit - maybe not.
+   */
   dst = gen_reg_rtx(SImode);
   rtx_insn * dinsn = emit_move_insn(dst, regdst);
   add_reg_note (dinsn, REG_INC, dst);
@@ -7495,7 +7497,7 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
       rtx counter = gen_reg_rtx (nloops < 0x10000 ? HImode : SImode);
       rtx looplabel = gen_label_rtx ();
       emit_move_insn (counter,
-		      GEN_INT(nloops < 0x10000 ? (short )nloops : nloops));
+		      GEN_INT(nloops < 0x10000 ? (short)nloops : nloops));
       emit_label (looplabel);
       while (n-- > 0)
 	{

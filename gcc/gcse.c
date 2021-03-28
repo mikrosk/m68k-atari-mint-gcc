@@ -2268,7 +2268,7 @@ pre_insert_copy_insn (struct gcse_expr *expr, rtx_insn *insn)
         new_insn = emit_insn_after (new_insn, insn);
     }
 
-  /* SBF: move reg_inc note. */
+  /* SBF: move REG_INC note. */
   if (NEXT_INSN(insn) == new_insn && find_reg_note(insn, REG_INC, old_reg))
     {
       remove_note(insn, find_reg_note(insn, REG_INC, old_reg));

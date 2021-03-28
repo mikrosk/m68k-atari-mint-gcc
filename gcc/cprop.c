@@ -1186,6 +1186,7 @@ do_local_cprop (rtx x, rtx_insn *insn)
       && (cprop_reg_p (x)
           || (GET_CODE (PATTERN (insn)) != USE
 	      && asm_noperands (PATTERN (insn)) < 0))
+	    /* SBF: ignore regs marked as REG_INC. */
       && !find_reg_note (insn, REG_INC, x))
     {
       cselib_val *val = cselib_lookup (x, GET_MODE (x), 0, VOIDmode);

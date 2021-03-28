@@ -931,6 +931,9 @@ merge_memattrs (rtx x, rtx y)
 	  MEM_VOLATILE_P (x) = 1;
 	  MEM_VOLATILE_P (y) = 1;
 	}
+
+      if (x->in_struct != y->in_struct)
+	x->in_struct = y->in_struct = 0;
     }
 
   fmt = GET_RTX_FORMAT (code);
@@ -3062,8 +3065,8 @@ cleanup_cfg (int mode)
 	  if ((mode & CLEANUP_EXPENSIVE) && !reload_completed
 	      && !delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
-	  if ((mode & CLEANUP_CROSSJUMP) && crossjumps_occured)
-	    run_fast_dce ();
+//	  if ((mode & CLEANUP_CROSSJUMP) && crossjumps_occured)
+//	    run_fast_dce ();
 	}
       else
 	break;

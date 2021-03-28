@@ -314,6 +314,7 @@ replace_ref (df_ref ref, rtx reg)
   unsigned int uid = DF_REF_INSN_UID (ref);
   rtx_insn * insn = DF_REF_INSN (ref);
 
+  /* SBF: ignore regs marked as REG_INC. */
   if (oldreg == reg || find_reg_note(insn, REG_INC, oldreg))
     return;
   if (dump_file)

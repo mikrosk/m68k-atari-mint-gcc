@@ -5425,7 +5425,7 @@ cse_insn (rtx_insn *insn)
 
 	  /* Record the actual constant value in a REG_EQUAL note,
 	     making a new one if one does not already exist.  */
-	  /* SBF: no REG_EQUAL on REG_INC regs. */
+	  /* SBF: ignore regs marked as REG_INC. */
 	  if (!find_reg_note(insn, REG_INC, dest))
 	    set_unique_reg_note (insn, REG_EQUAL, src_const);
 	  df_notes_rescan (insn);
@@ -5880,19 +5880,20 @@ cse_insn (rtx_insn *insn)
 	  dest = SUBREG_REG (XEXP (dest, 0));
 
 	if (REG_P (dest) || GET_CODE (dest) == SUBREG)
+	  {
+	    /* SBF: ignore regs marked as REG_INC. */
+	    if (find_reg_note (insn, REG_INC, dest))
+	      continue;
 
-	  /* SBF: Must not be used as alias. */
-	  if (find_reg_note (insn, REG_INC, dest))
-	    continue;
-
-	  /* Registers must also be inserted into chains for quantities.  */
-	  if (insert_regs (dest, sets[i].src_elt, 1))
-	    {
-	      /* If `insert_regs' changes something, the hash code must be
-		 recalculated.  */
-	      rehash_using_reg (dest);
-	      sets[i].dest_hash = HASH (dest, GET_MODE (dest));
-	    }
+	    /* Registers must also be inserted into chains for quantities.  */
+  	  if (insert_regs (dest, sets[i].src_elt, 1))
+	      {
+	        /* If `insert_regs' changes something, the hash code must be
+  		 recalculated.  */
+	        rehash_using_reg (dest);
+	        sets[i].dest_hash = HASH (dest, GET_MODE (dest));
+	      }
+	  }
 
 	elt = insert (dest, sets[i].src_elt,
 		      sets[i].dest_hash, GET_MODE (dest));

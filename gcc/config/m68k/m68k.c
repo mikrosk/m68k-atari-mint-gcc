@@ -7446,7 +7446,7 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
   int rest = 0;
 
   int value = INTVAL(val) & 0xff;
-  if (value != 0 && value != -1)
+  if (value != 0)
     {
       if (align == 1 && TUNE_68000_10)
         {
@@ -7456,7 +7456,7 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
       else
 	{
 	  src = gen_reg_rtx(SImode);
-	  emit_move_insn(src, GEN_INT((char)value * 0x1010101));
+	  emit_move_insn(src, GEN_INT(value * 0x1010101));
 	}
     }
   else

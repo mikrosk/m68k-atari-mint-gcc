@@ -1040,7 +1040,7 @@ convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
       /* update all insns. */
       for (int i = 0; i < count - 1; ++i)
 	validate_change (insn_stack[i], loc_stack[i],
-		         replace_equiv_address_nv (*loc_stack[count - 1],
+		         replace_equiv_address_nv (*loc_stack[i],
 				       gen_rtx_PLUS(SImode, new_reg,
 						    GEN_INT(INTVAL (XEXP (XEXP (*loc_stack[i], 0), 1)) - offset))), true);
 
@@ -1075,7 +1075,7 @@ convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
       machine_mode mode = GET_MODE(*loc_stack[i]);
       if (i < count - 1)
 	validate_change (insn_stack[i], loc_stack[i],
-		         replace_equiv_address_nv (*loc_stack[count - 1], reg),
+		         replace_equiv_address_nv (*loc_stack[i], reg),
 			 false);
       if (i > 0)
 	insn = emit_insn_after (

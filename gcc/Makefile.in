@@ -1234,6 +1234,7 @@ OBJS = \
 	auto-inc-dec.o \
 	auto-profile.o \
 	bb-reorder.o \
+	bbb-baserel.o \
 	bbb-opts.o \
 	bitmap.o \
 	bt-load.o \

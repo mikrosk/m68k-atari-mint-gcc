@@ -26,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
 #endif
 
+#define TARGET_M68K 1
+
 /* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
   { "cpu",   "%{!m68020-40:%{!m68020-60:\

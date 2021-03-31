@@ -142,6 +142,22 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
 	rtx a = XEXP(x, 0);
 	rtx b = XEXP(x, 1);
 
+	if (GET_CODE(b) == CONST_INT)
+	  {
+	    int n = INTVAL(b);
+	    if (n < 0) n = -n;
+	    int x = 0;
+	    unsigned y = 1;
+	    for (; y < n; y += y, ++x)
+	      ;
+	    if (y == n)
+	      {
+		*total = (GET_MODE_SIZE(mode) > 2 ? 8 : 6);
+		*total += 2 * x;
+		return true;
+	      }
+	  }
+
 	/* if there is an extended HImode, mul.w might be a candidate. */
 	if (GET_CODE (a) == ZERO_EXTEND
 	     || GET_CODE (a) == SIGN_EXTEND)
@@ -385,7 +401,7 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
 	int yc = GET_CODE(y);
 	if (yc == REG || yc == PRE_INC || yc == POST_INC || yc == POST_DEC || yc == PRE_DEC)
 	  *total = 4;
-	else if (yc == SYMBOL_REF || (yc == PLUS && GET_CODE(XEXP(y, 0)) == SYMBOL_REF))
+	else if (yc == CONST_INT || yc == SYMBOL_REF || (yc == PLUS && GET_CODE(XEXP(y, 0)) == SYMBOL_REF))
 	  *total = 12;
 	else if (yc == PLUS && GET_CODE(XEXP(y, 0)) == PLUS)
 	  *total = 10;

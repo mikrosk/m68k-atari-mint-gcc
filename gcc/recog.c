@@ -3395,6 +3395,13 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
       break;
     }
 
+  /* SBF: keep REG_INC notes. */
+  while ((as_note = find_reg_note (old_insn, REG_INC, NULL)))
+    {
+      add_reg_note(attempt, REG_INC, XEXP (as_note, 0));
+      remove_note(old_insn, as_note);
+    }
+
   /* If we matched any instruction that had a REG_ARGS_SIZE, then
      move those notes over to the new sequence.  */
   as_note = NULL;

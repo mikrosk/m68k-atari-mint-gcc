@@ -5239,6 +5239,8 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      // check previous insn, if the reg is used or defined there
 	      // that label must been seen before
 	      insn_info & pp = infos[pos - 1];
+//	      fprintf(stderr, "regno=%d, pos=%d, used=%d, def=%d, visited=%d", regno, pos - 1, pp.is_use (regno), pp.is_def (regno), visited.find (pos - 1) != visited.end ());
+//	      debug(pp.get_insn());
 	      if ((pp.is_use (regno) || pp.is_def (regno)) && visited.find (pos - 1) == visited.end ())
 		return 0;
 
@@ -5257,8 +5259,11 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	    }
 
 	  // break if no longer used
-	  if (!jj.is_use (regno))
+	  if (!jj.is_use (regno)) {
+	      if (jj.is_def (regno))
+		return 0;
 	    break;
+	  }
 
 	  // abort if a parallel insn is touched.
 	  if (GET_CODE(PATTERN(jj.get_insn())) == PARALLEL && (jj.is_def(regno) || jj.is_myuse(regno)))

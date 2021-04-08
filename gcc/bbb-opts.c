@@ -5337,6 +5337,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	  // done if this is an add
 	  if (jj.is_def (regno))
 	    {
+	      // new load ->invalid!
+	      if (jj.get_src_op() != PLUS)
+		return 0;
+
 	      last_is_add = true;
 	      break;
 	    }

@@ -735,7 +735,7 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
   bool check_rtx_costs = true;
   bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
   int old_cost = set ? set_rtx_cost (set, speed) : 0;
-
+#if 0
   if (!set
       || CONSTANT_P (SET_SRC (set))
       || (note != 0
@@ -743,7 +743,7 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
 	  && (GET_CODE (XEXP (note, 0)) == CONST
 	      || CONSTANT_P (XEXP (note, 0)))))
     check_rtx_costs = false;
-
+#endif
   /* Usually we substitute easy stuff, so we won't copy everything.
      We however need to take care to not duplicate non-trivial CONST
      expressions.  */

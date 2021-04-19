@@ -2369,6 +2369,9 @@ update_insn_infos (std::set<unsigned> & todo)
 	  insn_info & pp = infos[pos];
 	  rtx_insn * insn = pp.get_insn ();
 
+	  if (NOTE_P (insn))
+	    continue;
+
 	  // do not run into previous epilogue
 	  if (pp.in_proepi () >= IN_EPILOGUE && !proepi)
 	    break;
@@ -4712,6 +4715,15 @@ track_regs ()
   return 0;
 }
 
+static void
+delete_and_update (unsigned index)
+{
+  SET_INSN_DELETED(infos[index].get_insn());
+  scan_starts.insert(index + 1);
+  infos[index + 1].clear_visited();
+  update_insn_infos ();
+}
+
 /*
  * Some optimizations (e.g. propagate_moves) might result into an unused assignment behind the loop.
  * delete those insns.
@@ -4721,7 +4733,7 @@ opt_elim_dead_assign (int blocked_regno)
 {
   track_regs ();
 
-  unsigned mask = 0;
+//  unsigned mask = 0;
 
   unsigned change_count = 0;
   for (int index = infos.size () - 1; index >= 0; --index)
@@ -4794,27 +4806,20 @@ opt_elim_dead_assign (int blocked_regno)
 		    {
 		      log ("(e) %d: eliminate superfluous 'and' to %s  %08x->%08x\n",
 			   index, reg_names[ii.get_dst_regno ()], lmask, nmask);
-		      SET_INSN_DELETED(insn);
+		      delete_and_update(index);
 		      ++change_count;
-		      mask |= 1<<ii.get_dst_regno ();
 		    }
 		}
 	    }
-
 	  continue;
 	}
-	
-      if (mask & (1<<ii.get_dst_regno ()))
-	continue;
 	
       if (REG_NREGS(ii.get_dst_reg ()) == 1
 	  && is_reg_dead (ii.get_dst_regno (), index)
 	  && SET_SRC(set)->volatil == 0) // keep reading volatil stuff.
 	{
-	  mask |= (1<<ii.get_dst_regno ());
-
 	  log ("(e) %d: eliminate dead assign to %s\n", index, reg_names[ii.get_dst_regno ()]);
-	  SET_INSN_DELETED(insn);
+	  delete_and_update (index);
 	  ++change_count;
 	  continue;
 	}
@@ -4829,30 +4834,24 @@ opt_elim_dead_assign (int blocked_regno)
 	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src)
 		|| (ii.get_dst_regno () == ii.get_src_regno () && infos[index +1].is_def(FIRST_PSEUDO_REGISTER)))
 		{
-		  mask |= (1<<ii.get_dst_regno ());
-
 		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-		  SET_INSN_DELETED(insn);
+		  delete_and_update (index);
 		  ++change_count;
 		  continue;
 		}
 
 	      if (ii.get_dst_regno () == ii.get_src_regno () && GET_MODE(ii.get_src_reg()) == GET_MODE(ii.get_dst_reg()) && is_reg_dead(FIRST_PSEUDO_REGISTER, index))
 		{
-		  mask |= (1<<ii.get_dst_regno ());
-
 		  log ("(e) %d: eliminate self load of %s\n", index, reg_names[ii.get_dst_regno ()]);
-		  SET_INSN_DELETED(insn);
+		  delete_and_update (index);
 		  ++change_count;
 		  continue;
 		}
 
 	      if (ii.get_src_reg () && track->equals (ii.get_mode(), ii.get_src_regno (), SET_DEST(set)))
 		{
-		  mask |= (1<<ii.get_dst_regno ());
-
 		  log ("(e) %d: eliminate redundant reverse load to %s\n", index, reg_names[ii.get_dst_regno ()]);
-		  SET_INSN_DELETED(insn);
+		  delete_and_update (index);
 		  ++change_count;
 		  continue;
 		}
@@ -4862,12 +4861,6 @@ opt_elim_dead_assign (int blocked_regno)
 		  int aliasRegno = track->find_alias (src);
 		  if (aliasRegno >= 0 && aliasRegno != ii.get_dst_regno ())
 		    {
-
-		      if ( (mask & (1<<aliasRegno)))
-			continue;
-
-		      mask |= (1<<ii.get_dst_regno ()) | (1<<aliasRegno);
-
 		      log ("(e) %d: replace load with %s\n", index, reg_names[aliasRegno]);
 		      if (validate_change (ii.get_insn (), &SET_SRC(set), gen_rtx_REG (ii.get_mode (), aliasRegno), 0))
 			++change_count;
@@ -4888,14 +4881,8 @@ opt_elim_dead_assign (int blocked_regno)
 	      rtx v = track->get(REGNO(dx));
 	      if (v && CONST_INT_P(v) && INTVAL(v) == 0)
 		{
-		  // ensure also dx reg was not touched
-		  if (mask & (1<<REGNO(dx)))
-		    continue;
-
 		  // convert into move dy,dy
 		  validate_change (ii.get_insn (), &SET_SRC(set), dy, 0);
-
-		  mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dx));
 		  log ("(e) %d: convert left add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
 		  ++change_count;
 		  continue;
@@ -4905,14 +4892,9 @@ opt_elim_dead_assign (int blocked_regno)
 	      v = track->get(REGNO(dy));
 	      if (v && CONST_INT_P(v) && INTVAL(v) == 0)
 		{
-		  // ensure also dy reg was not touched
-		  if (mask & (1<<REGNO(dy)))
-		    continue;
-
 		  // convert into move
 		  validate_change (ii.get_insn (), &SET_SRC(set), dx, 0);
 
-		  mask |= (1<<ii.get_dst_regno ()) | (1<<REGNO(dy));
 		  log ("(e) %d: convert right add zero into move %s\n", index, reg_names[ii.get_dst_regno ()]);
 		  ++change_count;
 		  continue;
@@ -4927,8 +4909,6 @@ static unsigned
 opt_elim_dead_assign2 (int blocked_regno)
 {
   track_regs ();
-
-  unsigned mask = 0;
 
   unsigned change_count = 0;
 
@@ -4956,9 +4936,6 @@ opt_elim_dead_assign2 (int blocked_regno)
       if ((def - 1) & def)
 	continue;
 
-      if (mask & (1<<ii.get_dst_regno ()))
-	continue;
-
       if (ii.get_src_op () == 0 && ii.get_dst_reg ())
 	{
 	  if(!ii.is_myuse (ii.get_dst_regno ()))
@@ -4979,13 +4956,11 @@ opt_elim_dead_assign2 (int blocked_regno)
 		      if ((jj.get_mode() == QImode && val <= 0xff && (!jj.is_use_hi24(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xff))
 		      || (jj.get_mode() == HImode && val <= 0xffff && (!jj.is_use32(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xffff)))
 			{
-			  mask |= (1<<ii.get_dst_regno ());
-
 //printf("%d: use24=%d, use32=%d mask=%d\n", index, jj.is_use_hi24(ii.get_dst_regno()), jj.is_use32(ii.get_dst_regno()), track->getMask(ii.get_dst_regno()));
 //debug(jj.get_insn());
 
 			  log ("(e0) %d: eliminate superfluous clear of %s\n", index, reg_names[ii.get_dst_regno ()]);
-			  SET_INSN_DELETED(insn);
+			  delete_and_update (index);
 			  ++change_count;
 			  continue;
 			}

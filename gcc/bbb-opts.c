@@ -1109,55 +1109,57 @@ public:
   }
 
   inline void
-  rename (unsigned oldbit, unsigned newbit)
+  rename_def (unsigned oldbit, unsigned newbit)
   {
     if (def8 & oldbit)
       {
 	def8 |= newbit;
 	def8 &= ~oldbit;
-	if (def16 & oldbit)
-	  {
-	    def16 |= newbit;
-	    def16 &= ~oldbit;
-	  }
-	if (def32 & oldbit)
-	  {
-	    def32 |= newbit;
-	    def32 &= ~oldbit;
-	  }
       }
-    else
+    if (def16 & oldbit)
+	{
+	  def16 |= newbit;
+	  def16 &= ~oldbit;
+	}
+    if (def32 & oldbit)
+	{
+	  def32 |= newbit;
+	  def32 &= ~oldbit;
+	}
+  }
+  inline void
+  rename (unsigned oldbit, unsigned newbit)
+  {
+    rename_def(oldbit, newbit);
+    if (use8 & oldbit)
       {
-	if (use8 & oldbit)
-	  {
-	    use8 |= newbit;
-	    use8 &= ~oldbit;
-	  }
-	if (use16 & oldbit)
-	  {
-	    use16 |= newbit;
-	    use16 &= ~oldbit;
-	  }
-	if (use32 & oldbit)
-	  {
-	    use32 |= newbit;
-	    use32 &= ~oldbit;
-	  }
-	if (myuse8 & oldbit)
-	  {
-	    myuse8 |= newbit;
-	    myuse8 &= ~oldbit;
-	  }
-	if (myuse16 & oldbit)
-	  {
-	    myuse16 |= newbit;
-	    myuse16 &= ~oldbit;
-	  }
-	if (myuse32 & oldbit)
-	  {
-	    myuse32 |= newbit;
-	    myuse32 &= ~oldbit;
-	  }
+	use8 |= newbit;
+	use8 &= ~oldbit;
+      }
+    if (use16 & oldbit)
+      {
+	use16 |= newbit;
+	use16 &= ~oldbit;
+      }
+    if (use32 & oldbit)
+      {
+	use32 |= newbit;
+	use32 &= ~oldbit;
+      }
+    if (myuse8 & oldbit)
+      {
+	myuse8 |= newbit;
+	myuse8 &= ~oldbit;
+      }
+    if (myuse16 & oldbit)
+      {
+	myuse16 |= newbit;
+	myuse16 &= ~oldbit;
+      }
+    if (myuse32 & oldbit)
+      {
+	myuse32 |= newbit;
+	myuse32 &= ~oldbit;
       }
   }
 
@@ -3004,16 +3006,30 @@ opt_reg_rename (void)
 		  printf ("\n");
 		  fflush (stdout);
 		}
-#if 0
+#if 1
 	      unsigned oldbit = 1 << oldregno;
 	      unsigned newbit = 1 << newregno;
 	      // does not work yet: TODO: distinguish between, def, myuse and use!
+
+//	      rus("quick update");
+
+	      // update the analyzed info.
+	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
+		{
+		  rtx set = single_set(infos[*i].get_insn());
+		  if (set)
+		    infos[*i].fledder(set);
+		}
+
+
 	      // update the insn_infos
+	      found.erase(index);
+	      infos[index].rename_def(oldbit, newbit);
+
 	      for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 		infos[*i].rename(oldbit, newbit);
 
 //	      rus("quick update");
-
 	      break;
 #else
 	      return 1;

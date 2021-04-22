@@ -956,14 +956,14 @@ convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
 
       pat = single_set (insn);
       if (!pat)
-	break;
+	return;
 
       /* find the matching side: SRC or DEST. */
       if (reg_overlap_mentioned_p (reg, SET_SRC(pat)))
 	{
 	  /* used on both sides -> can't handle. */
 	  if (reg_overlap_mentioned_p (reg, SET_DEST(pat)))
-	    break;
+	    return;
 
 	  x = &SET_SRC(pat);
 	}
@@ -974,13 +974,13 @@ convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
       if (!MEM_P(*x) || GET_CODE (XEXP (*x, 0)) != PLUS
       || !REG_P (reg = XEXP(XEXP (*x, 0), 0))
       || !CONST_INT_P(XEXP(XEXP (*x, 0), 1)))
-	break;
+	return;
 
       prev_offset = INTVAL(XEXP (XEXP (*x, 0), 1));
 
       /* candidate for post_inc ? */
       if (prev_offset + GET_MODE_SIZE(GET_MODE (*x)) != offset)
-	break;
+	return;
 
       /* record insn and location. */
       insn_stack[count] = insn;

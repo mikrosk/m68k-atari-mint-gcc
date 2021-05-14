@@ -272,6 +272,7 @@ amiga_declare_object = 0
       builtin_define ("__retfp0=__attribute__((__retfp0__))"); \
       builtin_define_std ("amiga"); \
       builtin_define_std ("amigaos"); \
+      builtin_define_std ("amigaos3"); \
       builtin_define_std ("AMIGA"); \
       builtin_define_std ("MCH_AMIGA"); \
       builtin_assert ("system=amigaos"); \

@@ -2371,7 +2371,7 @@ update_insn_infos (std::set<unsigned> & todo)
 	  insn_info & pp = infos[pos];
 	  rtx_insn * insn = pp.get_insn ();
 
-	  if (NOTE_P (insn))
+	  if (!insn || NOTE_P (insn))
 	    continue;
 
 	  // do not run into previous epilogue

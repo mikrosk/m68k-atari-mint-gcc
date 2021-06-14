@@ -744,9 +744,6 @@ will_delete_init_insn_p (rtx_insn *insn)
 extern rtx
 alter_subreg (rtx *xp, bool final_p);
 
-static
-rtx aregs[FIRST_PSEUDO_REGISTER];
-
 static bool
 darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
 {
@@ -766,9 +763,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
       if (ADDRESS_REG_P(SET_DEST(set)) && !reg_overlap_mentioned_p(SET_DEST(set), SET_SRC(set)))
 	{
 	  int regno = REGNO(SET_DEST(set));
-	  rtx areg = aregs[regno];
-	  if (!areg)
-	    areg = aregs[regno] = gen_rtx_REG(SImode, regno);
+	  rtx areg = gen_rtx_REG(SImode, regno);
 	  emit_insn_before(gen_rtx_SET(areg, x), insn);
 	  *loc = areg;
 //	  fprintf(stderr, "+");
@@ -780,9 +775,7 @@ darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
 	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
 	  if (ADDRESS_REGNO_P(regno))
 	    {
-	      rtx areg = aregs[regno];
-	      if (!areg)
-		areg = aregs[regno] = gen_rtx_REG(SImode, regno);
+	      rtx areg = gen_rtx_REG(SImode, regno);
 
 	      if (!reg_overlap_mentioned_p(areg, set))
 		{

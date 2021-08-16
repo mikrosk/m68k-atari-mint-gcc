@@ -20709,10 +20709,12 @@ cp_parser_parameter_declaration (cp_parser *parser,
       tree attrs = tree_cons(ttasm, value, NULL_TREE);
 
       /* search outmost declarator, e.g. int * needs the attribute at the pointer not the int. */
-      cp_declarator * d = declarator;
-      while (d->kind != cdk_id && d->declarator)
-	d = d->declarator;
-      d->attributes = chainon(attrs, d->attributes);
+      if (declarator) {
+	cp_declarator * d = declarator;
+	while (d->kind != cdk_id && d->declarator)
+	  d = d->declarator;
+	d->attributes = chainon(attrs, d->attributes);
+      }
     }
 #endif
 

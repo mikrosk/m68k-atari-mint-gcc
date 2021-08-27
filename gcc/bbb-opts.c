@@ -492,6 +492,9 @@ public:
 	  {
 	    value[i] = o->value[i] = 0;
 	    used[i] = 0;
+	    andMask[i] = 0xffffffff; // don't want to - but without loop detection
+	                             // this might lead to a elimination of
+	                             // a possible merge source...
 	  }
 	o->andMask[i] = andMask[i] |= o->andMask[i]; // or the masks
       }

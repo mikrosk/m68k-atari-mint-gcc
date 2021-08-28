@@ -1004,7 +1004,7 @@ convert_mem_offset_to_add (rtx_insn *insn, basic_block bb, bool use_src)
     {
       rtx new_reg, move;
 
-      if (count < AUTO_INC_CONVERSION_THRESHOLD)
+      if (count <= AUTO_INC_CONVERSION_THRESHOLD)
 	{
 	  /* not enough beef... but try handle the other side.*/
 	  if (!use_src)

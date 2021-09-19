@@ -280,22 +280,24 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool outgoin
   if (!fn_decl_or_type)
     fn_decl_or_type = outgoing ? mycum.fntype : othercum.fntype;
   if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
-    {
-      const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
-
-      if (DECL_BUILT_IN(fn_decl_or_type) || fn_decl_or_type->decl_common.virtual_flag)
-        fntype = 0;
-
-      if (fntype)
-	{
-	  tree attrs = TYPE_ATTRIBUTES(fntype);
-	  if (attrs && lookup_attribute ("retfp0", attrs))
-	    return gen_rtx_REG (mode, FP0_REG);
-
-	  if (amigaos_retfp0 && !(attrs && lookup_attribute("stkparm", attrs)))
-	    return gen_rtx_REG (mode, FP0_REG);
-	}
-    }
+    return gen_rtx_REG (mode, FP0_REG);
+//
+//    {
+//      const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
+//
+//      if (DECL_BUILT_IN(fn_decl_or_type) || fn_decl_or_type->decl_common.virtual_flag)
+//        fntype = 0;
+//
+//      if (fntype)
+//	{
+//	  tree attrs = TYPE_ATTRIBUTES(fntype);
+//	  if (attrs && lookup_attribute ("retfp0", attrs))
+//	    return gen_rtx_REG (mode, FP0_REG);
+//
+//	  if (amigaos_retfp0 && !(attrs && lookup_attribute("stkparm", attrs)))
+//	    return gen_rtx_REG (mode, FP0_REG);
+//	}
+//    }
   return gen_rtx_REG (mode, D0_REG);
 }
 
@@ -303,11 +305,11 @@ bool
 amigaos_function_value_regno_p(unsigned regno) {
   if (TARGET_68881 && mycum.fntype)
     {
-      tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
-      if (attrs && lookup_attribute ("retfp0", attrs))
-	return regno == FP0_REG;
-
-      if (amigaos_retfp0 && (!attrs || !lookup_attribute("stkparm", attrs)))
+//      tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
+//      if (attrs && lookup_attribute ("retfp0", attrs))
+//	return regno == FP0_REG;
+//
+//      if (amigaos_retfp0 && (!attrs || !lookup_attribute("stkparm", attrs)))
 	return regno == FP0_REG;
     }
   return regno == D0_REG;

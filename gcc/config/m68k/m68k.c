@@ -4741,7 +4741,45 @@ print_fp_const(const char * cmd, const char * prec, rtx x)
   real_to_decimal(buf2, r, 120, 100, 1);
 
 #ifndef TARGET_AMIGAOS_VASM
-  sprintf (buf, "%s%s #0e%s,%%0", cmd, p, buf2);
+  if (0 == strcmp("SNaN", 1+buf2))
+    sprintf (buf, "%ss #0x7fc00000,%%0", cmd);
+  else
+    if (0 == strcmp("QNaN", 1+buf2))
+      sprintf (buf, "%ss #0x7f800000,%%0", cmd);
+    else
+      {
+	int len = strlen(buf2);
+	switch (p[0]) {
+	  case 's':
+	    if (len > 8)
+	      {
+	        long l;
+	        REAL_VALUE_TO_TARGET_SINGLE (*r, l);
+	        sprintf (buf, "%s%s #0x%lx,%%0", cmd, p, l & 0xFFFFFFFF, buf2);
+	        return buf;
+	    }
+	    break;
+	  case 'd':
+	    if (len > 12)
+	      {
+		long l[2];
+		REAL_VALUE_TO_TARGET_DOUBLE (*r, l);
+		sprintf (buf, "%s%s #0x%lx%08lx,%%0", cmd, p, l[0] & 0xFFFFFFFF, l[1] & 0xFFFFFFFF, buf2);
+		return buf;
+	      }
+	    break;
+	  default:
+	    if (len > 16)
+	      {
+	        long l[3];
+	        REAL_VALUE_TO_TARGET_LONG_DOUBLE (*r, l);
+	        sprintf (buf, "%s%s #0x%lx%08lx%08lx,%%0", cmd, p, l[0] & 0xFFFFFFFF, l[1] & 0xFFFFFFFF, l[2] & 0xFFFFFFFF, buf2);
+	        return buf;
+	      }
+	    break;
+	}
+	sprintf (buf, "%s%s #0e%s,%%0", cmd, p, buf2);
+      }
 #else
   sprintf (buf, "%s%s #%s,%%0", cmd, p, buf2);
 #endif

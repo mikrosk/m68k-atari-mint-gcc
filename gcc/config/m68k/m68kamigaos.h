@@ -769,8 +769,8 @@ amigaos_function_arg_reg(unsigned regno);
 
 
 #define DOUBLE_INDIRECT_JUMP 1
-#if 0
-#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
+#define HAVE_GAS_WEAKREF 1
 
 /* This is how we tell the assembler that a symbol is weak.  */
 #define ASM_WEAKEN_LABEL(FILE, NAME)	\
@@ -781,6 +781,10 @@ amigaos_function_arg_reg(unsigned regno);
       fputc ('\n', (FILE));		\
     }					\
   while (0)
+
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
+#if 0
 
 #undef  SET_ASM_OP
 #define SET_ASM_OP	"\t.set\t"

@@ -750,13 +750,13 @@ extern void
 amiga_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED, tree decl )
 {
   // only one code section - TODO: with amiga hunk this is no longer mandatory.
-  if (0 == strncmp (".text", name, 5))
-    name = ".text";
+//  if (0 == strncmp (".text", name, 5))
+//    name = ".text";
 
   if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
-    fprintf (asm_out_file, "\t.bss%s\n", name + 5);
-  else if (0 == strncmp(".section ", name, 8) || 0 == strncmp(".text", name, 5) || 0 == strncmp(".data", name, 5) || 0 == strncmp(".bss", name, 4))
-    fprintf (asm_out_file, "\t%s\n", name);
+    fprintf (asm_out_file, "\t.section .bss%s\n", name + 5);
+//  else if (0 == strncmp(".section ", name, 8) || 0 == strncmp(".text", name, 5) || 0 == strncmp(".data", name, 5) || 0 == strncmp(".bss", name, 4))
+//    fprintf (asm_out_file, "\t%s\n", name);
   else
     fprintf (asm_out_file, "\t.section %s\n", name);
 }

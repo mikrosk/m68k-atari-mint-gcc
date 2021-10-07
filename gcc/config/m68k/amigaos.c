@@ -749,9 +749,9 @@ amigaos_insert_attribute (tree decl, tree * attr)
 extern void
 amiga_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED, tree decl )
 {
-  // only one code section - TODO: with amiga hunk this is no longer mandatory.
-//  if (0 == strncmp (".text", name, 5))
-//    name = ".text";
+  // put startup/exit into .text - otherwise stabs for DTOR will fail
+  if (0 == strcmp (".text.startup", name) || 0 == strcmp (".text.exit", name))
+    name = ".text";
 
   if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
     fprintf (asm_out_file, "\t.section .bss%s\n", name + 5);

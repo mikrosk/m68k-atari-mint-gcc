@@ -750,7 +750,7 @@ extern void
 amiga_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED, tree decl )
 {
   // put startup/exit into .text - otherwise stabs for DTOR will fail
-  if (0 == strcmp (".text.startup", name) || 0 == strcmp (".text.exit", name))
+  if (0 == strncmp (".text.startup", name, 13) || 0 == strncmp (".text.exit", name, 10))
     name = ".text";
 
   if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))

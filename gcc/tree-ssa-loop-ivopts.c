@@ -5656,7 +5656,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 #ifdef TARGET_AMIGAOS
   /* SBF: force use of dbra. */
   if (integer_minus_onep(*bound_cst) && integer_minus_onep(cand->iv->step))
-    express_cost.cost -= ivopts_integer_cost[0];
+    express_cost.cost = (express_cost.cost >> 1) - 5;
 #endif
 
   fd_ivopts_data = data;

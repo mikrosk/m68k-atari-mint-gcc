@@ -4307,7 +4307,6 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
 }
 
 static unsigned ivopts_integer_cost [2];
-static unsigned ivopts_comparison_cost [2];
 
 /* Estimates cost of forcing expression EXPR into a variable.  */
 static comp_cost
@@ -4348,8 +4347,10 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (!ivopts_integer_cost[i])
 	    ivopts_integer_cost[i] = 1;
 
-	  rtx reg = gen_reg_rtx(SImode);
-	  ivopts_comparison_cost[i] = set_rtx_cost(gen_rtx_SET(cc0_rtx, gen_rtx_LT(SImode, reg, reg)), i);
+#ifdef TARGET_AMIGAOS
+	  if (ivopts_integer_cost[i] == small_integer_cost[i])
+	    small_integer_cost[i] = ivopts_integer_cost[i] >> 1;
+#endif
 
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
@@ -4360,7 +4361,6 @@ force_expr_to_var_cost (tree expr, bool speed)
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
 	      fprintf (dump_file, "  small integer %d\n", (int) small_integer_cost[i]);
 	      fprintf (dump_file, "  integer %d\n", (int) ivopts_integer_cost[i]);
-	      fprintf (dump_file, "  comparison %d\n", (int) ivopts_comparison_cost[i]);
 	      fprintf (dump_file, "  symbol %d\n", (int) symbol_cost[i]);
 	      fprintf (dump_file, "  address %d\n", (int) address_cost[i]);
 	      fprintf (dump_file, "  other %d\n", (int) target_spill_cost[i]);
@@ -5647,15 +5647,18 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
     elim_cost.cost -= 1;
-#ifdef TARGET_AMIGAOS
-  else if (bound && integer_minus_onep(bound) && integer_minus_onep(cand->iv->step))
-     elim_cost.cost -= target_spill_cost[0];
-#endif
 
 
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,
                                        &express_inv_expr_id);
+
+#ifdef TARGET_AMIGAOS
+  /* SBF: force use of dbra. */
+  if (integer_minus_onep(*bound_cst) && integer_minus_onep(cand->iv->step))
+    express_cost.cost -= ivopts_integer_cost[0];
+#endif
+
   fd_ivopts_data = data;
   walk_tree (&cmp_iv->base, find_depends, &depends_on_express, NULL);
 

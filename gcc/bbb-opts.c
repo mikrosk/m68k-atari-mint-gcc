@@ -4395,7 +4395,7 @@ opt_shrink_stack_frame (void)
 	  if (ii.in_proepi () != IN_CODE)
 	    continue;
 
-	  rtx pattern = single_set (ii.get_insn ());
+	  rtx pattern = PATTERN (ii.get_insn ());
 	  if (pattern)
 	    patch_sp (pattern, adjust, ii.get_sp_offset ());
 	}

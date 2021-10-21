@@ -4138,7 +4138,6 @@ get_address_cost (bool symbol_present, bool var_present,
 
 	  acost = seq_cost (seq, speed);
 	  acost += address_cost (addr, mem_mode, as, speed);
-
 	  if (!acost)
 	    acost = 1;
 	  data->costs[sym_p][var_p][off_p][rat_p] = acost;
@@ -4307,13 +4306,13 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
 }
 
 static unsigned ivopts_integer_cost [2];
+static unsigned small_integer_cost [2];
 
 /* Estimates cost of forcing expression EXPR into a variable.  */
 static comp_cost
 force_expr_to_var_cost (tree expr, bool speed)
 {
   static bool costs_initialized = false;
-  static unsigned small_integer_cost [2];
   static unsigned symbol_cost [2];
   static unsigned address_cost [2];
   tree op0, op1;
@@ -5626,6 +5625,10 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
+#ifdef TARGET_M68K
+      if (TREE_CODE (bound) != INTEGER_CST)
+	elim_cost.cost += 4*ivopts_integer_cost[0];
+#endif	
     }
   else
     elim_cost = infinite_cost;
@@ -5646,7 +5649,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    elim_cost.cost -= 1;
+    elim_cost.cost -= 2*ivopts_integer_cost[0];
 
 
   express_cost = get_computation_cost (data, use, cand, false,
@@ -5658,10 +5661,13 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
   if ((integer_minus_onep(*bound_cst) || integer_zerop(*bound_cst))
       && integer_minus_onep(cand->iv->step))
     {
-      express_cost.cost -= ivopts_integer_cost[0] + 4;
       if (TYPE_PRECISION (TREE_TYPE (cand->iv->step)) == 16)
-	express_cost.cost -= ivopts_integer_cost[0] + 4;
+	express_cost.cost = small_integer_cost[0];
+      else
+       express_cost.cost = ivopts_integer_cost[0];
     }
+  else if (integer_minus_onep(cand->iv->step) || integer_onep(cand->iv->step))
+    express_cost.cost = ivopts_integer_cost[0];
 #endif
 
   fd_ivopts_data = data;

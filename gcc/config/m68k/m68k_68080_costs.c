@@ -51,12 +51,12 @@ static int thecosts0[cost_max] = {
     4, // double DF
     6, // extended XF
     0, // (ax)
-    0, // (n,ax), was 1
-    0, // symbol, was 1
-    1, // (ax,dy) was 3
-    1, // (n8,ax,dy) was 3
-    1, // (n16,ax,dy) was 4
-    1, // (n32,ax,dy) was 5
+    1, // (n,ax), was 1
+    1, // symbol, was 1
+    2, // (ax,dy) was 3
+    2, // (n8,ax,dy) was 3
+    2, // (n16,ax,dy) was 4
+    3, // (n32,ax,dy) was 5
     35, // other address
     0, // shift
     8, // mult
@@ -177,11 +177,11 @@ bool
 m68k_68080_costs (rtx x, machine_mode mode, int outer_code, int opno,
 		  int *total, bool speed)
 {
-  if (!run)
-    {
-      run = 1;
-      selftest_m68k_68080_costs ();
-    }
+//  if (!run)
+//    {
+//      run = 1;
+//      selftest_m68k_68080_costs ();
+//    }
 
   int code = GET_CODE(x);
   int total2 = 0;
@@ -452,6 +452,18 @@ Defconst:
 	    bool r = m68k_68080_costs (src, mode, code, 0, total, speed);
 	    *total += total2;
 	    return r;
+	  }
+	// big penalty for 32x32->64 mul/div
+	if (m68k_tune == u68060 || m68k_tune == u68020_60)
+	  {
+	    if (GET_CODE (src) == MULT || GET_CODE (src) == DIV)
+	      {
+		if (GET_MODE (dst) == DImode)
+		  {
+		    *total = 100;
+		    return true;
+		  }
+	      }
 	  }
 
 	bool r = m68k_68080_costs (dst, mode, code, 0, total, speed);

@@ -5626,7 +5626,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
 #ifdef TARGET_M68K
-      if (TREE_CODE (bound) != INTEGER_CST)
+      if (!infinite_cost_p (elim_cost) && TREE_CODE (bound) != INTEGER_CST)
 	elim_cost.cost += 4*ivopts_integer_cost[0];
 #endif	
     }
@@ -5658,16 +5658,19 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 
 #ifdef TARGET_AMIGAOS
   /* SBF: force use of dbra. */
-  if ((integer_minus_onep(*bound_cst) || integer_zerop(*bound_cst))
-      && integer_minus_onep(cand->iv->step))
+  if (!infinite_cost_p (express_cost))
     {
-      if (TYPE_PRECISION (TREE_TYPE (cand->iv->step)) == 16)
-	express_cost.cost = small_integer_cost[0];
-      else
-       express_cost.cost = ivopts_integer_cost[0];
+      if ((integer_minus_onep(*bound_cst) || integer_zerop(*bound_cst))
+	  && integer_minus_onep(cand->iv->step))
+	{
+	  if (TYPE_PRECISION (TREE_TYPE (cand->iv->step)) == 16)
+	    express_cost.cost = small_integer_cost[0];
+	  else
+	   express_cost.cost = ivopts_integer_cost[0];
+	}
+      else if (integer_minus_onep(cand->iv->step) || integer_onep(cand->iv->step))
+	express_cost.cost = ivopts_integer_cost[0];
     }
-  else if (integer_minus_onep(cand->iv->step) || integer_onep(cand->iv->step))
-    express_cost.cost = ivopts_integer_cost[0];
 #endif
 
   fd_ivopts_data = data;

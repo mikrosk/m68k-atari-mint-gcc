@@ -411,7 +411,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
 			  | FL_BITFIELD | FL_68881 | FL_CAS)
 #endif
-#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040)
+#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
 #define FL_FOR_isa_cpu32 (FL_FOR_isa_10 | FL_ISA_68020)
 
 #define FL_FOR_isa_80    (FL_FOR_isa_20 | FL_ISA_68040 | FL_ISA_68080)
@@ -7667,4 +7667,5 @@ m68k_emit_movmemsi(rtx blkdest, rtx blksrc, rtx length, rtx alignment)
 
   return true;
 }
+
 #include "gt-m68k.h"

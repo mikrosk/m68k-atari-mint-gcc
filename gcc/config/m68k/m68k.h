@@ -270,6 +270,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68020_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_68080	(m68k_tune == u68080 || m68k_tune == u68020_80)
+#define TUNE_68020_80	(TUNE_68030 || TUNE_68040 || TUNE_68060 || TUNE_68080)
 #define TUNE_68040_80	(TUNE_68040 || TUNE_68060 || TUNE_68080)
 #define TUNE_68060_80	(TUNE_68060 || TUNE_68080)
 #define TUNE_CPU32	(m68k_tune == ucpu32)

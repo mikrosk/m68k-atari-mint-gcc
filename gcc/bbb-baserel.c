@@ -132,7 +132,7 @@ namespace
 					    UNSPEC_RELOC16);
 	s = gen_rtx_CONST (Pmode, s);
 	s = gen_rtx_PLUS (Pmode, picreg, s);
-	s = gen_rtx_CONST (Pmode, s);
+//	s = gen_rtx_CONST (Pmode, s);
 
 	// try to use it directly.
 	if (!use_tmp)
@@ -359,7 +359,6 @@ namespace
 
 	if (NONJUMP_INSN_P(insn))
 	  {
-
 	    rtx set = single_set (insn);
 	    bool b = false;
 	    cur_tmp_use = 0;

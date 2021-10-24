@@ -5626,7 +5626,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
 #ifdef TARGET_M68K
-      if (!infinite_cost_p (elim_cost) && TREE_CODE (bound) != INTEGER_CST)
+      if (elim_cost.cost && !infinite_cost_p (elim_cost) && TREE_CODE (bound) != INTEGER_CST)
 	elim_cost.cost += 4*ivopts_integer_cost[0];
 #endif	
     }
@@ -5658,7 +5658,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 
 #ifdef TARGET_AMIGAOS
   /* SBF: force use of dbra. */
-  if (!infinite_cost_p (express_cost))
+  if (!infinite_cost_p (express_cost) && express_cost.cost > small_integer_cost[0])
     {
       if ((integer_minus_onep(*bound_cst) || integer_zerop(*bound_cst))
 	  && integer_minus_onep(cand->iv->step))

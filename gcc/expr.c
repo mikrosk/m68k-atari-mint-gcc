@@ -8544,12 +8544,6 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		{
 		  expand_operands (treeop0, treeop1, NULL_RTX, &op0, &op1,
 				   EXPAND_NORMAL);
-		  /* SBF: patch the modes to use widening mul. */
-		  if (TREE_NO_WARNING (treeop0) && GET_MODE (op0) == SImode)
-		    op0 = convert_modes (innermode, mode, op0, zextend_p);
-		  if (TREE_NO_WARNING (treeop1) && GET_MODE (op1) == SImode)
-		    op1 = convert_modes (innermode, mode, op1, zextend_p);
-
 		  /* op0 and op1 might still be constant, despite the above
 		     != INTEGER_CST check.  Handle it.  */
 		  if (GET_MODE (op0) == VOIDmode && GET_MODE (op1) == VOIDmode)

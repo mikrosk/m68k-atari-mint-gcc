@@ -2928,10 +2928,26 @@ widening_mult_conversion_strippable_p (tree result_type, gimple *stmt)
       tree op_type;
       tree inner_op_type;
 
-      if (!CONVERT_EXPR_CODE_P (rhs_code))
-	return false;
-
       op_type = TREE_TYPE (gimple_assign_lhs (stmt));
+
+      if (!CONVERT_EXPR_CODE_P (rhs_code))
+	{
+	  tree p1, p2;
+
+	  if (rhs_code != BIT_AND_EXPR)
+	    return false;
+
+	  p1 = gimple_assign_rhs1 (stmt);
+	  if (TREE_CODE (p1) != SSA_NAME)
+	    return false;
+
+	  p2 = gimple_assign_rhs2 (stmt);
+	  if (TREE_CODE (p2) == INTEGER_CST
+	      && TREE_INT_CST_ELT_CHECK(p2, 0) + 1 == 1 << (TYPE_PRECISION (result_type) / 2))
+	    return true;
+
+	  return false;
+	}
 
       /* If the type of OP has the same precision as the result, then
 	 we can strip this conversion.  The multiply operation will be
@@ -2998,9 +3014,28 @@ is_widening_mult_rhs_p (tree type, tree rhs, tree *type_out,
 
       type1 = TREE_TYPE (rhs1);
 
-      if (TREE_CODE (type1) != TREE_CODE (type)
-	  || TYPE_PRECISION (type1) * 2 > TYPE_PRECISION (type))
+      if (TREE_CODE (type1) != TREE_CODE (type))
 	return false;
+
+      if (TYPE_PRECISION (type1) * 2 > TYPE_PRECISION (type))
+	{
+	  tree p1, p2;
+
+	  if (gimple_assign_rhs_code (stmt) != BIT_AND_EXPR)
+	    return false;
+
+	  p2 = gimple_assign_rhs2 (stmt);
+	  if (TREE_CODE (p2) != INTEGER_CST
+	      || TREE_INT_CST_ELT_CHECK(p2, 0) + 1 != 1 << (TYPE_PRECISION (type) / 2))
+	    return false;
+
+	  p1 = gimple_assign_rhs1 (stmt);
+	  /* SBF: needed to patch the mode in expr. */
+	  TREE_NO_WARNING (p1) = true;
+	  *new_rhs_out = p1;
+	  *type_out = TREE_TYPE(p1) = make_unsigned_type (TYPE_PRECISION (type) / 2);
+	  return true;
+	}
 
       *new_rhs_out = rhs1;
       *type_out = type1;

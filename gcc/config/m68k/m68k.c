@@ -7470,7 +7470,8 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     bool speed_p ATTRIBUTE_UNUSED)
 {
   /* no need for small items. */
-  return size * 8 / align < 1;
+  if (align == 16) align == 32;
+  return size * 8 / align < 2;
 }
 
 int

@@ -1543,8 +1543,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
     /* A truncation to an unsigned type (a zero-extension) should be
        canonicalized as bitwise and of a mask.  */
-    /* SBF: keep the different types widening_mul relies on that! */
-    (if (!TARGET_M68K && GIMPLE /* PR70366: doing this in GENERIC breaks -Wconversion.  */
+    /* SBF: keep the different types widening_mul relies on that! * /
+    (if (GIMPLE /* PR70366: doing this in GENERIC breaks -Wconversion.  * /
 	 && final_int && inter_int && inside_int
 	 && final_prec == inside_prec
 	 && final_prec > inter_prec
@@ -1553,6 +1553,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	                      (inside_type,
 			       wi::mask (inter_prec, false,
 					 TYPE_PRECISION (inside_type))); })))
+	*/
 
     /* If we are converting an integer to a floating-point that can
        represent it exactly and back to an integer, we can skip the

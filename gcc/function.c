@@ -1631,14 +1631,20 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 
   /* In the general case, we expect virtual registers to appear only in
      operands, and then only as either bare registers or inside memories.  */
+  /* SBF: that's not true, since there is also lea. */
   for (i = 0; i < recog_data.n_operands; ++i)
     {
+      rtx addr;
       x = recog_data.operand[i];
       switch (GET_CODE (x))
 	{
+	case PLUS:
+	  /* SBF: handle all plus, it might be a lea insn. */
+	  instantiate_virtual_regs_in_rtx (&x);
+	  continue;
 	case MEM:
 	  {
-	    rtx addr = XEXP (x, 0);
+	    addr = XEXP (x, 0);
 
 	    if (!instantiate_virtual_regs_in_rtx (&addr))
 	      continue;

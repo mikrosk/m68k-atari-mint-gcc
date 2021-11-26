@@ -11,6 +11,10 @@ mregparm
 Target RejectNegative Alias(mregparm=, 2)
 Same as -mregparm=2
 
+msasregparm
+Target RejectNegative Var(sas_regparm,1)
+Same as -mregparm=2 but do not use alternate registers
+
 noixemul
 Target RejectNegative
 Do not use ixemul.library - use libnix instead to link

@@ -183,6 +183,8 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
 {
   struct amigaos_args * cum = decl == current_function_decl ? &mycum : &othercum;
   *cump = decl == current_function_decl;
+  if (sas_regparm)
+    amigaos_regparm = 2;
   cum->num_of_regs = amigaos_regparm > 0 ? amigaos_regparm : 0;
   DPRINTF((stderr, "0amigaos_init_cumulative_args %s %d -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, cum->num_of_regs));
 
@@ -203,9 +205,10 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
   if (decl && DECL_BUILT_IN(decl))
     fntype = 0;
 
+  tree attrs = NULL;
   if (fntype)
     {
-      tree attrs = TYPE_ATTRIBUTES(fntype);
+      attrs = TYPE_ATTRIBUTES(fntype);
       DPRINTF((stderr, "1amigaos_init_cumulative_args %s %d attrs: %p\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, attrs));
       if (attrs)
 	{
@@ -265,6 +268,26 @@ amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
     /* Call to compiler-support function. */
     cum->current_param_type = cum->fntype = 0;
   DPRINTF((stderr, "9amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
+
+#if 0
+  if (cum->num_of_regs && decl && !lookup_attribute("asmreg", attrs))
+    {
+      char const * name = IDENTIFIER_POINTER (DECL_NAME(decl));
+      if (*name != '@')
+	{
+	  if (cum->num_of_regs == 2)
+	    name = concat("@", IDENTIFIER_POINTER (DECL_NAME(decl)), NULL);
+	  else
+	    {
+	      char nn[2] = {'0' + cum->num_of_regs, 0};
+	      name = concat("@", nn, IDENTIFIER_POINTER (DECL_NAME(decl)), NULL);
+	    }
+	  extern tree get_identifier (const char *text);
+	  DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name =
+	  DECL_NAME(decl) = get_identifier(name);
+	}
+    }
+#endif
 }
 
 int
@@ -281,37 +304,13 @@ amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool outgoin
     fn_decl_or_type = outgoing ? mycum.fntype : othercum.fntype;
   if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
     return gen_rtx_REG (mode, FP0_REG);
-//
-//    {
-//      const_tree fntype = fn_decl_or_type->base.code == FUNCTION_DECL ? TREE_TYPE(fn_decl_or_type) : fn_decl_or_type;
-//
-//      if (DECL_BUILT_IN(fn_decl_or_type) || fn_decl_or_type->decl_common.virtual_flag)
-//        fntype = 0;
-//
-//      if (fntype)
-//	{
-//	  tree attrs = TYPE_ATTRIBUTES(fntype);
-//	  if (attrs && lookup_attribute ("retfp0", attrs))
-//	    return gen_rtx_REG (mode, FP0_REG);
-//
-//	  if (amigaos_retfp0 && !(attrs && lookup_attribute("stkparm", attrs)))
-//	    return gen_rtx_REG (mode, FP0_REG);
-//	}
-//    }
   return gen_rtx_REG (mode, D0_REG);
 }
 
 bool
 amigaos_function_value_regno_p(unsigned regno) {
   if (TARGET_68881 && mycum.fntype)
-    {
-//      tree attrs = TYPE_ATTRIBUTES(mycum.fntype);
-//      if (attrs && lookup_attribute ("retfp0", attrs))
-//	return regno == FP0_REG;
-//
-//      if (amigaos_retfp0 && (!attrs || !lookup_attribute("stkparm", attrs)))
 	return regno == FP0_REG;
-    }
   return regno == D0_REG;
 }
 
@@ -372,7 +371,9 @@ _m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree typ
 	    regbegin = 8; /* Ax */
 	  else
 	    regbegin = 0; /* Dx */
-	  altregbegin = 8 - regbegin;
+
+	  if (!sas_regparm)
+	    altregbegin = 8 - regbegin;
 	  len = (GET_MODE_SIZE (mode) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
 	}
 

@@ -324,6 +324,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
    Differentiate between libnix and ixemul.  */
 
 #define CPP_SPEC \
+  "%{!m68881:{mhard-float:-D__HAVE_68881__}} " \
   "%{m68881:-D__HAVE_68881__} " \
   "%{!ansi:" \
     "%{m68020:-Dmc68020} " \
@@ -543,7 +544,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #define LINK_CPU_SPEC \
   "%{m6802*|mc6802*|m6803*|m6804*|m6806*|m6808*|mcpu=6802*|mcpu=6803*|mcpu=6804*|mcpu=6806*|mcpu=6808*:-fl libm020} " \
-  "%{m68881|mcpu=6804*|mcpu=6806*|mcpu=6808*:-fl libm881}"
+  "%{mhard-float|m68881|mcpu=6804*|mcpu=6806*|mcpu=6808*:-fl libm881}"
 
 #ifdef TARGET_AMIGAOS_VASM
 #define LINK_COMMAND_SPEC \

@@ -226,19 +226,21 @@ along with GCC; see the file COPYING3.  If not see
 #define FL_ISA_68010 (1 << 10)
 #define FL_ISA_68020 (1 << 11)
 #define FL_ISA_68040 (1 << 12)
-#define FL_ISA_A     (1 << 13)
-#define FL_ISA_APLUS (1 << 14)
-#define FL_ISA_B     (1 << 15)
-#define FL_ISA_C     (1 << 16)
-#define FL_FIDOA     (1 << 17)
-#define FL_CAS	     (1 << 18)	/* Support cas insn.  */
-#define FL_ISA_68080 (1 << 19)
+#define FL_ISA_68060 (1 << 13)
+#define FL_ISA_68080 (1 << 14)
+#define FL_ISA_A     (1 << 15)
+#define FL_ISA_APLUS (1 << 16)
+#define FL_ISA_B     (1 << 17)
+#define FL_ISA_C     (1 << 18)
+#define FL_FIDOA     (1 << 19)
+#define FL_CAS	     (1 << 20)	/* Support cas insn.  */
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 #define FL_UCLINUX   0   /* Used by multilib machinery.  */
 
 #define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
+#define TARGET_68060		((m68k_cpu_flags & FL_ISA_68060) != 0)
 #define TARGET_68080		((m68k_cpu_flags & FL_ISA_68080) != 0)
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
@@ -261,6 +263,9 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
 #define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
+#define TUNE_68020	(m68k_tune == u68020 \
+			 || m68k_tune == u68020_40 \
+			 || m68k_tune == u68020_60)
 #define TUNE_68030	(m68k_tune == u68030 \
 			 || m68k_tune == u68020_40 \
 			 || m68k_tune == u68020_60)
@@ -270,7 +275,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68020_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_68080	(m68k_tune == u68080 || m68k_tune == u68020_80)
-#define TUNE_68020_80	(TUNE_68030 || TUNE_68040 || TUNE_68060 || TUNE_68080)
+#define TUNE_68020_80	(TUNE_68020 || TUNE_68030 || TUNE_68040 || TUNE_68060 || TUNE_68080)
 #define TUNE_68040_80	(TUNE_68040 || TUNE_68060 || TUNE_68080)
 #define TUNE_68060_80	(TUNE_68060 || TUNE_68080)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
@@ -901,7 +906,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  asm_fprintf (FILE, "%U%s", NAME)
+  asm_fprintf (FILE, (*(NAME)) == '@' ? "%s" : "%U%s", NAME)
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))

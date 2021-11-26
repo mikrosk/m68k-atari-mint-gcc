@@ -411,10 +411,11 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
 			  | FL_BITFIELD | FL_68881 | FL_CAS)
 #endif
-#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
+#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040)
 #define FL_FOR_isa_cpu32 (FL_FOR_isa_10 | FL_ISA_68020)
 
-#define FL_FOR_isa_80    (FL_FOR_isa_20 | FL_ISA_68040 | FL_ISA_68080)
+#define FL_FOR_isa_60    (FL_FOR_isa_20 | FL_ISA_68060)
+#define FL_FOR_isa_80    (FL_FOR_isa_20 | FL_ISA_68080)
 
 
 /* Base flags for ColdFire ISAs.  */
@@ -432,6 +433,7 @@ enum m68k_isa
   isa_10,
   isa_20,
   isa_40,
+  isa_60,
   isa_80,
   isa_cpu32,
   /* ColdFire instruction set variants.  */
@@ -611,7 +613,7 @@ m68k_option_override (void)
     }
 
   /* Set the type of FPU.  */
-  if (m68k_cpu_flags & (FL_ISA_68040 | FL_ISA_68080))
+  if (m68k_cpu_flags & (FL_ISA_68040 | FL_ISA_68060 | FL_ISA_68080))
     target_flags |= MASK_HARD_FLOAT;
 
   m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE

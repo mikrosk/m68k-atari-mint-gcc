@@ -324,7 +324,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
    Differentiate between libnix and ixemul.  */
 
 #define CPP_SPEC \
-  "%{!m68881:{mhard-float:-D__HAVE_68881__}} " \
+  "%{!m68881:%{mhard-float:-D__HAVE_68881__}} " \
   "%{m68881:-D__HAVE_68881__} " \
   "%{!ansi:" \
     "%{m68020:-Dmc68020} " \

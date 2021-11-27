@@ -275,7 +275,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   for (p = bin_prefix, q = prefix; *p && *p == *q; ++p, ++q)
     {}
 
-  p = concat(buf, "/", q, 0);
+  p = concat(buf, "/", q, NULL);
 
   d = opendir(p);
   if (d) closedir(d);
@@ -284,7 +284,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
       free(p);
       strcpy(buf, prefix);
       buf[q - prefix] = 0;
-      p = concat(buf, q, 0);
+      p = concat(buf, q, NULL);
     }
   
   //printf("%s %s %s %s ->%s\n", progname, buf, bin_prefix, prefix, p);

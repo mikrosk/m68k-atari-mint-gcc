@@ -246,6 +246,8 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
 #elif defined(__MACH__)
   n = 1022;
   n |= _NSGetExecutablePath(buf, &n);
+#elif defined(__sun) && defined(__SVR4)
+  n = readlink( "/proc/self/path/a.out", buf, 1023);
 #else
   n = readlink( "/proc/self/exe", buf, 1023);
 #endif

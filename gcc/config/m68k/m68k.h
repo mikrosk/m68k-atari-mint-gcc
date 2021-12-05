@@ -237,6 +237,7 @@ along with GCC; see the file COPYING3.  If not see
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 #define FL_UCLINUX   0   /* Used by multilib machinery.  */
 
+#define TARGET_68000		((m68k_cpu_flags & FL_ISA_68000) != 0)
 #define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
@@ -899,6 +900,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    pointer for code and global references.  We still use pc-relative
    references to data, as this avoids a relocation.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)			   \
+  (TARGET_68000 || TARGET_68010) ? DW_EH_PE_aligned :                      \
   (flag_pic								   \
    && !((TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)			   \
 	&& ((GLOBAL) || (CODE)))					   \

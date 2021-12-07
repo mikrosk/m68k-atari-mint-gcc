@@ -693,9 +693,9 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
   return NULL_TREE ;
 }
 
-#define AMIGA_CHIP_SECTION_NAME ".data_chip"
-#define AMIGA_FAST_SECTION_NAME ".data_fast"
-#define AMIGA_FAR_SECTION_NAME  ".data_far"
+#define AMIGA_CHIP_SECTION_NAME ".datachip"
+#define AMIGA_FAST_SECTION_NAME ".datafast"
+#define AMIGA_FAR_SECTION_NAME  ".datafar"
 
 void
 amigaos_insert_attribute (tree decl, tree * attr)
@@ -791,15 +791,15 @@ amiga_named_section (const char *name, unsigned int flags, tree decl ATTRIBUTE_U
 	  }
 	else
 	  {
-	    if (0 == strncmp(".data_far", name, 8))
+	    if (0 == strncmp(".datafar", name, 8))
 	      {
 		fprintf (asm_out_file, "\tsection .data_far,data\n");
 	      }
-	    else if (0 == strncmp(".data_chip", name, 9))
+	    else if (0 == strncmp(".datachip", name, 9))
 	      {
 		fprintf (asm_out_file, "\tsection .data_chip,data,chip\n");
 	      }
-	    else if (0 == strncmp(".bss_chip", name, 8))
+	    else if (0 == strncmp(".bsschip", name, 8))
 	      {
 		fprintf (asm_out_file, "\tsection .bss_chip,bss,chip\n");
 	      }

@@ -106,12 +106,12 @@ namespace
 	if (decl->base.code != VAR_DECL && decl->base.code != CONST_DECL)
 	  return 0;
 
-	// a section means: a4 unless the section is ".datachip" ".datafast" ".datafar"
+	// a section means: a4 unless the section is ".data_chip" ".data_fast" ".data_far"
 	char const * secname = DECL_SECTION_NAME(decl);
 	if (secname && (
-	       0 == strcmp(secname, ".datachip")
-	    || 0 == strcmp(secname, ".datafast")
-	    || 0 == strcmp(secname, ".datafar")))
+	       0 == strcmp(secname, ".data_chip")
+	    || 0 == strcmp(secname, ".data_fast")
+	    || 0 == strcmp(secname, ".data_far")))
 	  return 0;
 
 	// normal constants end up in text.

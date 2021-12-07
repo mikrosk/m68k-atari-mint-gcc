@@ -108,8 +108,8 @@ Boston, MA 02111-1307, USA.  */
       N_("Do not restore a4 in all functions") }
 
 
-/* Support sections in chip, fast memory, currently '.datachip', '.datafast'
- * and '.datafar' to abs addressing with baserel.  */
+/* Support sections in chip, fast memory, currently '.data_chip', '.data_fast'
+ * and '.data_far' to abs addressing with baserel.  */
 extern void
 amiga_named_section (const char *name, unsigned int flags, tree decl);
 

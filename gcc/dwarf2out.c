@@ -480,12 +480,15 @@ switch_to_eh_frame_section (bool back ATTRIBUTE_UNUSED)
 	    init = 1;
 	  };
       }
-      fputs("\t__EH_FRAME_OBJECT__:\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n", asm_out_file);
+      fputs(
+      "\t.align 2\n" 
+      "\t__EH_FRAME_OBJECT__:\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n", asm_out_file);
       fputs("\t.stabs \"__EH_FRAME_OBJECTS__\",24,0,0,__EH_FRAME_OBJECT__\n", asm_out_file);
 
       switch_to_section (eh_frame_section);
-      ASM_OUTPUT_LABEL (asm_out_file, "_EH_FRAME_BEGIN__");
-      fputs("\t.stabs \"__EH_FRAME_BEGINS__\",22,0,0,__EH_FRAME_BEGIN__\n", asm_out_file);
+      fputs(
+      "\t.align 2\n"
+      "\t__EH_FRAME_BEGIN__:\n\t.stabs \"__EH_FRAME_BEGINS__\",22,0,0,__EH_FRAME_BEGIN__\n", asm_out_file);
 #endif
     }
 

@@ -5230,13 +5230,16 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (addend < 0)
 		return 0; // no labels backwards
 
-	      // check previous insn, if the reg is used or defined there
-	      // that label must been seen before
-	      insn_info & pp = infos[pos - 1];
-//	      fprintf(stderr, "regno=%d, pos=%d, used=%d, def=%d, visited=%d", regno, pos - 1, pp.is_use (regno), pp.is_def (regno), visited.find (pos - 1) != visited.end ());
-//	      debug(pp.get_insn());
-	      if ((pp.is_use (regno) || pp.is_def (regno)) && visited.find (pos - 1) == visited.end ())
-		return 0;
+	      if (pos > 0)
+		{
+		  // check previous insn, if the reg is used or defined there
+		  // that label must been seen before
+		  insn_info & pp = infos[pos - 1];
+    //	      fprintf(stderr, "regno=%d, pos=%d, used=%d, def=%d, visited=%d", regno, pos - 1, pp.is_use (regno), pp.is_def (regno), visited.find (pos - 1) != visited.end ());
+    //	      debug(pp.get_insn());
+		  if ((pp.is_use (regno) || pp.is_def (regno)) && visited.find (pos - 1) == visited.end ())
+		    return 0;
+		}
 
 	      // jumps to here which use that register must be already visited.
 	      // jumps to here which do not use that register are ok.

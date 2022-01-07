@@ -295,13 +295,33 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #endif
 
-/* put return values in FPU build in FP0 Reg */
+/* SBF: same as linux.h */
+
+/* 1 if N is a possible register number for a function value.  For
+   m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
+   pointer, or floating types, respectively.  Reject fp0 if not using
+   a 68881 coprocessor.  */
+
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
-  ((N) == D0_REG || (TARGET_68881 && (N) == FP0_REG))
+  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
-// see 930623-1.c
-//  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
+/* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
+   more than one register.  */
+
+#undef NEEDS_UNTYPED_CALL
+#define NEEDS_UNTYPED_CALL 1
+
+/* Define how to generate (in the callee) the output value of a
+   function and how to find (in the caller) the value returned by a
+   function.  VALTYPE is the data type of the value (as a tree).  If
+   the precise function being called is known, FUNC is its
+   FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
+   result in d0, a0, or fp0 as appropriate.  */
+
+#undef FUNCTION_VALUE
+#define FUNCTION_VALUE(VALTYPE, FUNC)					\
+  m68k_function_value (VALTYPE, FUNC)
 
 
 /* When creating shared libraries, use different 'errno'. */
@@ -662,12 +682,19 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
-#ifndef CROSS_INCLUDE_DIR
+#ifdef __amiga__
+#undef CROSS_INCLUDE_DIR
 #define CROSS_INCLUDE_DIR "m68k-amigaos/sys-include"
-#endif
+
+#undef FIXED_INCLUDE_DIR
+#define FIXED_INCLUDE_DIR "m68k-amigaos/ndk-include"
+
+#else
 
 #undef FIXED_INCLUDE_DIR
 #define FIXED_INCLUDE_DIR CROSS_INCLUDE_DIR "/../ndk-include"
+
+#endif
 
 /* Baserel support.  */
 extern int amiga_is_const_pic_ref(const_rtx x);

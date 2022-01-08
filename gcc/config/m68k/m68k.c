@@ -1035,41 +1035,6 @@ m68k_emit_movem (rtx base, HOST_WIDE_INT offset,
   rtx body, addr, src, operands[2];
   machine_mode mode;
 
-  if (TUNE_68060 && regno == FP0_REG)
-    {
-      /* Store each register separately in the same order moveml does.  */
-      rtx dest;
-      rtx_insn *last = NULL;
-
-      if (store_p)
-	for (i = 7; i > 0; --i)
-	  {
-	    if (current_frame.fpu_mask & (1 << i))
-	      {
-		src = gen_rtx_REG (XFmode, FP0_REG + i);
-		dest = gen_frame_mem (
-		    XFmode,
-		    adjust_stack_p ? gen_rtx_PRE_DEC(Pmode, base) : base);
-		last = emit_insn (gen_movxf (dest, src));
-	      }
-	  }
-      else
-	for (i = 0; i < 8; ++i)
-	  if (current_frame.fpu_mask & (1 << i))
-	    {
-	      dest = gen_rtx_REG (XFmode, FP0_REG + i);
-	      src = gen_frame_mem (
-		  XFmode,
-		  adjust_stack_p ? gen_rtx_POST_INC(Pmode, base) : base);
-	      if (last == NULL)
-		last = emit_insn (gen_movxf (dest, src));
-	      else
-		emit_insn (gen_movxf (dest, src));
-	    }
-      return last;
-    }
-
-
   body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (adjust_stack_p + count));
   mode = reg_raw_mode[regno];
   i = 0;

@@ -7262,6 +7262,9 @@ m68k_return_pops_args (tree fundecl, tree funtype, int size)
 	  ? size : 0);
 }
 
+rtx singbas;
+rtx doubbas;
+
 /* Make sure everything's fine if we *don't* have a given processor.
    This assumes that putting a register in fixed_regs will keep the
    compiler's mitts completely off it.  We don't bother to zero it out
@@ -7281,6 +7284,9 @@ m68k_conditional_register_usage (void)
     }
   if (flag_pic)
     fixed_regs[PIC_REG] = call_used_regs[PIC_REG] = 1;
+
+  singbas = gen_rtx_fmt_s0 (SYMBOL_REF, SImode, "MathIeeeSingTransBase");
+  doubbas = gen_rtx_fmt_s0 (SYMBOL_REF, SImode, "MathIeeeDoubTransBase");
 }
 
 static void

@@ -91,6 +91,12 @@
 			|| GET_CODE (XEXP (op, 0)) == LABEL_REF
 			|| GET_CODE (XEXP (op, 0)) == CONST)")))
 
+(define_constraint "Z"
+  "Used for Amiga library calls."
+  (and (match_code "plus")
+       (match_test "ADDRESS_REG_P (XEXP (op, 0)) 
+                 && CONST_INT_P (XEXP (op, 1))")))
+
 (define_constraint "T"
   "Used for operands that satisfy 's' when -mpcrel is not in effect."
   (and (match_code "symbol_ref,label_ref,const")

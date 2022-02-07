@@ -40,7 +40,9 @@ amigacollect2.o: amigacollect2.c
 ### end-GG-local
 
 # Support for building multiple version of libgcc, libquadmath, libobjc and libstdc++-v3
-MULTILIB_OPTIONS    = fbaserel/fbaserel32 mcpu=68020/mcpu=68060 
-MULTILIB_DIRNAMES   = libb libb32 libm020 libm060
+MULTILIB_OPTIONS    = fbaserel/fbaserel32 mcpu=68020/mcpu=68060 m68881
+MULTILIB_DIRNAMES   = libb libb32 libm020 libm060 libm881
 MULTILIB_EXTRA_OPTS = 
-MULTILIB_EXCEPTIONS = fbaserel32 
+MULTILIB_EXCEPTIONS = fbaserel/m68881 fbaserel/mcpu=68060/m68881 \
+                      fbaserel32 fbaserel32/m68881 fbaserel32/mcpu=68060/m68881 \
+                      m68881 mcpu=68060/m68881

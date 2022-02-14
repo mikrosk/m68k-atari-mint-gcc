@@ -1922,80 +1922,77 @@ find_regs_by_no (rtx x, unsigned oldregno,std::set<rtx *> & regs)
 /*
  * Collect some data.
  */
-static std::vector<insn_info> infos;
+static std::vector<insn_info> *infos;
 typedef std::vector<insn_info>::iterator insn_info_iterator;
 
 // insn->u2.insn_uid -> rtx_insn *
-static std::multimap<int, rtx_insn *> label2jump;
+static std::multimap<int, rtx_insn *> *label2jump;
 typedef std::multimap<int, rtx_insn *>::iterator l2j_iterator;
 
 // index -> index
-static std::multimap<unsigned, unsigned> jump2label;
+static std::multimap<unsigned, unsigned> *jump2label;
 typedef std::multimap<unsigned, unsigned>::iterator j2l_iterator;
 
-static std::map<rtx_insn *, insn_info *> insn2info;
+static std::map<rtx_insn *, insn_info *> *insn2info;
 typedef std::map<rtx_insn *, insn_info *>::iterator i2i_iterator;
 
-static std::set<unsigned> scan_starts;
+static std::set<unsigned> *scan_starts;
 typedef std::set<unsigned>::iterator su_iterator;
 
 static insn_info * info0;
 static unsigned usable_regs;
 
-// registers used during rename
-static std::vector<rtx> dstregs;
-
 static void
-update_insn_infos (std::set<unsigned> & todo = scan_starts);
+update_insn_infos (std::set<unsigned> & todo = *scan_starts);
 static unsigned
 track_regs ();
 
 static void
 update_insn2index ()
 {
-  infos.reserve (infos.size () * 8 / 7 + 2);
-  insn2info.clear ();
+  infos->reserve (infos->size () * 8 / 7 + 2);
+  insn2info->clear ();
   /* needs a separate pass since the insn_infos require fixed addresses for ->get_index() */
-  for (unsigned i = 0; i < infos.size (); ++i)
+  for (unsigned i = 0; i < infos->size (); ++i)
     {
-      insn_info & ii = infos[i];
-      insn2info.insert (std::make_pair (ii.get_insn (), &ii));
+      insn_info & ii = (*infos)[i];
+      insn2info->insert (std::make_pair (ii.get_insn (), &ii));
     }
-  info0 = &infos[0];
+  info0 = &(*infos)[0];
 }
 
 static void
 update_label2jump ()
 {
   update_insn2index ();
-  jump2label.clear();
+  jump2label->clear();
 
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       if (ii.is_label ())
-	for (l2j_iterator i = label2jump.find (ii.get_insn ()->u2.insn_uid), k = i;
-	    i != label2jump.end () && i->first == k->first; ++i)
-	  jump2label.insert (std::make_pair (insn2info.find (i->second)->second->get_index (), index));
+	for (l2j_iterator i = label2jump->find (ii.get_insn ()->u2.insn_uid), k = i;
+	    i != label2jump->end () && i->first == k->first; ++i)
+	  jump2label->insert (std::make_pair (insn2info->find (i->second)->second->get_index (), index));
     }
 }
 
 int
 insn_info::get_index () const
 {
-  insn_info * ii = &infos[0];
+  insn_info * ii = &(*infos)[0];
 
   if (ii == info0)
     {
       ptrdiff_t diff = ((char const *) this - (char const *) ii);
       unsigned pos = diff / sizeof(insn_info);
-      if (pos < infos.size ())
+      if (pos < infos->size ())
 	return pos;
     }
 
 // realloc happened...
-  for (unsigned i = 0; i < infos.size (); ++i)
-    if (infos[i].get_insn () == this->insn)
+  for (unsigned i = 0; i < infos->size (); ++i)
+    if ((*infos)[i].get_insn () == this->insn)
       return i;
 
 // whoops!?
@@ -2008,7 +2005,7 @@ insn_info::plus_to_move (rtx_insn * newinsn)
   insn = newinsn;
   src_op = (rtx_code) 0;
   src_reg = XEXP(PATTERN (newinsn), 1);
-  insn2info.insert (std::make_pair (insn, this));
+  insn2info->insert (std::make_pair (insn, this));
 // usage flags did not change
 }
 
@@ -2019,8 +2016,8 @@ insn_info::swap_adds (rtx_insn * newinsn, insn_info & ii)
 
   std::swap (*this, ii);
 
-  insn2info.insert (std::make_pair (insn, this));
-  insn2info.insert (std::make_pair (ii.insn, &ii));
+  insn2info->insert (std::make_pair (insn, this));
+  insn2info->insert (std::make_pair (ii.insn, &ii));
 
 // usage flags did not change
 }
@@ -2149,7 +2146,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 
   mark_myuse (regno);
 
-  insn2info.insert (std::make_pair (insn, this));
+  insn2info->insert (std::make_pair (insn, this));
 }
 /*
  * Reset collected data.
@@ -2157,11 +2154,11 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
 static void
 clear (void)
 {
-  label2jump.clear ();
-  jump2label.clear ();
-  insn2info.clear ();
-  infos.clear ();
-  scan_starts.clear ();
+  label2jump->clear ();
+  jump2label->clear ();
+  insn2info->clear ();
+  infos->clear ();
+  scan_starts->clear ();
 }
 
 /*
@@ -2172,9 +2169,9 @@ static bool
 is_reg_dead (unsigned regno, unsigned _pos)
 {
 // skip labels.
-  for (unsigned pos = _pos + 1; pos < infos.size (); ++pos)
+  for (unsigned pos = _pos + 1; pos < infos->size (); ++pos)
     {
-      insn_info & ii = infos[pos];
+      insn_info & ii = (*infos)[pos];
       // skip entries without info
       if (ii.is_empty ())
 	continue;
@@ -2190,15 +2187,15 @@ bool dump_reg_track;
 void
 append_reg_cache (FILE * f, rtx_insn * insn)
 {
-  i2i_iterator i = insn2info.find (insn);
-  if (i == insn2info.end ())
+  i2i_iterator i = insn2info->find (insn);
+  if (i == insn2info->end ())
     return;
 
   insn_info & jj = *i->second;
   unsigned index = jj.get_index ();
-  if (index + 1 < infos.size ())
+  if (index + 1 < infos->size ())
     ++index;
-  insn_info & ii = infos[index];
+  insn_info & ii = (*infos)[index];
 
   track_var * track = ii.get_track_var ();
   if (track == 0)
@@ -2231,8 +2228,8 @@ append_reg_cache (FILE * f, rtx_insn * insn)
 void
 append_reg_usage (FILE * f, rtx_insn * insn)
 {
-  i2i_iterator i = insn2info.find (insn);
-  if (i == insn2info.end ())
+  i2i_iterator i = insn2info->find (insn);
+  if (i == insn2info->end ())
     return;
 
   insn_info & ii = *i->second;
@@ -2314,15 +2311,15 @@ dump_insns (char const * name, bool all)
   fprintf (stderr, "====================================: %s\n", name);
   if (all)
     {
-      for (rtx_insn * insn = get_insns (); insn && insn != infos[0].get_insn (); insn = NEXT_INSN (insn))
+      for (rtx_insn * insn = get_insns (); insn && insn != (*infos)[0].get_insn (); insn = NEXT_INSN (insn))
 	debug_rtx (insn);
     }
-  for (unsigned i = 0; i < infos.size (); ++i)
+  for (unsigned i = 0; i < infos->size (); ++i)
     {
       fprintf (stderr, "%d: ", i);
 
-      rtx_insn * insn = infos[i].get_insn ();
-      if (i < infos.size ())
+      rtx_insn * insn = (*infos)[i].get_insn ();
+      if (i < infos->size ())
 	append_reg_usage (stderr, insn);
 
       fprintf (stderr, "\t");
@@ -2330,7 +2327,7 @@ dump_insns (char const * name, bool all)
 
       if (all)
 	{
-	  rtx_insn * p = i + 1 < infos.size () ? infos[i + 1].get_insn () : 0;
+	  rtx_insn * p = i + 1 < infos->size () ? (*infos)[i + 1].get_insn () : 0;
 	  for (rtx_insn * q = NEXT_INSN (insn); q && q != p; q = NEXT_INSN (q))
 	    debug_rtx (q);
 	}
@@ -2350,7 +2347,7 @@ update_insn_infos (std::set<unsigned> & todo)
 {
   /* add all return (jump outs) and start analysis there. */
   if (todo.begin () == todo.end ())
-    todo.insert (infos.size () - 1);
+    todo.insert (infos->size () - 1);
 
   bool locka4 = flag_pic >= 3;
 
@@ -2358,7 +2355,7 @@ update_insn_infos (std::set<unsigned> & todo)
     {
       int start = *todo.begin ();
       todo.erase (todo.begin ());
-      insn_info ii = infos[start];
+      insn_info ii = (*infos)[start];
 
       enum proepis proepi = ii.in_proepi ();
 
@@ -2366,12 +2363,12 @@ update_insn_infos (std::set<unsigned> & todo)
       if (proepi >= IN_EPILOGUE)
 	{
 	  ii.mark_use (STACK_POINTER_REGNUM);
-	  infos[start].mark_use (STACK_POINTER_REGNUM);
+	  (*infos)[start].mark_use (STACK_POINTER_REGNUM);
 	}
 
       for (int pos = start; pos >= 0; --pos)
 	{
-	  insn_info & pp = infos[pos];
+	  insn_info & pp = (*infos)[pos];
 	  rtx_insn * insn = pp.get_insn ();
 
 	  if (!insn || NOTE_P (insn))
@@ -2393,22 +2390,22 @@ update_insn_infos (std::set<unsigned> & todo)
 	  if (LABEL_P(insn))
 	    {
 	      /* work on all jumps referring to that label. */
-	      l2j_iterator i = label2jump.find (insn->u2.insn_uid);
+	      l2j_iterator i = label2jump->find (insn->u2.insn_uid);
 
 	      /* no jump to here -> mark all registers as hard regs.
 	       * This label is maybe used in an exception handler.
 	       * Marking as hard also avoids stack frame removal.
 	       */
-	      if (i == label2jump.end ())
-		infos[pos + 1].make_hard ();
+	      if (i == label2jump->end ())
+		(*infos)[pos + 1].make_hard ();
 	      else
-		for (l2j_iterator k = i; i != label2jump.end () && i->first == k->first; ++i)
+		for (l2j_iterator k = i; i != label2jump->end () && i->first == k->first; ++i)
 		  {
-		    i2i_iterator j = insn2info.find (i->second);
-		    if (j != insn2info.end ())
+		    i2i_iterator j = insn2info->find (i->second);
+		    if (j != insn2info->end ())
 		      {
 			unsigned index = j->second->get_index ();
-			insn_info & jj = infos[index];
+			insn_info & jj = (*infos)[index];
 			if (!jj.is_visited () || !jj.contains (ii))
 			  {
 			    jj.updateWith (ii);
@@ -2421,9 +2418,9 @@ update_insn_infos (std::set<unsigned> & todo)
 		pp.mark_visited ();
 
 	      /* check previous insn for jump */
-	      if (pos > 0 && infos[pos - 1].is_jump ())
+	      if (pos > 0 && (*infos)[pos - 1].is_jump ())
 		{
-		  rtx_insn * prev = infos[pos - 1].get_insn ();
+		  rtx_insn * prev = (*infos)[pos - 1].get_insn ();
 		  rtx set = single_set (prev);
 		  /* unconditional? -> break! */
 		  if ( (set && SET_DEST (set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
@@ -2447,8 +2444,8 @@ update_insn_infos (std::set<unsigned> & todo)
 	    {
 	      if (pos != start && ii.in_proepi ())
 		{
-		  su_iterator k = scan_starts.find (pos);
-		  if (k != scan_starts.end ())
+		  su_iterator k = scan_starts->find (pos);
+		  if (k != scan_starts->end ())
 		    {
 		      pp.clear_visited ();
 		      break;
@@ -2488,9 +2485,9 @@ update_insn_infos (std::set<unsigned> & todo)
 
   /* fill the mask of regs which are assigned a value. */
   insn_info zz;
-  for (unsigned i = 0; i < infos.size (); ++i)
+  for (unsigned i = 0; i < infos->size (); ++i)
     {
-      insn_info & ii = infos[i];
+      insn_info & ii = (*infos)[i];
       if (ii.in_proepi ())
 	continue;
 
@@ -2535,8 +2532,8 @@ update_insns ()
       if (NONJUMP_INSN_P (insn) || LABEL_P(insn) || JUMP_P(insn) || CALL_P(insn))
 	{
 
-	  infos.push_back (insn_info (insn, inproepilogue));
-	  insn_info & ii = infos[infos.size () - 1];
+	  infos->push_back (insn_info (insn, inproepilogue));
+	  insn_info & ii = (*infos)[infos->size () - 1];
 
 	  if (JUMP_P(insn))
 	    {
@@ -2545,7 +2542,7 @@ update_insns ()
 		  if (ANY_RETURN_P(PATTERN (insn)))
 		    ii.set_proepi (IN_EPILOGUE);
 
-		  scan_starts.insert (infos.size () - 1);
+		  scan_starts->insert (infos->size () - 1);
 		  inproepilogue = IN_CODE;
 		  rtx set = single_set (insn);
 		  if (ANY_RETURN_P(PATTERN (insn))
@@ -2572,7 +2569,7 @@ update_insns ()
 			  if (!LABEL_REF_NONLOCAL_P(ref))
 			    {
 			      rtx label = XEXP(ref, 0);
-			      label2jump.insert (std::make_pair (label->u2.insn_uid, insn));
+			      label2jump->insert (std::make_pair (label->u2.insn_uid, insn));
 			      ii.set_proepi (IN_EPILOGUE);
 			    }
 			}
@@ -2598,15 +2595,15 @@ update_insns ()
 		      result = E_NO_JUMP_LABEL;
 		      continue;
 		    }
-		  label2jump.insert (std::make_pair (label->u2.insn_uid, insn));
+		  label2jump->insert (std::make_pair (label->u2.insn_uid, insn));
 		}
 	    }
 	  else if (LABEL_P(insn))
 	    {
 	      ii.mark_label ();
 	      ii.set_proepi (inproepilogue = IN_CODE);
-	      if (infos.size () > 1)
-		scan_starts.insert (infos.size () - 1);
+	      if (infos->size () > 1)
+		scan_starts->insert (infos->size () - 1);
 	    }
 	  else if (CALL_P(insn))
 	    {
@@ -2614,12 +2611,12 @@ update_insns ()
 		{
 		  ii.set_proepi (IN_EPILOGUE);
 		  ii.mark_jump ();
-		  scan_starts.insert (infos.size () - 1);
+		  scan_starts->insert (infos->size () - 1);
 		}
 	      ii.mark_call ();
 	      if (inproepilogue)
 		{
-		  scan_starts.insert (infos.size () - 1);
+		  scan_starts->insert (infos->size () - 1);
 		  inproepilogue = IN_CODE;
 		}
 	    }
@@ -2638,7 +2635,7 @@ update_insns ()
 	    inproepilogue = IN_EPILOGUE;
 	}
     }
-  scan_starts.insert (infos.size () - 1);
+  scan_starts->insert (infos->size () - 1);
   update_insn2index ();
   update_insn_infos ();
 
@@ -2667,7 +2664,7 @@ is_reg_touched_between (unsigned regno, int from, int to)
 {
   for (int index = from + 1; index < to; ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       if (ii.is_myuse (regno) || ii.is_def (regno))
 	return true;
     }
@@ -2685,14 +2682,14 @@ find_start (unsigned start, unsigned rename_regno)
     {
       unsigned startm1 = start - 1;
 
-      insn_info & jj = infos[start];
+      insn_info & jj = (*infos)[start];
 
       /* stop at labels. If a label is a start pos, a search is maybe started again. */
       if (jj.is_label ())
 	break;
 
       /* do not run over RETURNS */
-      insn_info & bb = infos[startm1];
+      insn_info & bb = (*infos)[startm1];
       if (jj.in_proepi () == IN_CODE && bb.in_proepi () >= IN_EPILOGUE)
 	break;
 
@@ -2705,17 +2702,19 @@ find_start (unsigned start, unsigned rename_regno)
   return start;
 }
 
+/*
 static void
 rus(char const * title)
 {
   fputs(title, stderr);
   fputs("\n", stderr);
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
       fprintf(stderr, "%d\t", index);
-      append_reg_usage(stderr, infos[index].get_insn());
+      append_reg_usage(stderr, (*infos)[index].get_insn());
     }
 }
+*/
 
 /*
  * Always prefer lower register numbers within the class.
@@ -2725,7 +2724,7 @@ opt_reg_rename (void)
 {
   update_label2jump ();
 
-  if (infos.size () < 2)
+  if (infos->size () < 2)
     return 0;
 
   unsigned changes = 0;
@@ -2733,9 +2732,9 @@ opt_reg_rename (void)
 //  rus("opt_reg_rename");
 
 //  dump_insns ("rename", 1);
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
 
       /* do not rename if register is hard or used in same statement. */
       const unsigned rename_regbit = ii.get_regbit ();
@@ -2775,7 +2774,7 @@ opt_reg_rename (void)
       std::set<unsigned> todo;
       std::set<unsigned> found;
       std::set<unsigned> endings;
-      if (index + 1 < infos.size ())
+      if (index + 1 < infos->size ())
 	todo.insert (index + 1);
 
       found.insert (index);
@@ -2786,13 +2785,13 @@ opt_reg_rename (void)
 	  todo.erase (todo.begin ());
 
 //	  printf ("runpos %d \n", runpos); fflush (stdout);
-	  for (unsigned pos = runpos; mask && pos < infos.size (); ++pos)
+	  for (unsigned pos = runpos; mask && pos < infos->size (); ++pos)
 	    {
 	      /* already searched. */
 	      if (found.find (pos) != found.end ())
 		break;
 
-	      insn_info & jj = infos[pos];
+	      insn_info & jj = (*infos)[pos];
 	      if (jj.is_call()) {
 		  // do not rename registers used or defined in calls
 		  if (jj.is_myuse(rename_regno) || jj.is_def(rename_regno)) {
@@ -2810,18 +2809,18 @@ opt_reg_rename (void)
 		   * check if the reg was used at that jump.
 		   * if used, find def
 		   */
-		  for (l2j_iterator i = label2jump.find (insn->u2.insn_uid), k = i;
-		      i != label2jump.end () && i->first == k->first; ++i)
+		  for (l2j_iterator i = label2jump->find (insn->u2.insn_uid), k = i;
+		      i != label2jump->end () && i->first == k->first; ++i)
 		    {
-		      i2i_iterator j = insn2info.find (i->second);
-		      if (j == insn2info.end ())
+		      i2i_iterator j = insn2info->find (i->second);
+		      if (j == insn2info->end ())
 			{
 			  mask = 0;
 			  break;
 			}
 
 		      unsigned startat = j->second->get_index ();
-		      if (found.find (startat) == found.end () && infos[startat].is_use (rename_regno))
+		      if (found.find (startat) == found.end () && (*infos)[startat].is_use (rename_regno))
 			{
 			  unsigned start = find_start (startat, rename_regno);
     //		      printf ("label %d <- jump %d : start %d\n", pos, startat, start); fflush (stdout);
@@ -2833,8 +2832,8 @@ opt_reg_rename (void)
 		   * and if, check for use then search start. */
 		  if (pos > 0)
 		    {
-		      insn_info & bb = infos[pos - 1];
-		      rtx set = single_set (bb.get_insn ());
+		      insn_info & bb = (*infos)[pos - 1];
+//		      rtx set = single_set (bb.get_insn ());
 		      if (ANY_RETURN_P(bb.get_insn ())
 //			  || (set && SET_DEST(set) == pc_rtx && GET_CODE(SET_SRC(set)) != IF_THEN_ELSE)
 //			  || (!set && PATTERN(bb.get_insn()) && GET_CODE(PATTERN(bb.get_insn())) == PARALLEL && (GET_CODE (SET_SRC (XVECEXP (PATTERN(bb.get_insn()), 0, 0)))) != IF_THEN_ELSE)
@@ -2916,7 +2915,7 @@ opt_reg_rename (void)
 	      /* follow jump and/or next insn. */
 	      if (JUMP_P(insn))
 		{
-		  for (j2l_iterator i = jump2label.find (pos), k = i; i != jump2label.end () && i->first == k->first;
+		  for (j2l_iterator i = jump2label->find (pos), k = i; i != jump2label->end () && i->first == k->first;
 		      ++i)
 		    {
 		      unsigned label_index = i->second;
@@ -2927,7 +2926,7 @@ opt_reg_rename (void)
 		      // search next non-label insn
 		      insn_info * bb;
 		      do
-		        bb = &infos[label_index + ++labi];
+		        bb = &(*infos)[label_index + ++labi];
 		      while (bb->is_label());
 
 		      if (found.find (label_index) == found.end () && bb->is_use (rename_regno))
@@ -2969,7 +2968,7 @@ opt_reg_rename (void)
 //	  bool ok = true;
 	  for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
 	    {
-	      insn_info & rr = infos[*i];
+	      insn_info & rr = (*infos)[*i];
 
 //	      // prevent lea from or to data register.
 //	      if (rr.get_src_op() == PLUS && rr.get_src_regno() != rr.get_dst_regno()) {
@@ -3019,18 +3018,18 @@ opt_reg_rename (void)
 	      // update the analyzed info.
 	      for (std::vector<unsigned>::iterator i = positions.begin (); i != positions.end (); ++i)
 		{
-		  rtx set = single_set(infos[*i].get_insn());
+		  rtx set = single_set((*infos)[*i].get_insn());
 		  if (set)
-		    infos[*i].fledder(set);
+		    (*infos)[*i].fledder(set);
 		}
 
 
 	      // update the insn_infos
 	      found.erase(index);
-	      infos[index].rename_def(oldbit, newbit);
+	      (*infos)[index].rename_def(oldbit, newbit);
 
 	      for (std::set<unsigned>::iterator i = found.begin (); i != found.end (); ++i)
-		infos[*i].rename(oldbit, newbit);
+		(*infos)[*i].rename(oldbit, newbit);
 
 //	      rus("quick update");
 	      break;
@@ -3117,9 +3116,9 @@ opt_propagate_moves ()
   std::vector<rtx_insn *> jump_out;
 
   /* start at 1 since there must be an insn before the label. */
-  for (unsigned index = 1; index < infos.size (); ++index)
+  for (unsigned index = 1; index < infos->size (); ++index)
     {
-      rtx_insn * insn = infos[index].get_insn ();
+      rtx_insn * insn = (*infos)[index].get_insn ();
 
       if (LABEL_P(insn))
 	{
@@ -3176,11 +3175,11 @@ opt_propagate_moves ()
 		  bool inc = true;
 		  for (std::vector<unsigned>::iterator j = i + 1; j != reg_reg.end ();)
 		    {
-		      rtx_insn * ii = infos[*i].get_insn ();
+		      rtx_insn * ii = (*infos)[*i].get_insn ();
 		      rtx seti = single_set (ii);
 		      rtx srci = SET_SRC(seti);
 		      rtx dsti = SET_DEST(seti);
-		      rtx_insn * jj = infos[*j].get_insn ();
+		      rtx_insn * jj = (*infos)[*j].get_insn ();
 		      rtx setj = single_set (jj);
 		      rtx srcj = SET_SRC(setj);
 		      rtx dstj = SET_DEST(setj);
@@ -3212,7 +3211,7 @@ opt_propagate_moves ()
 
 			      for (unsigned k = *i + 1; k != *j; ++k)
 				{
-				  rtx_insn * check = infos[k].get_insn ();
+				  rtx_insn * check = (*infos)[k].get_insn ();
 				  if (JUMP_P(check))
 				    {
 				      fixups.push_back (fixup);
@@ -3277,8 +3276,8 @@ opt_propagate_moves ()
 			  /* got a fixup for all jump_outs? */
 			  if (fixups.size () == jump_out.size ())
 			    {
-			      rtx_insn * before = infos[current_label_index - 1].get_insn ();
-			      rtx_insn * after = infos[index + 1].get_insn ();
+			      rtx_insn * before = (*infos)[current_label_index - 1].get_insn ();
+			      rtx_insn * after = (*infos)[index + 1].get_insn ();
 //			      rtx bset = single_set (before);
 
 			      log ("(p) propagate_moves condition met, moving regs %s, %s\n",
@@ -3381,9 +3380,9 @@ opt_strcpy ()
   rtx_insn * reg2x = 0;
   unsigned int regno = FIRST_PSEUDO_REGISTER;
 
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       rtx_insn * insn = ii.get_insn ();
 
       if (!NONJUMP_INSN_P(insn))
@@ -3491,14 +3490,14 @@ opt_commute_add_move (void)
 {
   unsigned change_count = 0;
 
-  for (unsigned index = 0; index + 1 < infos.size (); ++index)
+  for (unsigned index = 0; index + 1 < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       if (ii.get_dst_regno () < 8 || ii.get_dst_regno () > 15 || ii.get_src_op () != PLUS
 	  || ii.get_src_regno () == ii.get_dst_regno () || !ii.get_src_intval ())
 	continue;
 
-      insn_info & jj = infos[index + 1];
+      insn_info & jj = (*infos)[index + 1];
 
       if (!jj.get_dst_mem_reg () || jj.get_dst_mem_regno () != ii.get_src_regno () || jj.get_dst_mem_addr() || jj.get_dst_autoinc()
 	  || jj.get_src_regno () == ii.get_dst_regno () || GET_MODE_SIZE(jj.get_mode()) != ii.get_src_intval () || jj.get_dst_mem_mem() != 0)
@@ -3563,13 +3562,13 @@ opt_const_cmp_to_sub (void)
 {
   unsigned change_count = 0;
 #if HAVE_cc0
-  if (infos.size () < 2)
+  if (infos->size () < 2)
     return change_count;
 
   unsigned lastsub = 0;
-  for (unsigned index = infos.size () - 2; index > 0; --index)
+  for (unsigned index = infos->size () - 2; index > 0; --index)
     {
-      insn_info & i1 = infos[index];
+      insn_info & i1 = (*infos)[index];
 
       /* we wan't a compare or tst insn, */
       if (!i1.is_compare ())
@@ -3586,24 +3585,24 @@ opt_const_cmp_to_sub (void)
       int lastsubval = 0;
       if (lastsub == index + 3)
 	{
-	  insn_info & pp = infos[lastsub];
+	  insn_info & pp = (*infos)[lastsub];
 	  if (pp.get_dst_regno () != i1.get_dst_regno ())
 	    continue;
 	  lastsubval = pp.get_src_intval ();
 
 	  // but still check for usage after this jump
-	  j2l_iterator l = jump2label.find (index + 2);
-	  if (l == jump2label.end ())
+	  j2l_iterator l = jump2label->find (index + 2);
+	  if (l == jump2label->end ())
 	    continue;
 
-	  insn_info & label = infos[l->second + 1];
+	  insn_info & label = (*infos)[l->second + 1];
 	  if (label.is_use (i1.get_dst_regno ()))
 	    continue;
 	}
       else if (!is_reg_dead (i1.get_dst_regno (), index))
 	continue;
 
-      insn_info & i0 = infos[index - 1];
+      insn_info & i0 = (*infos)[index - 1];
       int intval = 0;
       /* compare with register - check previous insn for load with constant. */
       if (i1.is_src_reg ())
@@ -3630,7 +3629,7 @@ opt_const_cmp_to_sub (void)
 	}
 
       /* next insn must be the jump. */
-      insn_info & i2 = infos[index + 1];
+      insn_info & i2 = (*infos)[index + 1];
       if (!i2.is_jump ())
 	continue;
 
@@ -3680,7 +3679,7 @@ opt_const_cmp_to_sub (void)
 	  if (index + 3 == lastsub)
 	    {
 	      /* patch previous sub - or even a compare. */
-	      insn_info & pp = infos[lastsub];
+	      insn_info & pp = (*infos)[lastsub];
 
 	      int diff = lastsubval - intval;
 	      rtx c = gen_rtx_CONST_INT (i1.get_mode (), diff);
@@ -3723,11 +3722,11 @@ static unsigned
 opt_merge_add (void)
 {
   unsigned change_count = 0;
-  for (unsigned index = 0; index + 2 < infos.size (); ++index)
+  for (unsigned index = 0; index + 2 < infos->size (); ++index)
     {
-      insn_info & ii0 = infos[index];
-      insn_info & ii1 = infos[index + 1];
-      insn_info & ii2 = infos[index + 2];
+      insn_info & ii0 = (*infos)[index];
+      insn_info & ii1 = (*infos)[index + 1];
+      insn_info & ii2 = (*infos)[index + 2];
 
       if (!ii2.is_dst_reg () || ii2.is_src_mem() || ii2.get_src_op () != PLUS)
 	{
@@ -3788,9 +3787,9 @@ static unsigned
 track_sp (int & a5_touched)
 {
 // reset visited flags - also check if sp is used as REG src.
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       ii.clear_visited ();
       ii.set_sp_offset (0);
 
@@ -3812,11 +3811,11 @@ track_sp (int & a5_touched)
       unsigned startpos = *todo.begin ();
       todo.erase (todo.begin ());
 
-      int sp_offset = infos[startpos].get_sp_offset ();
+      int sp_offset = (*infos)[startpos].get_sp_offset ();
 
-      for (unsigned index = startpos; index < infos.size (); ++index)
+      for (unsigned index = startpos; index < infos->size (); ++index)
 	{
-	  insn_info & ii = infos[index];
+	  insn_info & ii = (*infos)[index];
 	  if (ii.in_proepi () != IN_CODE)
 	    {
 	      ii.set_sp_offset (sp_offset);
@@ -3832,10 +3831,10 @@ track_sp (int & a5_touched)
 	      // check all jumps to this label
 	      if (ii.is_label())
 		{
-		  for (l2j_iterator j = label2jump.find (ii.get_insn ()->u2.insn_uid), k = j;
-		      j != label2jump.end () && j->first == k->first; ++j)
+		  for (l2j_iterator j = label2jump->find (ii.get_insn ()->u2.insn_uid), k = j;
+		      j != label2jump->end () && j->first == k->first; ++j)
 		    {
-		      insn_info & ll = *insn2info.find(j->second)->second;
+		      insn_info & ll = *insn2info->find(j->second)->second;
 		      if (ll.is_visited () && ll.get_sp_offset () != sp_offset)
 			return E_SP_MISMATCH;
 		    }
@@ -3844,9 +3843,9 @@ track_sp (int & a5_touched)
 		// check the label(s) for this jump
 		if (ii.is_jump ())
 		  {
-		    for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+		    for (j2l_iterator i = jump2label->find (index), k = i; i != jump2label->end () && i->first == k->first; ++i)
 		      {
-			insn_info & ll = infos[i->second];
+			insn_info & ll = (*infos)[i->second];
 			if (ll.is_visited () && ll.get_sp_offset () != sp_offset)
 			  return E_SP_MISMATCH;
 		      }
@@ -3862,10 +3861,10 @@ track_sp (int & a5_touched)
 	  // add all referencing jumps
 	  if (ii.is_label())
 	    {
-		  for (l2j_iterator j = label2jump.find (ii.get_insn ()->u2.insn_uid), k = j;
-		      j != label2jump.end () && j->first == k->first; ++j)
+		  for (l2j_iterator j = label2jump->find (ii.get_insn ()->u2.insn_uid), k = j;
+		      j != label2jump->end () && j->first == k->first; ++j)
 		{
-		  insn_info & ll = *insn2info.find(j->second)->second;
+		  insn_info & ll = *insn2info->find(j->second)->second;
 		  if (!ll.is_visited())
 		    {
 		      ll.set_sp_offset(sp_offset);
@@ -3881,9 +3880,9 @@ track_sp (int & a5_touched)
 	  // add all referred labels
 	  if (ii.is_jump ())
 	    {
-	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+	      for (j2l_iterator i = jump2label->find (index), k = i; i != jump2label->end () && i->first == k->first; ++i)
 		{
-		  insn_info & ll = infos[i->second];
+		  insn_info & ll = (*infos)[i->second];
 		  if (!ll.is_visited())
 		    {
 		      ll.set_sp_offset(sp_offset);
@@ -3972,7 +3971,7 @@ static unsigned
 opt_shrink_stack_frame (void)
 {
   /* nothing to do. */
-  if (!infos.size ())
+  if (!infos->size ())
     return 0;
 
   /* needed to track sp correctly. */
@@ -3984,7 +3983,7 @@ opt_shrink_stack_frame (void)
   std::vector<int> a5pos;
 
   unsigned pos = 0;
-  rtx_insn * insn = infos[pos].get_insn ();
+  rtx_insn * insn = (*infos)[pos].get_insn ();
   if (JUMP_P(insn)) /* return -> empty function*/
     return 0;
 
@@ -3997,9 +3996,9 @@ opt_shrink_stack_frame (void)
    * Only register push and parallel insn unless its a link a5 are moved.
    */
   unsigned num_push = 0;
-  for (; pos < infos.size ();)
+  for (; pos < infos->size ();)
     {
-      insn_info & ii = infos[pos];
+      insn_info & ii = (*infos)[pos];
       insn = ii.get_insn ();
 
       if (ii.in_proepi () != IN_PROLOGUE)
@@ -4060,7 +4059,7 @@ opt_shrink_stack_frame (void)
 	    paramstart -= INTVAL(cx);
 	}
 
-      if (++pos >= infos.size ())
+      if (++pos >= infos->size ())
 	{
 	  return 0;
 	}
@@ -4072,19 +4071,19 @@ opt_shrink_stack_frame (void)
   unsigned prologueend = pos;
 
   /* search epilogues - there can be multiple epilogues. */
-  while (pos < infos.size ())
+  while (pos < infos->size ())
     {
-      while (pos < infos.size ())
+      while (pos < infos->size ())
 	{
-	  if (infos[pos].in_proepi () != IN_CODE)
+	  if ((*infos)[pos].in_proepi () != IN_CODE)
 	    break;
 	  ++pos;
 	}
 
       /* move epilogues away. */
-      for (; pos < infos.size (); ++pos)
+      for (; pos < infos->size (); ++pos)
 	{
-	  insn_info & ii = infos[pos];
+	  insn_info & ii = (*infos)[pos];
 	  insn = ii.get_insn ();
 	  if (JUMP_P(insn) || LABEL_P(insn) || ii.in_proepi () == IN_CODE)
 	    break;
@@ -4152,9 +4151,9 @@ opt_shrink_stack_frame (void)
   unsigned regs_seen = 0;
   unsigned regs_total_size = 0;
   /* now all push/pop insns are in temp. */
-  for (unsigned i = 0; i < infos.size (); ++i)
+  for (unsigned i = 0; i < infos->size (); ++i)
     {
-      insn_info & ii = infos[i];
+      insn_info & ii = (*infos)[i];
       if (!ii.is_stack ())
 	continue;
 
@@ -4373,7 +4372,7 @@ opt_shrink_stack_frame (void)
 		    {
 		      rtx x;
 		      // the previous offset needs a fix if it's also a a5 pop
-		      insn_info & pp = infos[i - 1];
+		      insn_info & pp = (*infos)[i - 1];
 		      if (pp.is_stack() && (set = single_set(pp.get_insn())) && MEM_P(x = SET_SRC(set))
 			  && GET_CODE(x = XEXP(x, 0)) == PLUS && REG_P(XEXP(x, 0)) && REGNO(XEXP(x, 0)) == FRAME_POINTER_REGNUM)
 			{
@@ -4389,9 +4388,9 @@ opt_shrink_stack_frame (void)
   /* fix sp offsets. */
   if (!usea5 && adjust)
     {
-      for (unsigned index = 0; index < infos.size (); ++index)
+      for (unsigned index = 0; index < infos->size (); ++index)
 	{
-	  insn_info & ii = infos[index];
+	  insn_info & ii = (*infos)[index];
 	  if (ii.in_proepi () != IN_CODE)
 	    continue;
 
@@ -4412,13 +4411,13 @@ opt_shrink_stack_frame (void)
 	  for (std::vector<int>::reverse_iterator i = a5pos.rbegin (); i != a5pos.rend (); ++i)
 	    {
 	      int index = *i;
-	      SET_INSN_DELETED(infos[index].get_insn ());
+	      SET_INSN_DELETED((*infos)[index].get_insn ());
 
 	      // move to last insn in epilogue
-	      while (index - 1 > 0 && infos[index - 1].in_proepi () >= IN_EPILOGUE)
+	      while (index - 1 > 0 && (*infos)[index - 1].in_proepi () >= IN_EPILOGUE)
 		--index;
 
-	      insn_info & ii = infos[index];
+	      insn_info & ii = (*infos)[index];
 	      if (ii.in_proepi () >= IN_EPILOGUE && ii.get_sp_offset () != 0)
 		{
 		  log ("(f) adjusting exit sp\n");
@@ -4429,9 +4428,9 @@ opt_shrink_stack_frame (void)
 	    }
 
 	  /* convert all parameter accesses via a5 into a7. */
-	  for (unsigned i = 0; i < infos.size (); ++i)
+	  for (unsigned i = 0; i < infos->size (); ++i)
 	    {
-	      insn_info & ii = infos[i];
+	      insn_info & ii = (*infos)[i];
 
 	      //skip already deleted insns.
 	      if (GET_CODE(ii.get_insn()) == NOTE)
@@ -4534,9 +4533,9 @@ static unsigned
 track_regs ()
 {
 // reset visited flags
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
       ii.clear_visited ();
       ii.set_sp_offset (0);
     }
@@ -4553,9 +4552,9 @@ track_regs ()
       track_var * const track = todo.begin ()->second;
       todo.erase (todo.begin ());
 
-      for (unsigned index = startpos; index < infos.size (); ++index)
+      for (unsigned index = startpos; index < infos->size (); ++index)
 	{
-	  insn_info & ii = infos[index];
+	  insn_info & ii = (*infos)[index];
 
 	  // already visited?
 	  if (index != startpos && ii.is_visited () && ii.get_track_var ()->no_merge_needed (track))
@@ -4620,7 +4619,7 @@ track_regs ()
 	      if (ANY_RETURN_P(ii.get_insn ()))
 		break;
 
-	      for (j2l_iterator i = jump2label.find (index), k = i; i != jump2label.end () && i->first == k->first; ++i)
+	      for (j2l_iterator i = jump2label->find (index), k = i; i != jump2label->end () && i->first == k->first; ++i)
 		todo.insert (std::make_pair (i->second, new track_var (track)));
 
 	      if (set && GET_CODE(SET_SRC(set)) == IF_THEN_ELSE)
@@ -4737,9 +4736,12 @@ track_regs ()
 static void
 delete_and_update (unsigned index)
 {
-  SET_INSN_DELETED(infos[index].get_insn());
-  scan_starts.insert(index + 1);
-  infos[index + 1].clear_visited();
+  SET_INSN_DELETED((*infos)[index].get_insn());
+  int start = index + 1;
+  while ((*infos)[start].is_label())
+    ++start;
+  scan_starts->insert(start);
+  (*infos)[index + 1].clear_visited();
   update_insn_infos ();
 }
 
@@ -4755,9 +4757,9 @@ opt_elim_dead_assign (int blocked_regno)
 //  unsigned mask = 0;
 
   unsigned change_count = 0;
-  for (int index = infos.size () - 1; index >= 0; --index)
+  for (int index = infos->size () - 1; index >= 0; --index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
 
       if (ii.is_compare ())
 	{
@@ -4851,7 +4853,7 @@ opt_elim_dead_assign (int blocked_regno)
 	  if(!ii.is_myuse (ii.get_dst_regno ()) || ii.get_dst_regno () == ii.get_src_regno ())
 	    {
 	      if (track->equals (ii.get_mode(), ii.get_dst_regno (), src)
-		|| (ii.get_dst_regno () == ii.get_src_regno () && infos[index +1].is_def(FIRST_PSEUDO_REGISTER)))
+		|| (ii.get_dst_regno () == ii.get_src_regno () && (*infos)[index +1].is_def(FIRST_PSEUDO_REGISTER)))
 		{
 		  log ("(e) %d: eliminate redundant load to %s\n", index, reg_names[ii.get_dst_regno ()]);
 		  delete_and_update (index);
@@ -4932,9 +4934,9 @@ opt_elim_dead_assign2 (int blocked_regno)
   unsigned change_count = 0;
 
   // same but top->down
-  for (unsigned index = 0; index < infos.size () - 1; ++index)
+  for (unsigned index = 0; index < infos->size () - 1; ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
 
       if (ii.is_compare ())
 	continue;
@@ -4962,7 +4964,7 @@ opt_elim_dead_assign2 (int blocked_regno)
 	      if (!ii.get_src_reg ())
 		{
 
-		  insn_info & jj = infos[index + 1];
+		  insn_info & jj = (*infos)[index + 1];
 		  // eliminate clr if the next insn makes it obsolete.
 		  if (GET_MODE_SIZE(ii.get_mode()) == 4 && CONST_INT_P (SET_SRC (set)) && jj.get_dst_regno() == ii.get_dst_regno())
 		    {
@@ -4971,7 +4973,7 @@ opt_elim_dead_assign2 (int blocked_regno)
 		      if (!jset )
 			continue;
 
-		      track_var * track = infos[index].get_track_var ();
+		      track_var * track = (*infos)[index].get_track_var ();
 		      if ((jj.get_mode() == QImode && val <= 0xff && (!jj.is_use_hi24(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xff))
 		      || (jj.get_mode() == HImode && val <= 0xffff && (!jj.is_use32(ii.get_dst_regno()) || track->getMask(ii.get_dst_regno()) <= 0xffff)))
 			{
@@ -5000,9 +5002,9 @@ opt_absolute (void)
 {
   unsigned change_count = 0;
 
-  for (unsigned i = 0; i < infos.size (); ++i)
+  for (unsigned i = 0; i < infos->size (); ++i)
     {
-      insn_info & ii = infos[i];
+      insn_info & ii = (*infos)[i];
 
       if (ii.is_compare ())
 	continue;
@@ -5030,9 +5032,9 @@ opt_absolute (void)
       int base = ii.get_dst_mem_addr ();
       int max = base;
       unsigned j = i + 1;
-      for (; j < infos.size (); ++j)
+      for (; j < infos->size (); ++j)
 	{
-	  insn_info & jj = infos[j];
+	  insn_info & jj = (*infos)[j];
 	  /* TODO: continue also at jump target */
 	  if (jj.is_jump ())
 	    continue;
@@ -5107,7 +5109,7 @@ opt_absolute (void)
 	  /* check again. */
 	  for (std::vector<unsigned>::iterator k = found.begin (); k != found.end ();)
 	    {
-	      insn_info & kk = infos[*k];
+	      insn_info & kk = (*infos)[*k];
 	      bool k_dst = kk.is_dst_mem () && (kk.has_dst_addr () || kk.get_dst_symbol ()) && !kk.has_dst_memreg ()
 		  && kk.get_dst_symbol () == with_symbol;
 	      bool k_src = kk.is_src_mem () && (kk.has_src_addr () || kk.get_src_symbol ()) && !kk.has_src_memreg ()
@@ -5134,7 +5136,7 @@ opt_absolute (void)
 
 	  for (std::vector<unsigned>::iterator k = found.begin (); k != found.end (); ++k)
 	    {
-	      insn_info & kk = infos[*k];
+	      insn_info & kk = (*infos)[*k];
 	      kk.absolute2base (regno, base, with_symbol);
 	      insn_invalid_p (kk.get_insn (), 0);
 	    }
@@ -5159,12 +5161,12 @@ opt_absolute (void)
 	  nn.scan ();
 	  nn.fledder (lea);
 	  nn.mark_def (regno);
-	  infos.insert (infos.begin () + i, nn);
+	  infos->insert (infos->begin () + i, nn);
 
 	  /* mark until last hit is found. */
-	  for (unsigned k = i + 1; k < infos.size (); ++k)
+	  for (unsigned k = i + 1; k < infos->size (); ++k)
 	    {
-	      infos[k].mark_use (regno);
+	      (*infos)[k].mark_use (regno);
 	      if (k == *found.rbegin ())
 		break;
 	    }
@@ -5215,10 +5217,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
       if (visited.find (pos) != visited.end ())
 	continue;
 
-      for (; (int)pos >= 0 && pos < infos.size (); pos = pos + addend)
+      for (; (int)pos >= 0 && pos < infos->size (); pos = pos + addend)
 	{
 	  visited.insert (pos);
-	  insn_info & jj = infos[pos];
+	  insn_info & jj = (*infos)[pos];
 
 	  // do not auto_inc over calls for d0/d1/a0/a1/a7
 	  if (jj.is_call() && ((1 << regno) & ( (1<<15)|(1<<9)|(1<<8)|(1<<1)|(1<<0) )) != 0)
@@ -5234,7 +5236,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 		{
 		  // check previous insn, if the reg is used or defined there
 		  // that label must been seen before
-		  insn_info & pp = infos[pos - 1];
+		  insn_info & pp = (*infos)[pos - 1];
     //	      fprintf(stderr, "regno=%d, pos=%d, used=%d, def=%d, visited=%d", regno, pos - 1, pp.is_use (regno), pp.is_def (regno), visited.find (pos - 1) != visited.end ());
     //	      debug(pp.get_insn());
 		  if ((pp.is_use (regno) || pp.is_def (regno)) && visited.find (pos - 1) == visited.end ())
@@ -5243,10 +5245,10 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 
 	      // jumps to here which use that register must be already visited.
 	      // jumps to here which do not use that register are ok.
-	      for (l2j_iterator j = label2jump.find (jj.get_insn ()->u2.insn_uid), k = j;
-		  j != label2jump.end () && j->first == k->first; ++j)
+	      for (l2j_iterator j = label2jump->find (jj.get_insn ()->u2.insn_uid), k = j;
+		  j != label2jump->end () && j->first == k->first; ++j)
 		{
-		  insn_info * ll = insn2info.find (j->second)->second;
+		  insn_info * ll = insn2info->find (j->second)->second;
 		  if (ll->is_use (regno)
 		      // jump from an already visited pos is ok
 		      && visited.find (ll->get_index()) == visited.end ())
@@ -5275,7 +5277,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
 	      if (addend < 0)
 		return 0; // no jumps backwards
 
-	      for (j2l_iterator j = jump2label.find (pos), k = j; j != jump2label.end () && j->first == k->first; ++j)
+	      for (j2l_iterator j = jump2label->find (pos), k = j; j != jump2label->end () && j->first == k->first; ++j)
 		todo.push_back (j->second);
 	      continue;
 	    }
@@ -5363,7 +5365,7 @@ try_auto_inc (unsigned index, insn_info & ii, rtx reg, int size, int addend)
   // fix all offsets / adds
   for (std::set<unsigned>::iterator k = fixups.begin (); k != fixups.end (); ++k)
     {
-      insn_info & kk = infos[*k];
+      insn_info & kk = (*infos)[*k];
 //      log ("(i) fixup at %d\n", *k);
 //      debug_rtx(kk.get_insn());
       kk.auto_inc_fixup (regno, size, addend);
@@ -5390,9 +5392,9 @@ opt_autoinc ()
 
   update_label2jump ();
 
-  for (unsigned index = 0; index < infos.size (); ++index)
+  for (unsigned index = 0; index < infos->size (); ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
 
       if (ii.in_proepi ())
 	continue;
@@ -5459,9 +5461,9 @@ static unsigned
 opt_final()
 {
   unsigned change_count = 0;
-  for (unsigned index = 0; index < infos.size(); ++index)
+  for (unsigned index = 0; index < infos->size(); ++index)
     {
-      insn_info &ii = infos[index];
+      insn_info &ii = (*infos)[index];
 
       // cmp #0,ax
       if (ii.is_compare() && ii.get_dst_reg() && ii.get_dst_regno() >= 8 && ii.get_dst_regno() <= 15 && !ii.is_src_mem() && ii.is_src_const() && ii.get_src_intval() == 0)
@@ -5502,11 +5504,11 @@ static unsigned
 opt_declear()
 {
   unsigned change_count = 0;
-  for (unsigned index = 0; index < infos.size(); ++index)
+  for (unsigned index = 0; index < infos->size(); ++index)
     {
-      insn_info &ii = infos[index];
+      insn_info &ii = (*infos)[index];
       // search moveq #0,dx
-      if (ii.is_dst_reg() && ii.get_dst_regno() < 8 && index + 1 < infos.size())
+      if (ii.is_dst_reg() && ii.get_dst_regno() < 8 && index + 1 < infos->size())
 	{
 	  rtx set = single_set(ii.get_insn());
 	  if (set)
@@ -5515,7 +5517,7 @@ opt_declear()
 	      if (GET_CODE(src) == CONST_INT && INTVAL(src) == 0)
 		{
 		  // used in next insn as src and dead?
-		  insn_info & jj = infos[index + 1];
+		  insn_info & jj = (*infos)[index + 1];
 		  rtx set1 = single_set(jj.get_insn());
 		  if (set1 && jj.get_src_op() == 0 && !jj.is_compare() && !jj.get_multi_reg() && jj.get_src_reg() && jj.get_src_regno() == ii.get_dst_regno()
 		      && is_reg_dead(ii.get_dst_regno(), index + 1))
@@ -5548,9 +5550,9 @@ static unsigned
 opt_lea_mem()
 {
   unsigned change_count = 0;
-  for (unsigned index = 1; index< infos.size(); ++index)
+  for (unsigned index = 1; index< infos->size(); ++index)
     {
-      insn_info &ii = infos[index - 1];
+      insn_info &ii = (*infos)[index - 1];
 
       if (!ii.get_dst_reg())
 	continue;
@@ -5559,7 +5561,7 @@ opt_lea_mem()
       if (!set0)
 	continue;
 
-      insn_info &jj = infos[index ];
+      insn_info &jj = (*infos)[index ];
       rtx set = single_set(jj.get_insn());
       if (!set)
 	continue;
@@ -5596,9 +5598,9 @@ opt_clear()
 {
   unsigned change_count = 0;
   if (TUNE_68000)
-  for (unsigned index = 0; index< infos.size(); ++index)
+  for (unsigned index = 0; index< infos->size(); ++index)
     {
-      insn_info &ii = infos[index];
+      insn_info &ii = (*infos)[index];
 
       if (GET_MODE_SIZE(ii.get_mode()) > 4)
 	continue;
@@ -5644,22 +5646,22 @@ static void
 opt_pipeline_insns()
 {
   // up
-  for (unsigned index = 1; index < infos.size() - 1; ++index)
+  for (unsigned index = 1; index < infos->size() - 1; ++index)
     {
-      insn_info & ii = infos[index];
+      insn_info & ii = (*infos)[index];
 
       // only check if not in prolog and a register is set
       rtx iiset = single_set(ii.get_insn());
       if (ii.in_proepi() || ii.is_compare() || !ii.get_dst_reg() || ii.get_hard() || !iiset || ii.is_myuse (FIRST_PSEUDO_REGISTER))
 	continue;
 
-      insn_info & jj = infos[index + 1];
+      insn_info & jj = (*infos)[index + 1];
       // don't touch compares and check for register overlap and CC use
       if (jj.is_compare() || !(jj.get_myuse() & ii.get_def()))
 	continue;
 
       // check previous insn
-      insn_info & hh = infos[index - 1];
+      insn_info & hh = (*infos)[index - 1];
       rtx hhset = single_set(hh.get_insn());
       if (hh.is_call() || hh.is_label() || hh.is_jump() || hh.in_proepi() || hh.is_compare() || hh.get_hard() || !hhset || !hh.get_dst_reg() || hh.is_myuse (FIRST_PSEUDO_REGISTER))
 	continue;
@@ -5692,7 +5694,7 @@ opt_pipeline_insns()
 	  add_insn_after(i, head, BLOCK_FOR_INSN(head));
 	  add_insn_before(h, tail, BLOCK_FOR_INSN(tail));
 
-	  std::swap(infos[index], infos[index - 1]);
+	  std::swap((*infos)[index], (*infos)[index - 1]);
 	  log("(n) reordered insn %d<->%d\n", index - 1, index);
 	}
     }
@@ -5708,9 +5710,9 @@ opt_insert_move0()
 
   unsigned label = 0;
   unsigned change_count = 0;
-  for (unsigned index = 0, pos = 0; index< infos.size(); ++index, ++pos)
+  for (unsigned index = 0, pos = 0; index< infos->size(); ++index, ++pos)
     {
-      insn_info &ii = infos[index];
+      insn_info &ii = (*infos)[index];
 
       if (ii.is_label())
 	{
@@ -5741,16 +5743,16 @@ opt_insert_move0()
       bool ok = true;
       insn_info * found = 0;
       int val = GET_MODE_SIZE(ii.get_mode()) == 1 ? 0xff : 0xffff;
-      unsigned to = MIN(pos + 10, infos.size());
+      unsigned to = MIN(pos + 10, infos->size());
       for (unsigned pos = index + 1; ok && pos < to; ++pos)
 	{
-	  insn_info & pp = infos[pos];
+	  insn_info & pp = (*infos)[pos];
 	  if (pp.is_label() || ANY_RETURN_P(PATTERN (pp.get_insn())))
 	    break;
 
 	  if (pp.is_jump())
 	    {
-	      for (j2l_iterator i = jump2label.find (pos), k = i; i != jump2label.end () && i->first == k->first; ++i)
+	      for (j2l_iterator i = jump2label->find (pos), k = i; i != jump2label->end () && i->first == k->first; ++i)
 		if (label == i->second)
 		  {
 		    ok = false;
@@ -5802,9 +5804,9 @@ opt_insert_move0()
 void print_inline_info()
 {
   unsigned count = 0;
-  for (unsigned index = 0; index < infos.size(); ++index)
+  for (unsigned index = 0; index < infos->size(); ++index)
     {
-      if (!infos[index].in_proepi())
+      if (!(*infos)[index].in_proepi())
 	++count;
     }
 
@@ -5855,6 +5857,14 @@ namespace
     virtual unsigned int
     execute (function *)
     {
+      if (infos == NULL)
+	{
+	  infos = new std::vector<insn_info>();
+	  label2jump = new std::multimap<int, rtx_insn *>();
+	  jump2label = new std::multimap<unsigned, unsigned>();
+	  insn2info = new std::map<rtx_insn *, insn_info *>();
+	  scan_starts = new std::set<unsigned>();
+	}
       return execute_bbb_optimizations ();
     }
 

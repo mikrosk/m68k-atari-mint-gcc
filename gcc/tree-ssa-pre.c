@@ -4027,6 +4027,10 @@ eliminate_dom_walker::before_dom_children (basic_block b)
     {
       tree sprime = NULL_TREE;
       gimple *stmt = gsi_stmt (gsi);
+
+      if (stmt->code == GIMPLE_DEBUG)
+	continue;
+
       tree lhs = gimple_get_lhs (stmt);
 
       tree rhs = gimple_assign_rhs1 (stmt);

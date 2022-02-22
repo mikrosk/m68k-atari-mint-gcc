@@ -345,7 +345,7 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
 	if (!m68k_68000_10_costs (b, mode, code, 1, &total2, speed))
 	  break;
 
-	*total += total2 + GET_MODE_SIZE(mode) > 2 ? 6 : 4;
+	*total += total2 + (GET_MODE_SIZE(mode) > 2 ? 6 : 4);
 	return true;
       }
     case COMPARE:
@@ -389,7 +389,7 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
 	if (m68k_68000_10_costs (a, mode, code, 0, total, speed)
 	    && m68k_68000_10_costs (b, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2 + GET_MODE_SIZE(mode) > 2 ? 4 : (code == XOR ? 8 : 6);
+	    *total += total2 + (GET_MODE_SIZE(mode) > 2 ? 4 : (code == XOR ? 8 : 6));
 	    return true;
 	  }
 	break;

@@ -3064,4 +3064,13 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 )
 
 
-
+/* use mul 2 instead of 3 muls. 
+  n * n * n * n = (n * n) * (n * n)
+                => t = (n * n)
+                = t * t
+*/
+(simplify
+  (mult:c (mult:c (mult:c @0 @0) @0) @0)
+    (with
+      { tree tem = fold_build2 (MULT_EXPR, type, @0, @0); }
+      (mult { tem; } { tem; })))

@@ -3074,3 +3074,10 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
     (with
       { tree tem = fold_build2 (MULT_EXPR, type, @0, @0); }
       (mult { tem; } { tem; })))
+
+(simplify
+  (mult:c (mult:c (mult:c (mult:c @0 @1) @1) @1) @1)
+    (with
+      { tree tem = fold_build2 (MULT_EXPR, type, @1, @1); }
+      (mult @0 (mult { tem; } { tem; }))))
+      

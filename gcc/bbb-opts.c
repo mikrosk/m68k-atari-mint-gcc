@@ -5667,7 +5667,8 @@ opt_pipeline_insns()
 	continue;
 
       // overlap with current insn
-      if (((ii.get_myuse() | ii.get_def()) & hh.get_def() & ~(1<<(FIRST_PSEUDO_REGISTER+1))) != 0 || (hh.get_myuse() & ii.get_def()) != 0 || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
+      if (((ii.get_myuse() | ii.get_def()) & (hh.get_myuse() | hh.get_def()) & ~(1<<(FIRST_PSEUDO_REGISTER+1))) != 0
+       || rtx_equal_p(SET_SRC(iiset), SET_DEST(hhset)))
 	continue;
 
       rtx pat = PATTERN(hh.get_insn());

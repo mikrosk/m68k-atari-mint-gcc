@@ -273,6 +273,10 @@ namespace
      *                       (const:SI (plus:SI (reg:SI 0 d0 [1060])
      *                                          (const_int 8 [0x8]))))
      *
+     * 5. (plus:SI (plus:SI (reg:SI 59 [ _59 ])
+     *                      (reg:SI 191 [ ivtmp.364 ]))
+     *             (reg:SI 300))
+     *
      * again 3 registers.
      * Also move the const/plus/reg into a separate register.
      *
@@ -282,67 +286,67 @@ namespace
     if (GET_CODE(x) == ZERO_EXTEND || GET_CODE(x) == SIGN_EXTEND || GET_CODE(x) == STRICT_LOW_PART)
       x = XEXP(x, 0);
 
+    rtx plus;
     if (MEM_P(x))
+      plus = XEXP(x, 0);
+    else
+      plus = x;
+    if (GET_CODE(plus) == CONST)
+      plus = XEXP(plus, 0);
+
+    // it's really a PLUS
+    if (GET_CODE(plus) == PLUS)
       {
-	rtx plus = XEXP(x, 0);
-	if (GET_CODE(plus) == CONST)
-	  plus = XEXP(plus, 0);
+	rtx op0 = XEXP(plus, 0);
+	if (GET_CODE(op0) == CONST)
+	  op0 = XEXP(op0, 0);
+	rtx op1 = XEXP(plus, 1);
+	if (GET_CODE(op1) == CONST)
+	  op1 = XEXP(op1, 0);
 
-	// it's really a PLUS
-	if (GET_CODE(plus) == PLUS)
+	// set to MEM - not null
+	rtx op00 = x;
+	rtx op01 = x;
+	rtx op10 = x;
+	rtx op11 = x;
+	if (GET_CODE(op0) == PLUS)
 	  {
-	    rtx op0 = XEXP(plus, 0);
-	    if (GET_CODE(op0) == CONST)
-	      op0 = XEXP(op0, 0);
-	    rtx op1 = XEXP(plus, 1);
-	    if (GET_CODE(op1) == CONST)
-	      op1 = XEXP(op1, 0);
-
-	    // set to MEM - not null
-	    rtx op00 = x;
-	    rtx op01 = x;
-	    rtx op10 = x;
-	    rtx op11 = x;
-	    if (GET_CODE(op0) == PLUS)
-	      {
-		op00 = XEXP(op0, 0);
-		op01 = XEXP(op0, 1);
-	      }
-	    if (GET_CODE(op1) == PLUS)
-	      {
-		op10 = XEXP(op1, 0);
-		op11 = XEXP(op1, 1);
-	      }
-	    if (GET_CODE(op00) == MULT)
-	      op00 = XEXP(op00, 0);
-
-	    int regCount0 = REG_P(op00) + REG_P(op01) + REG_P(op0);
-	    int regCount1 = REG_P(op10) + REG_P(op11) + REG_P(op1);
-
-	    // patch needed if too many registers
-	    if (regCount0 + regCount1 <= 2)
-	      return;
-
-	    // use a temp register for op0
-	    if (regCount0 == 2)
-	      {
-		rtx t0 = gen_reg_rtx (Pmode);
-		rtx set = gen_rtx_SET(t0, XEXP(plus, 0));
-		emit_insn_before(set, insn);
-
-		validate_change(insn, &XEXP(plus, 0), t0, 0);
-	      }
-	    // use a temp register for op1
-	    if (regCount1 == 2)
-	      {
-		rtx t1 = gen_reg_rtx (Pmode);
-		rtx set = gen_rtx_SET(t1, XEXP(plus, 1));
-		emit_insn_before(set, insn);
-
-		validate_change(insn, &XEXP(plus, 1), t1, 0);
-	      }
+	    op00 = XEXP(op0, 0);
+	    op01 = XEXP(op0, 1);
 	  }
+	if (GET_CODE(op1) == PLUS)
+	  {
+	    op10 = XEXP(op1, 0);
+	    op11 = XEXP(op1, 1);
+	  }
+	if (GET_CODE(op00) == MULT)
+	  op00 = XEXP(op00, 0);
 
+	int regCount0 = REG_P(op00) + REG_P(op01) + REG_P(op0);
+	int regCount1 = REG_P(op10) + REG_P(op11) + REG_P(op1);
+
+	// patch needed if too many registers
+	if (regCount0 + regCount1 <= 2)
+	  return;
+
+	// use a temp register for op0
+	if (regCount0 == 2)
+	  {
+	    rtx t0 = gen_reg_rtx (Pmode);
+	    rtx set = gen_rtx_SET(t0, XEXP(plus, 0));
+	    emit_insn_before(set, insn);
+
+	    validate_change(insn, &XEXP(plus, 0), t0, 0);
+	  }
+	// use a temp register for op1
+	if (regCount1 == 2)
+	  {
+	    rtx t1 = gen_reg_rtx (Pmode);
+	    rtx set = gen_rtx_SET(t1, XEXP(plus, 1));
+	    emit_insn_before(set, insn);
+
+	    validate_change(insn, &XEXP(plus, 1), t1, 0);
+	  }
       }
   }
 

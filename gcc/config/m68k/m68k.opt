@@ -197,3 +197,7 @@ Support more than 8192 GOT entries on ColdFire.
 mxtls
 Target Report Mask(XTLS)
 Support TLS segment larger than 64K.
+
+fno-truncz-same-mode
+Target RejectNegative Var(flag_no_truncz_same_mode,1)
+emit round to zero insns (e.g. fintrz.x fp0,fp0)

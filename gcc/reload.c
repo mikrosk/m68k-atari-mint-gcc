@@ -5087,7 +5087,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	    push_reload (XEXP(ad, 0), NULL_RTX, &XEXP(ad, 0), (rtx*) 0,
 			   ADDR_REGS,
 			   GET_MODE (ad), VOIDmode, 0, 0, opnum, utype);
-	  if (!address.index || !IN_RANGE (INTVAL (address.offset), -0x8000, 0x8000 - GET_MODE_SIZE(GET_MODE(ad))))
+	  if (!address.index || GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x8000, 0x8000 - GET_MODE_SIZE(GET_MODE(ad))))
 	    push_reload (ad, NULL_RTX, loc, (rtx*) 0,
 			   ADDR_REGS,
 			   GET_MODE (ad), VOIDmode, 0, 0, opnum, utype);

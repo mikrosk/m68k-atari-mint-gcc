@@ -2294,7 +2294,12 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
       rtx da = address->offset;
 
       if (da)
-	x = gen_rtx_PLUS(SImode, da, x);
+	{
+	  if (CONST_INT_P (x) && CONST_INT_P (da))
+	    x = GEN_INT (INTVAL(x) + INTVAL (da));
+	  else
+	    x = gen_rtx_PLUS(SImode, da, x);
+	}
 
       address->offset = x;
       return true;
@@ -7478,7 +7483,7 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     bool speed_p ATTRIBUTE_UNUSED)
 {
   /* no need for small items. */
-  if (align == 16) align == 32;
+  if (align == 16) align = 32;
   return size * 8 / align < 2;
 }
 

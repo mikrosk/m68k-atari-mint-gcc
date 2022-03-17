@@ -7503,7 +7503,7 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
       if (align == 1 && TUNE_68000_10)
         {
 	  src = gen_reg_rtx(QImode);
-	  emit_move_insn (src, GEN_INT((char )value));
+	  emit_move_insn (src, GEN_INT((signed char )value));
         }
       else
 	{
@@ -7573,13 +7573,13 @@ m68k_emit_setmemsi(rtx blkdest, rtx val, rtx length, rtx alignment)
     {
       dst = gen_rtx_MEM (HImode, gen_rtx_POST_INC(SImode, regdst));
       rtx_insn *insn = emit_move_insn (dst,
-				       GEN_INT(value + (char )value * 0x100));
+				       GEN_INT(value + (signed char )value * 0x100));
       add_reg_note (insn, REG_INC, regdst);
     }
   if (rest & 1)
     {
       dst = gen_rtx_MEM (QImode, gen_rtx_POST_INC(SImode, regdst));
-      rtx_insn *insn = emit_move_insn (dst, GEN_INT((char )value));
+      rtx_insn *insn = emit_move_insn (dst, GEN_INT((signed char )value));
       add_reg_note (insn, REG_INC, regdst);
     }
 

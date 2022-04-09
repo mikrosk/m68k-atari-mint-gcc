@@ -1089,6 +1089,9 @@ main (int argc, char **argv)
 
   /* Extract COMPILER_PATH and PATH into our prefix list.  */
   prefix_from_env ("COMPILER_PATH", &cpath);
+#ifdef __amiga__
+  setenv("PATH", "GCC:bin", 0);
+#endif
   prefix_from_env ("PATH", &path);
 
   /* Try to discover a valid linker/nm/strip to use.  */

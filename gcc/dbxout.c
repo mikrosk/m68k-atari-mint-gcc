@@ -3859,7 +3859,11 @@ void
 default_stabs_asm_out_destructor (rtx symbol ATTRIBUTE_UNUSED,
 				  int priority ATTRIBUTE_UNUSED)
 {
-#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
+#ifdef TARGET_AMIGAOS
+  fprintf (asm_out_file,
+	   "\t.section\t.list___DTOR_LIST__\n"
+	   "\t.long\t_%s\n", XSTR (symbol, 0));
+#elif defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */
@@ -3876,7 +3880,11 @@ void
 default_stabs_asm_out_constructor (rtx symbol ATTRIBUTE_UNUSED,
 				   int priority ATTRIBUTE_UNUSED)
 {
-#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
+#ifdef TARGET_AMIGAOS
+  fprintf (asm_out_file,
+	   "\t.section\t.list___CTOR_LIST__\n"
+	   "\t.long\t_%s\n", XSTR (symbol, 0));
+#elif defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */

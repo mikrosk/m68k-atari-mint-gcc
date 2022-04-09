@@ -237,7 +237,9 @@ FILE *report_times_to_file = NULL;
 
 /* Nonzero means place this string before uses of /, so that include
    and library files can be found in an alternate location.  */
-
+#ifdef __amiga__
+#define TARGET_SYSTEM_ROOT "GCC:"
+#endif
 #ifdef TARGET_SYSTEM_ROOT
 #define DEFAULT_TARGET_SYSTEM_ROOT (TARGET_SYSTEM_ROOT)
 #else
@@ -4964,6 +4966,23 @@ do_self_spec (const char *spec)
     }
 }
 
+static void normalize(char * path)
+{
+  // normalize
+  char *q, *p = path;
+//  printf("path: <%s>\t", path);
+  while ((q = strstr (p, "/../")))
+	{
+	  char *r = q - 1;
+	  while (r >= p && *r != '/' && *r != ':')
+	    --r;
+	  if (r < p)
+	    break;
+	  memmove (r + 1, q + 4, strlen (q + 4) + 1);
+	}
+//  printf("-> <%s>\n", path);
+}
+
 /* Callback for processing %D and %I specs.  */
 
 struct spec_path_info {
@@ -4989,6 +5008,8 @@ spec_path (char *path, void *data)
       len = strlen (path);
       memcpy (path + len, info->append, info->append_len + 1);
     }
+
+  normalize(path);
 
   if (!is_directory (path, true))
     return NULL;
@@ -10128,16 +10149,7 @@ const char * amiga_m68k_prefix_func(int argc, const char ** argv) {
       p = q;
   }
 
-  char * q;
-  while ((q = strstr(p, "/../")))
-    {
-      char * r = q - 1;
-      while (r >= p && *r != '/')
-	--r;
-      if (r < p)
-	break;
-      memmove(r, q + 3, strlen(q + 3) + 1);
-    }
+  normalize(p);
 
 //  printf("amiga_m68k_prefix_func='%s'\n", p);
   return p;

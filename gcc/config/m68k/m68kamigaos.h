@@ -422,6 +422,8 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
     "%{!resident:%{fbaserel:nbcrt0.o%s}" \
     "%{!fbaserel:ncrt0.o%s}}}}}"
 
+#define ENDFILE_LIBNIX_SPEC \
+  "%{!ramiga-*:xcrt0.o%s}"
 
 #define STARTFILE_CLIB2_SPEC \
   "%{resident32:nr32crt0.o%s}" \
@@ -454,9 +456,17 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{!mcrt=*:%{!noixemul:%(startfile_newlib)}} "
 #endif
 
-
+#if 0
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC ""
+#else
+#ifdef TARGET_AMIGAOS_VASM
+#else
+#define ENDFILE_SPEC \
+  "%{noixemul:%(endfile_libnix)} " \
+  "%{mcrt=nix*:%(endfile_libnix)} "
+#endif
+#endif
 
 /* Automatically search libamiga.a for AmigaOS specific functions.  Note
    that we first search the standard C library to resolve as much as
@@ -634,6 +644,7 @@ extern const char * amiga_m68k_prefix_func(int, const char **);
   {"link_clib2", LINK_CLIB2_SPEC}, \
   {"startfile_ixemul", STARTFILE_IXEMUL_SPEC}, \
   {"startfile_libnix", STARTFILE_LIBNIX_SPEC}, \
+  {"endfile_libnix", ENDFILE_LIBNIX_SPEC}, \
   {"startfile_clib2", STARTFILE_CLIB2_SPEC}, \
   {"startfile_newlib", STARTFILE_NEWLIB_SPEC}, \
 
@@ -684,11 +695,13 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
 #ifdef __amiga__
+#define CROSS_DIRECTORY_STRUCTURE
+
 #undef CROSS_INCLUDE_DIR
-#define CROSS_INCLUDE_DIR "m68k-amigaos/sys-include"
+#define CROSS_INCLUDE_DIR "GCC:m68k-amigaos/sys-include"
 
 #undef FIXED_INCLUDE_DIR
-#define FIXED_INCLUDE_DIR "m68k-amigaos/ndk-include"
+#define FIXED_INCLUDE_DIR "GCC:m68k-amigaos/ndk-include"
 
 #else
 

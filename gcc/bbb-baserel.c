@@ -97,13 +97,11 @@ namespace
     enum rtx_code code = GET_CODE(*x);
     if (code == SYMBOL_REF)
       {
-
 	tree decl = SYMBOL_REF_DECL (*x);
 	if (!decl)
 	  return 0;
-
-	// only handle VAR/CONST
-	if (decl->base.code != VAR_DECL && decl->base.code != CONST_DECL)
+	// only handle VAR non CONST
+	if (decl->base.code != VAR_DECL || decl->base.code == CONST_DECL)
 	  return 0;
 
 	// a section means: a4 unless the section is ".datachip" ".datafast" ".datafar"
@@ -115,8 +113,11 @@ namespace
 	  return 0;
 
 	// normal constants end up in text.
-	if (secname == 0 && decl->base.readonly_flag)
-	  return false;
+	if (secname == 0 &&
+	    (TREE_READONLY (decl) ||
+		(decl->decl_minimal.common.typed.type->base.code == ARRAY_TYPE &&
+		 decl->decl_minimal.common.typed.type->typed.type->base.readonly_flag )))
+	  return 0;
 
 	section * sec = get_variable_section(decl, false);
 	if ( (sec->common.flags & SECTION_WRITE) == 0)

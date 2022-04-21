@@ -22,6 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "filenames.h"
 #include "file-find.h"
 
+#ifdef __amiga__
+#undef PATH_SEPARATOR
+#define PATH_SEPARATOR ';'
+#endif
+
 static bool debug = false;
 
 void
@@ -80,6 +85,9 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode)
 
 	strcpy (temp, pl->prefix);
 	strcat (temp, name);
+
+	if (debug)
+	  fprintf (stderr, "stat <%s>\n", temp);
 
 	if (stat (temp, &st) >= 0
 	    && ! S_ISDIR (st.st_mode)

@@ -5031,7 +5031,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
 //      gcc_assert(address.code != POST_MODIFY);
 
-      enum reload_type utype = type == RELOAD_FOR_INPUT ? RELOAD_FOR_INPUT_ADDRESS : type;
+      enum reload_type utype = ADDR_TYPE (type);
       int fixed = 0;
 
       if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))
@@ -5111,7 +5111,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	    {
 	      rtx tem = x;
 	      find_reloads_address (GET_MODE (x), &tem, XEXP (x, 0), &XEXP (x, 0),
-				    opnum, ADDR_TYPE (type),
+				    opnum, utype,
 				    ind_levels == 0 ? 0 : ind_levels - 1, insn);
 
 	      /* If tem was changed, then we must create a new memory reference to

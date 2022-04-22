@@ -191,6 +191,8 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 				     enum by_pieces_operation op,
 				     bool speed_p);
 
+static section * m68k_select_section (tree, int, unsigned HOST_WIDE_INT);
+
 /* Initialize the GCC target structure.  */
 
 #if INT_OP_GROUP == INT_OP_DOT_WORD
@@ -361,6 +363,10 @@ m68k_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 
 #undef TARGET_GEN_DOLOOP_BEGIN
 #define TARGET_GEN_DOLOOP_BEGIN m68k_gen_doloop_begin
+
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION	m68k_select_section
+
 
 #ifdef TARGET_AMIGA
 #include "amigaos.h"
@@ -7680,6 +7686,44 @@ m68k_emit_movmemsi(rtx blkdest, rtx blksrc, rtx length, rtx alignment)
     }
 
   return true;
+}
+
+static section *
+m68k_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
+		    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
+{
+  if (decl->base.code == VAR_DECL)
+    {
+//        extern void debug_generic_expr(tree);
+//        debug_generic_expr(decl);
+//        fprintf(stderr, "%d: c=%d ", decl->base.code, decl->base.constant_flag || decl->base.readonly_flag);
+
+      if (decl->base.constant_flag || decl->base.readonly_flag)
+	{
+//	  fprintf(stderr, "->text1\n");
+      	  return text_section;
+	}
+
+//      char const * secname = DECL_SECTION_NAME(decl);
+//      if (secname == 0
+//	  && ((decl->decl_minimal.common.typed.type->base.code == ARRAY_TYPE &&
+//	       (
+////		   decl->decl_minimal.common.typed.type->typed.type->base.readonly_flag
+////	     ||
+//	     decl->decl_minimal.common.typed.type->typed.type->base.constant_flag
+//	     ))
+//	  ||  (decl->decl_minimal.common.typed.type->base.code == RECORD_TYPE &&
+//	       (decl->decl_minimal.common.typed.type->base.readonly_flag
+//	     || decl->decl_minimal.common.typed.type->base.constant_flag))))
+//	{
+//	  fprintf(stderr, "->text\n");
+//      	  return text_section;
+//	}
+//      fprintf(stderr, "->data\n");
+      return data_section;
+    }
+
+  return default_select_section (decl, reloc, align);
 }
 
 #include "gt-m68k.h"

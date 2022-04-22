@@ -843,3 +843,5 @@ do									\
     }									\
 while (0)
 #endif
+
+#define CTOR_LISTS_DEFINED_EXTERNALLY 1

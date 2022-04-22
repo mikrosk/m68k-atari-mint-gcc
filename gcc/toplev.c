@@ -2057,6 +2057,7 @@ toplev::~toplev ()
       delete g_timer;
       g_timer = NULL;
     }
+  diagnostic_finish (global_dc);
 }
 
 /* Potentially call timevar_init (which will create g_timevars if it
@@ -2142,8 +2143,6 @@ toplev::main (int argc, char **argv)
   /* Invoke registered plugin callbacks if any.  Some plugins could
      emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
-
-  diagnostic_finish (global_dc);
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);

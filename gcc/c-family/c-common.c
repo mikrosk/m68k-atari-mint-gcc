@@ -4650,7 +4650,7 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
     /* We used to check TYPE_NEEDS_CONSTRUCTING here, but now a constexpr
        constructor can produce constant init, so rely on cp_finish_decl to
        clear TREE_READONLY if the variable has non-constant init.  */
-    TREE_CONSTANT(decl) = TREE_READONLY (decl) = 1;
+    TREE_READONLY (decl) = 1;
   if (type_quals & TYPE_QUAL_VOLATILE)
     {
       TREE_SIDE_EFFECTS (decl) = 1;

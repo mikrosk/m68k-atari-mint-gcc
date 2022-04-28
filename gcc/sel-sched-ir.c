@@ -3086,6 +3086,17 @@ finish_global_and_expr_insn (insn_t insn)
     }
 }
 
+#ifdef __amiga__
+__near
+#endif
+const static struct sched_scan_info_def ssi0 =
+	{
+	  NULL, /* extend_bb */
+	  finish_global_and_expr_for_bb, /* init_bb */
+	  NULL, /* extend_insn */
+	  finish_global_and_expr_insn /* init_insn */
+	};
+
 /* Finalize per instruction data for the whole region.  */
 void
 sel_finish_global_and_expr (void)
@@ -3101,13 +3112,7 @@ sel_finish_global_and_expr (void)
 
     /* Clear AV_SETs and INSN_EXPRs.  */
     {
-      const struct sched_scan_info_def ssi =
-	{
-	  NULL, /* extend_bb */
-	  finish_global_and_expr_for_bb, /* init_bb */
-	  NULL, /* extend_insn */
-	  finish_global_and_expr_insn /* init_insn */
-	};
+      struct sched_scan_info_def ssi = ssi0;
 
       sched_scan (&ssi, bbs);
     }

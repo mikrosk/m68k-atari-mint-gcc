@@ -71,8 +71,17 @@ struct ggc_root_tab {
 #define LAST_GGC_ROOT_TAB { NULL, 0, 0, NULL, NULL }
 /* Pointers to arrays of ggc_root_tab, terminated by NULL.  */
 #ifndef __MAKE_MSYS2__
+#ifdef __amiga__
+__near
+#endif
 extern const struct ggc_root_tab * const gt_ggc_rtab[];
+#ifdef __amiga__
+__near
+#endif
 extern const struct ggc_root_tab * const gt_ggc_deletable_rtab[];
+#ifdef __amiga__
+__near
+#endif
 extern const struct ggc_root_tab * const gt_pch_scalar_rtab[];
 #endif
 

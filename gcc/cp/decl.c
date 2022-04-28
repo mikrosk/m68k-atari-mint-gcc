@@ -3956,6 +3956,9 @@ initialize_predefined_identifiers (void)
   const predefined_identifier *pid;
 
   /* A table of identifiers to create at startup.  */
+#ifdef __amiga__
+__near
+#endif
   static const predefined_identifier predefined_identifiers[] = {
     { "C++", &lang_name_cplusplus, 0 },
     { "C", &lang_name_c, 0 },

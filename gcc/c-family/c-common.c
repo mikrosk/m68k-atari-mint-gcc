@@ -284,7 +284,9 @@ struct fname_var_t
 };
 
 /* The three ways of getting then name of the current function.  */
-
+#ifdef __amiga__
+__near
+#endif
 const struct fname_var_t fname_vars[] =
 {
   /* C99 compliant __func__, must be first.  */

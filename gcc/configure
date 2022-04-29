@@ -29433,9 +29433,15 @@ else
   PICFLAG=
 fi
 
-
-
-
+case $host_os in
+    amigaos*)
+      case $host_cpu in
+      m68k)
+        PICFLAG=
+      ;;
+    esac
+  ;;
+esac
 
 # Check whether --enable-libquadmath-support was given.
 if test "${enable_libquadmath_support+set}" = set; then :

@@ -7694,33 +7694,20 @@ m68k_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
 {
   if (decl->base.code == VAR_DECL)
     {
-//        extern void debug_generic_expr(tree);
-//        debug_generic_expr(decl);
-//        fprintf(stderr, "%d: c=%d ", decl->base.code, decl->base.constant_flag || decl->base.readonly_flag);
-
       if (decl->base.constant_flag || decl->base.readonly_flag)
-	{
-//	  fprintf(stderr, "->text1\n");
-      	  return text_section;
-	}
+      	return text_section;
 
-//      char const * secname = DECL_SECTION_NAME(decl);
-//      if (secname == 0
-//	  && ((decl->decl_minimal.common.typed.type->base.code == ARRAY_TYPE &&
-//	       (
-////		   decl->decl_minimal.common.typed.type->typed.type->base.readonly_flag
-////	     ||
-//	     decl->decl_minimal.common.typed.type->typed.type->base.constant_flag
-//	     ))
-//	  ||  (decl->decl_minimal.common.typed.type->base.code == RECORD_TYPE &&
-//	       (decl->decl_minimal.common.typed.type->base.readonly_flag
-//	     || decl->decl_minimal.common.typed.type->base.constant_flag))))
-//	{
-//	  fprintf(stderr, "->text\n");
-//      	  return text_section;
-//	}
-//      fprintf(stderr, "->data\n");
-      return data_section;
+      char const * secname = DECL_SECTION_NAME(decl);
+      if (secname == 0)
+	{
+	  tree type = decl->decl_minimal.common.typed.type;
+	  if (type->base.code == ARRAY_TYPE)
+	    type = type->typed.type;
+	  if (type->base.readonly_flag)
+	    return text_section;
+
+	  return data_section;
+	}
     }
 
   return default_select_section (decl, reloc, align);

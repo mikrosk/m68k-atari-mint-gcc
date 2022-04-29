@@ -101,10 +101,7 @@ namespace
 	if (!decl)
 	  return 0;
 	// only handle VAR non CONST
-	if (decl->base.code != VAR_DECL || decl->base.code == CONST_DECL)
-	  return 0;
-
-	if (decl->base.constant_flag || decl->base.readonly_flag)
+	if (decl->base.code != VAR_DECL)
 	  return 0;
 
 	// a section means: a4 unless the section is ".datachip" ".datafast" ".datafar"
@@ -115,10 +112,31 @@ namespace
 	    || 0 == strcmp(secname, ".datafar")))
 	  return 0;
 
-	// normal constants end up in text.
-	section * sec = get_variable_section(decl, false);
-	if ( (sec->common.flags & SECTION_WRITE) == 0)
-	  return 0;
+	if (secname == 0)
+	  {
+	    if (decl->base.constant_flag || decl->base.readonly_flag)
+	      return 0;
+
+	    // normal constants end up in text.
+	    if (TREE_READONLY (decl))
+	      return 0;
+
+	    tree type = decl->decl_minimal.common.typed.type;
+	    if (type->base.code == ARRAY_TYPE)
+	      type = type->typed.type;
+	    if (type->base.readonly_flag)
+	      return 0;
+	  }
+	else
+	  if (0 == strcmp(".text", secname))
+	    return 0;
+
+	if (secname == 0 || strcmp(".data", secname))
+	  {
+	    section * sec = get_variable_section(decl, false);
+	    if ( (sec->common.flags & SECTION_WRITE) == 0)
+	      return 0;
+	  }
 
 //	  if (decl)
 //	    printf("%s: %8x %d\n", decl->decl_minimal.name->identifier.id.str, sec ? sec->common.flags : 0, ispic);

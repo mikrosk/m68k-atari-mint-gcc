@@ -262,6 +262,7 @@ amiga_declare_object = 0
       builtin_define ("__chip=__attribute__((__chip__))"); \
       builtin_define ("__fast=__attribute__((__fast__))"); \
       builtin_define ("__far=__attribute__((__far__))"); \
+      builtin_define ("__near=__attribute__((section(\".data\")))"); \
       builtin_define ("__saveds=__attribute__((__saveds__))"); \
       builtin_define ("__interrupt=__attribute__((__interrupt__))"); \
       builtin_define ("__stackext=__attribute__((__stackext__))"); \

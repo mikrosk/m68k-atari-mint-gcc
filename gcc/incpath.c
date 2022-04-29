@@ -251,6 +251,18 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 
       cur = *pcur;
 
+      // normalize
+      char *q, *p = cur->name;
+      while ((q = strstr (p, "/../")))
+	{
+	  char *r = q - 1;
+	  while (r >= p && *r != '/' && *r != ':')
+	    --r;
+	  if (r < p)
+	    break;
+	  memmove (r + 1, q + 4, strlen (q + 4) + 1);
+	}
+
       if (stat (cur->name, &st))
 	{
 	  /* Dirs that don't exist or have denied permissions are 
@@ -323,7 +335,14 @@ add_sysroot_to_chain (const char *sysroot, int chain)
 
   for (p = heads[chain]; p != NULL; p = p->next)
     if (p->name[0] == '=' && p->user_supplied_p)
-      p->name = concat (sysroot, p->name + 1, NULL);
+      {
+	char *q = p->name + 1;
+#ifdef __amiga__
+        while (*q == '/')
+          ++q;
+#endif
+	p->name = concat (sysroot, q, NULL);
+      }
 }
 
 /* Merge the four include chains together in the order quote, bracket,

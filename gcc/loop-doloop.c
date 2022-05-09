@@ -302,6 +302,23 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
       goto cleanup;
     }
 
+#ifdef TARGET_AMIGAOS
+  if (desc->noloop_assumptions)
+    {
+      rtx cmp = XEXP (desc->noloop_assumptions, 0);
+      if (COMPARISON_P (cmp))
+	{
+	  rtx b = XEXP (cmp, 0);
+	  extern bool amigaos_legitimate_src (rtx);
+	  if (!amigaos_legitimate_src (b))
+	    {
+	      result = false;
+	      goto cleanup;
+	    }
+	}
+    }
+#endif
+
   for (i = 0; i < loop->num_nodes; i++)
     {
       bb = body[i];

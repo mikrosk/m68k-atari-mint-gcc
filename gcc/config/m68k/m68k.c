@@ -2112,7 +2112,7 @@ m68k_illegitimate_symbolic_constant_p (rtx x)
 	  && !offset_within_block_p (base, INTVAL (offset)))
 	return true;
     }
-  return m68k_tls_reference_p (x, false);
+  return m68k_tls_reference_p (x, false) || !amigaos_legitimate_src(x);
 }
 
 /* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */

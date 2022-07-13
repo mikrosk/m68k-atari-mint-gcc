@@ -201,3 +201,7 @@ Support TLS segment larger than 64K.
 fno-truncz-same-mode
 Target RejectNegative Var(flag_no_truncz_same_mode,1)
 emit round to zero insns (e.g. fintrz.x fp0,fp0)
+
+mschulz
+Target RejectNegative Var(flag_no_x_mode,1)
+Don't use fmove.x, used fmove.d instead

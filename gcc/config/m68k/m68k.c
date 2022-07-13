@@ -899,7 +899,7 @@ m68k_compute_frame_layout (void)
 	      mask |= 1 << (regno - FP0_REG);
 	      saved++;
 	    }
-      current_frame.foffset = saved * TARGET_FP_REG_SIZE;
+      current_frame.foffset = saved * (flag_no_x_mode ? 8 : TARGET_FP_REG_SIZE);
       current_frame.offset += current_frame.foffset;
     }
   current_frame.fpu_no = saved;
@@ -1182,11 +1182,28 @@ m68k_expand_prologue (void)
     {
       gcc_assert (current_frame.fpu_no >= MIN_FMOVEM_REGS);
       if (TARGET_68881)
-	m68k_set_frame_related
-	  (m68k_emit_movem (stack_pointer_rtx,
+	{
+	  if (!flag_no_x_mode )
+	    m68k_set_frame_related
+	      (m68k_emit_movem (stack_pointer_rtx,
 			    current_frame.fpu_no * -GET_MODE_SIZE (XFmode),
 			    current_frame.fpu_no, FP0_REG,
 			    current_frame.fpu_mask, true, true));
+	  else
+	    {
+	      /* Store each register separately in the same order moveml does.  */
+	      int i;
+
+	      for (i = 16; i-- > 0; )
+		if (current_frame.fpu_mask & (1 << i))
+		  {
+		    src = gen_rtx_REG (DFmode, FP0_REG + i);
+		    dest = gen_frame_mem (DFmode,
+					  gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx));
+		    m68k_set_frame_related (emit_insn (gen_movsi (dest, src)));
+		  }
+	    }
+	}
       else
 	{
 	  int offset;
@@ -1416,15 +1433,52 @@ m68k_expand_epilogue (bool sibcall_p)
 			       current_frame.fpu_mask, false, false);
 	    }
 	  else
-	    m68k_emit_movem (stack_pointer_rtx, 0,
+	    {
+	      if (!flag_no_x_mode)
+		m68k_emit_movem (stack_pointer_rtx, 0,
 			     current_frame.fpu_no, FP0_REG,
 			     current_frame.fpu_mask, false, true);
+	      else
+		{
+		  /* Restore each register separately in the same order moveml does.  */
+		  int i;
+		  rtx src, dest;
+
+		  for (i = 0; i < 16; ++i)
+		    if (current_frame.fpu_mask & (1 << i))
+		      {
+			dest = gen_rtx_REG (DFmode, FP0_REG + i);
+			src = gen_frame_mem (DFmode,
+					      gen_rtx_POST_INC (Pmode, stack_pointer_rtx));
+			m68k_set_frame_related (emit_insn (gen_movsi (dest, src)));
+		      }
+		}
+	    }
 	}
       else
-	m68k_emit_movem (frame_pointer_rtx,
+	{
+          if (!flag_no_x_mode)
+	    m68k_emit_movem (frame_pointer_rtx,
 			 -(current_frame.foffset + fsize),
 			 current_frame.fpu_no, FP0_REG,
 			 current_frame.fpu_mask, false, false);
+	  else
+	    {
+	      /* Restore each register separately in the same order moveml does.  */
+	      int i, j = -(current_frame.foffset + fsize);
+	      rtx src, dest;
+
+	      for (i = 0; i < 16; ++i)
+		if (current_frame.fpu_mask & (1 << i))
+		  {
+		    dest = gen_rtx_REG (DFmode, FP0_REG + i);
+		    src = gen_frame_mem (DFmode,
+					  gen_rtx_PLUS(Pmode, frame_pointer_rtx, GEN_INT (j)));
+		    m68k_set_frame_related (emit_insn (gen_movsi (dest, src)));
+		    j += 8;
+		  }
+	    }
+	}
     }
 
   if (frame_pointer_needed)
@@ -4977,6 +5031,11 @@ floating_exact_log2 (rtx x)
 void
 print_operand (FILE *file, rtx op, int letter)
 {
+  machine_mode op_mode = op ? GET_MODE(op) : Pmode;
+  if (flag_no_x_mode && op_mode == XFmode)
+    op_mode = DFmode;
+
+
   if (letter == 'N')
     { // movem regs,ax
       unsigned regbits = INTVAL (op);
@@ -5081,7 +5140,7 @@ print_operand (FILE *file, rtx op, int letter)
     }
   else if (GET_CODE (op) == MEM)
     {
-      output_address (GET_MODE (op), XEXP (op, 0));
+      output_address (op_mode, XEXP (op, 0));
       if (letter == 'd' && ! TARGET_68020
 	  && CONSTANT_ADDRESS_P (XEXP (op, 0))
 	  && !(GET_CODE (XEXP (op, 0)) == CONST_INT
@@ -5094,7 +5153,7 @@ print_operand (FILE *file, rtx op, int letter)
 	       )
 		fprintf (file, MOTOROLA ? ".l" : ":l");
     }
-  else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == SFmode)
+  else if (GET_CODE (op) == CONST_DOUBLE && op_mode == SFmode)
     {
       long l;
       REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), l);
@@ -5104,7 +5163,7 @@ print_operand (FILE *file, rtx op, int letter)
       asm_fprintf (file, "%I$%lx", l & 0xFFFFFFFF);
 #endif
     }
-  else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == XFmode)
+  else if (GET_CODE (op) == CONST_DOUBLE && op_mode == XFmode)
     {
       long l[3];
       REAL_VALUE_TO_TARGET_LONG_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);
@@ -5116,7 +5175,7 @@ print_operand (FILE *file, rtx op, int letter)
 		   l[1] & 0xFFFFFFFF, l[2] & 0xFFFFFFFF);
 #endif
     }
-  else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == DFmode)
+  else if (GET_CODE (op) == CONST_DOUBLE && op_mode == DFmode)
     {
       long l[2];
       REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);

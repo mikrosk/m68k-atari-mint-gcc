@@ -68,6 +68,12 @@ relative prefix can be found, return @code{NULL}.
 #include "ansidecl.h"
 #include "libiberty.h"
 
+/* This is for the FreeBSD specific bits to get current program path */
+#if defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#include <err.h>
+#endif
+
 #ifndef R_OK
 #define R_OK 4
 #define W_OK 2
@@ -215,6 +221,32 @@ free_split_directories (char **dirs)
     }
 }
 
+
+#if defined(__FreeBSD__)
+static size_t
+bsd_get_current_executable_path(char *buf, size_t len)
+{
+  size_t llen;
+  int ret;
+  int mib[4];
+
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_PATHNAME;
+  mib[3] = -1;
+
+  llen = len;
+  ret = sysctl(mib, 4, buf, &llen, NULL, 0);
+  if (ret != 0) {
+    warn("%s: sysctl for exec path", __func__);
+    return 0;
+  }
+  return llen;
+}
+
+
+#endif /* __FreeBSD__ */
+
 /* Given three strings PROGNAME, BIN_PREFIX, PREFIX, return a string that gets
    to PREFIX starting with the directory portion of PROGNAME and a relative
    pathname of the difference between BIN_PREFIX and PREFIX.
@@ -248,6 +280,8 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   n |= _NSGetExecutablePath(buf, &n);
 #elif defined(__sun) && defined(__SVR4)
   n = readlink( "/proc/self/path/a.out", buf, 1023);
+#elif defined(__FreeBSD__)
+  n = bsd_get_current_executable_path(buf, 1023);
 #else
   n = readlink( "/proc/self/exe", buf, 1023);
 #endif

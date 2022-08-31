@@ -2076,6 +2076,12 @@ fi
 AC_SUBST(NO_PIE_CFLAGS_FOR_BUILD)
 AC_SUBST(NO_PIE_FLAG_FOR_BUILD)
 
+
+if test x$enable_fixincludes = xno;
+then
+    STMP_FIXINC=''
+fi
+
 # Expand extra_headers to include complete path.
 # This substitutes for lots of t-* files.
 extra_headers_list=

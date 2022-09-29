@@ -266,7 +266,7 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
   int i, n, common;
   int needed_len;
   char *ret = NULL, *ptr, *full_progname;
-  char buf[1024], *p, *q;
+  char buf[1024], *p, *q, *t;
   DIR * d;
 
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
@@ -325,14 +325,14 @@ make_relative_prefix_1 (const char *progname, const char *bin_prefix,
 #endif
 
   // normalize
-  while ((q = strstr(p, "/../")))
+  while ((t = strstr(p, "/../")))
     {
-      char * r = q - 1;
+      char * r = t - 1;
       while (r >= p && *r != '/')
 	--r;
       if (r < p)
 	break;
-      memmove(r, q + 3, strlen(q + 3) + 1);
+      memmove(r, t + 3, strlen(t + 3) + 1);
     }
 
 

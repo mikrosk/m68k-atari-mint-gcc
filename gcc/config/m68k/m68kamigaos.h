@@ -431,9 +431,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
     "%{!resident:%{fbaserel:nbcrt0.o%s}" \
     "%{!fbaserel:ncrt0.o%s}}}}}"
 
-#define ENDFILE_LIBNIX_SPEC \
-  "%{!ramiga-*:xcrt0.o%s}"
-
 #define STARTFILE_CLIB2_SPEC \
   "%{resident32:nr32crt0.o%s}" \
   "%{!resident32:" \
@@ -463,18 +460,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
   "%{mcrt=ixemul:%(startfile_ixemul)} " \
   "%{mcrt=clib2:%(startfile_clib2)} " \
   "%{!mcrt=*:%{!noixemul:%(startfile_newlib)}} "
-#endif
-
-#if 0
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC ""
-#else
-#ifdef TARGET_AMIGAOS_VASM
-#else
-#define ENDFILE_SPEC \
-  "%{noixemul:%(endfile_libnix)} " \
-  "%{mcrt=nix*:%(endfile_libnix)} "
-#endif
 #endif
 
 /* Automatically search libamiga.a for AmigaOS specific functions.  Note
@@ -597,7 +582,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
           "%(linker) -Cvbcc %l %X %{o*} %{A} %{d} %{e*} %{m} " \
           "%{N} %{n} %{r} %{s} %{t} %{u*} %{x} %{z} %{Z} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%S}}} " \
-          "%{static:} %{L*} %D %o " \
+          "%{static:} %{L*} %F %o " \
           "%{!nostdlib:%{!nodefaultlibs:%L}} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} " \
           "%{!nostdlib:%{!nodefaultlibs:%G}} " \
@@ -614,7 +599,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
           "%(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} " \
           "%{N} %{n} %{r} %{s} %{t} %{u*} %{x} %{z} %{Z} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%S}}} " \
-          "%{static:} %{L*} %D %o " \
+          "%{static:} %{L*} %F %o " \
           "%{!nostdlib:%{!nodefaultlibs:%L}} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} " \
           "%{!nostdlib:%{!nodefaultlibs:%G}} " \
@@ -653,7 +638,6 @@ extern const char * amiga_m68k_prefix_func(int, const char **);
   {"link_clib2", LINK_CLIB2_SPEC}, \
   {"startfile_ixemul", STARTFILE_IXEMUL_SPEC}, \
   {"startfile_libnix", STARTFILE_LIBNIX_SPEC}, \
-  {"endfile_libnix", ENDFILE_LIBNIX_SPEC}, \
   {"startfile_clib2", STARTFILE_CLIB2_SPEC}, \
   {"startfile_newlib", STARTFILE_NEWLIB_SPEC}, \
 
@@ -854,3 +838,6 @@ while (0)
 #endif
 
 #define CTOR_LISTS_DEFINED_EXTERNALLY 1
+#define AMIGA_USE_SECTIONS 1
+#define CTORS_SECTION_ASM_OP	"\t.section\t.list___CTOR_LIST__"
+#define DTORS_SECTION_ASM_OP	"\t.section\t.list___DTOR_LIST__"

@@ -3,10 +3,7 @@ LIB2ADD += $(srcdir)/config/m68k/gmon.c
 new_op.o: $(srcdir)/config/m68k/new_op.c
 	$(CC) $(CFLAGS) -c $< 
 
-cxxglue.o: $(srcdir)/config/m68k/cxxglue.c
-	$(CC) $(CFLAGS) -D__libnix__ -c $< 
-
-EXTRA_PARTS=new_op.o cxxglue.o
+EXTRA_PARTS=new_op.o 
 
 # On Amiga, specifying -fnon-call-exceptions will needlessly pull in
 # the unwinder in simple programs which use 64-bit division.

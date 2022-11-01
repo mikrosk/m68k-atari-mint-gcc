@@ -43,6 +43,7 @@
 
 #include "gmon.h"
 
+#define __libnix__ 1
 #include "stabs.h"
 
 #include <exec/memory.h>

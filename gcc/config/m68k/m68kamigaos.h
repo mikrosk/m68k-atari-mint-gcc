@@ -599,7 +599,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
           "%(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} " \
           "%{N} %{n} %{r} %{s} %{t} %{u*} %{x} %{z} %{Z} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%S}}} " \
-          "%{static:} %{L*} %F %o " \
+          "%{static:} %{L*} %F -L%:sdk_root(../lib/) %o " \
           "%{!nostdlib:%{!nodefaultlibs:%L}} " \
           "%{!A:%{!nostdlib:%{!nostartfiles:%E}}} " \
           "%{!nostdlib:%{!nodefaultlibs:%G}} " \

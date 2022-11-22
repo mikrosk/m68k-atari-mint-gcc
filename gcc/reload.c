@@ -5030,12 +5030,12 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       bool r = decompose_mem(GET_MODE_SIZE(mode), &ad, &address, true);
       if (DX) fprintf(stderr, "insn %d %d %d\t", insn->u2.insn_uid, r, address.code);
 
-//      gcc_assert(address.code != POST_MODIFY);
+//      gcc_assert(addres s.code != POST_MODIFY);
 
       if (DX)
 	debug(insn);
 
-      enum reload_type utype = address.code == MEM ? RELOAD_OTHER : type;
+      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPERAND_ADDRESS) : type;
       int fixed = 0;
 
       if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))

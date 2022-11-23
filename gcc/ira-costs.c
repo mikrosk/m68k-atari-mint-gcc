@@ -1459,10 +1459,13 @@ scan_one_insn (rtx_insn *insn)
       rtx reg = SET_DEST (set);
       int num = COST_INDEX (REGNO (reg));
 
-#ifndef TARGET_AMIGAOS
-      /* SBF: can result in negativ costs which is no good. */
       COSTS (costs, num)->mem_cost
 	-= ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency;
+#ifdef TARGET_AMIGAOS
+      /* SBF: can result in negative costs which is no good.
+       * => keep*/
+      if (COSTS (costs, num)->mem_cost < ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency / 2)
+	COSTS (costs, num)->mem_cost = ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency / 2;
 #endif
       record_address_regs (GET_MODE (SET_SRC (set)),
 			   MEM_ADDR_SPACE (SET_SRC (set)),

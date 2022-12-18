@@ -5463,7 +5463,8 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return (! TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
-	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno));
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno));
 
     case RELOAD_FOR_OPADDR_ADDR:
       for (i = 0; i < reload_n_operands; i++)
@@ -5501,7 +5502,8 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno));
 
     case RELOAD_FOR_OTHER_ADDRESS:
-      return ! TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno);
+      return ! TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
+	  && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno);
 
     default:
       gcc_unreachable ();
@@ -6004,8 +6006,8 @@ reload_reg_free_for_value_p (int start_regno, int regno, int opnum,
     {
     case RELOAD_FOR_OTHER_ADDRESS:
       /* RELOAD_FOR_OTHER_ADDRESS conflicts with RELOAD_OTHER reloads.  */
-      time1 = copy ? 0 : 1;
-      break;
+//      time1 = copy ? 0 : 1;
+//      break;
     case RELOAD_OTHER:
       time1 = copy ? 1 : MAX_RECOG_OPERANDS * 5 + 5;
       break;
@@ -6067,9 +6069,9 @@ reload_reg_free_for_value_p (int start_regno, int regno, int opnum,
 	      int time2;
 	      switch (rld[i].when_needed)
 		{
-		case RELOAD_FOR_OTHER_ADDRESS:
-		  time2 = 0;
-		  break;
+//		case RELOAD_FOR_OTHER_ADDRESS:
+//		  time2 = 0;
+//		  break;
 		case RELOAD_FOR_INPADDR_ADDRESS:
 		  /* find_reloads makes sure that a
 		     RELOAD_FOR_{INP,OP,OUT}ADDR_ADDRESS reload is only used
@@ -6094,6 +6096,7 @@ reload_reg_free_for_value_p (int start_regno, int regno, int opnum,
 		    continue;
 		  time2 = rld[i].opnum * 4 + 2;
 		  break;
+		case RELOAD_FOR_OTHER_ADDRESS:
 		case RELOAD_FOR_INPUT_ADDRESS:
 		  if (type == RELOAD_FOR_INPUT && opnum == rld[i].opnum
 		      && ignore_address_reloads

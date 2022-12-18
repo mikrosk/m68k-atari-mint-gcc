@@ -5369,6 +5369,10 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       return 1;
 
     case RELOAD_FOR_INPUT:
+      if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used, regno))
+	return 0;
+
       if (TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno))
 	return 0;
@@ -5390,6 +5394,10 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       return 1;
 
     case RELOAD_FOR_INPUT_ADDRESS:
+      if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used, regno))
+	return 0;
+
       /* Can't use a register if it is used for an input address for this
 	 operand or used as an input in an earlier one.  */
       if (TEST_HARD_REG_BIT (reload_reg_used_in_input_addr[opnum], regno)
@@ -5403,6 +5411,11 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       return 1;
 
     case RELOAD_FOR_INPADDR_ADDRESS:
+      if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used, regno))
+	return 0;
+
+
       /* Can't use a register if it is used for an input address
 	 for this operand or used as an input in an earlier
 	 one.  */

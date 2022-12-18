@@ -5035,7 +5035,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (DX)
 	debug(insn);
 
-      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPERAND_ADDRESS) : type;
+      enum reload_type utype = RELOAD_FOR_OTHER_ADDRESS;
+//      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPADDR_ADDR) : type;
       int fixed = 0;
 
       if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))

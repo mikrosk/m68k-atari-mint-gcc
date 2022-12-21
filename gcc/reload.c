@@ -4963,7 +4963,6 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       push_reload (ad, NULL_RTX, loc, (rtx*) 0,
 		   base_reg_class (mode, as, MEM, SCRATCH),
 		   GET_MODE (ad), VOIDmode, 0, 0, opnum, type);
-
       return 1;
     }
 
@@ -5035,9 +5034,19 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (DX)
 	debug(insn);
 
-      enum reload_type utype = RELOAD_FOR_OTHER_ADDRESS;
+      enum reload_type utype = type; // RELOAD_FOR_OTHER_ADDRESS;
 //      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPADDR_ADDR) : type;
       int fixed = 0;
+
+      // check the insn asm if double indirect is possible
+      if (address.mem_loc != 0 && address.code != POST_MODIFY)
+	{
+	  char const * p = insn_data[INSN_CODE (insn)].operand[opnum].constraint;
+	  while (*p && *p != 'm')
+	    ++p;
+	  if (!*p)
+	    address.code = POST_MODIFY;
+        }
 
       if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))
 	{
@@ -5143,6 +5152,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 
   /* The address is not valid.  We have to figure out why.  First see if
      we have an outer AND and remove it if so.  Then analyze what's inside.  */
+
   if (GET_CODE (ad) == AND)
     {
       removed_and = 1;
@@ -5390,9 +5400,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       return ! removed_and;
     }
 
-  int ret = find_reloads_address_1 (mode, as, ad, 0, MEM, SCRATCH, loc,
+  return find_reloads_address_1 (mode, as, ad, 0, MEM, SCRATCH, loc,
 				 opnum, type, ind_levels, insn);
-  return ret;
 }
 
 /* Find all pseudo regs appearing in AD
@@ -6023,9 +6032,9 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 	 reloaded.  Targets that are better off reloading just either part
 	 (or perhaps even a different part of an outer expression), should
 	 define LEGITIMIZE_RELOAD_ADDRESS.  */
-	find_reloads_address_1 (GET_MODE (XEXP (x, 0)), as, XEXP (x, 0),
-				context, code, SCRATCH, &XEXP (x, 0), opnum,
-				type, ind_levels, insn);
+      find_reloads_address_1 (GET_MODE (XEXP (x, 0)), as, XEXP (x, 0),
+			      context, code, SCRATCH, &XEXP (x, 0), opnum,
+			      type, ind_levels, insn);
       push_reload (x, NULL_RTX, loc, (rtx*) 0,
 		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -6037,18 +6046,20 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 	 register.  Verify that the specified address is valid and reload it
 	 into a register.
 
-	-- Since we know we are going to reload this item, don't decrement for
-	-- the indirection level.
+	 Since we know we are going to reload this item, don't decrement for
+	 the indirection level.
 
 	 Note that this is actually conservative:  it would be slightly more
 	 efficient to use the value of SPILL_INDIRECT_LEVELS from
 	 reload1.c here.  */
+
       find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
 			    opnum, ADDR_TYPE (type), ind_levels, insn);
       push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
 		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
       return 1;
+
     case REG:
       {
 	int regno = REGNO (x);
@@ -6124,6 +6135,7 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	    {
 	      int regno ATTRIBUTE_UNUSED = subreg_regno (x);
+
 	      if (!REG_OK_FOR_CONTEXT (context, regno, mode, as, outer_code,
 				       index_code))
 		{
@@ -6409,7 +6421,6 @@ subst_reloads (rtx_insn *insn)
     	  }
       }
 #endif
-
 
       if (reloadreg)
 	{

@@ -5035,7 +5035,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	debug(insn);
 
       enum reload_type utype = type; // RELOAD_FOR_OTHER_ADDRESS;
-//      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPADDR_ADDR) : type;
+//      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPERAND_ADDRESS) : type;
       int fixed = 0;
 
       // check the insn asm if double indirect is possible
@@ -5146,7 +5146,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	}
 
       if (fixed)
-	return 0;
+	return -1;
     }
 #endif
 

@@ -5042,6 +5042,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
       if (address.mem_loc != 0 && address.code != POST_MODIFY)
 	{
 	  char const * p = insn_data[INSN_CODE (insn)].operand[opnum].constraint;
+	  if (*p == '%' && p[1] == '0')
+	    p = insn_data[INSN_CODE (insn)].operand[0].constraint;
 	  while (*p && *p != 'm' && *p != 'g' && *p != 'f')
 	    ++p;
 	  if (!*p)

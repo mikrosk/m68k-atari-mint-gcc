@@ -3378,6 +3378,7 @@ opt_strcpy ()
 #if HAVE_cc0
   rtx_insn * x2reg = 0;
   rtx_insn * reg2x = 0;
+  rtx theReg = 0;
   unsigned int regno = FIRST_PSEUDO_REGISTER;
 
   for (unsigned index = 0; index < infos->size (); ++index)
@@ -3407,7 +3408,7 @@ opt_strcpy ()
 	      src = XEXP(src, 1);
 
 //	      if (CONST_INT_P(src) && INTVAL(src) == 0 && find_reg_note (insn, REG_DEAD, dst))
-	      if (REG_P(dst) && CONST_INT_P(src) && INTVAL(src) == 0 && is_reg_dead (REGNO(dst), index))
+	      if (REG_P(dst) && REGNO(dst) == REGNO(theReg) && CONST_INT_P(src) && INTVAL(src) == 0 && is_reg_dead (REGNO(dst), index))
 		{
 		  /* now check via NOTICE_UPDATE_CC*/
 		  NOTICE_UPDATE_CC(PATTERN (reg2x), reg2x);
@@ -3444,6 +3445,7 @@ opt_strcpy ()
 	  if (REG_P(SET_SRC(set)) && REGNO(SET_SRC(set)) == regno)
 	    {
 	      reg2x = insn;
+	      theReg = SET_SRC(set);
 	      continue;
 	    }
 	  x2reg = 0;

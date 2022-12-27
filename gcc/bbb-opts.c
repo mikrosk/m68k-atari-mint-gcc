@@ -1399,6 +1399,7 @@ insn_info::make_post_inc (int regno, int addend)
   SET_INSN_DELETED(insn);
   (get_dst_mem_regno () == regno ? dst_autoinc : src_autoinc) = GET_MODE_SIZE(mode);
   insn = emit_insn_after (PATTERN (new_insn), insn);
+  add_reg_note (insn, REG_INC, reg);
   insn_invalid_p (insn, 0);
 
   return 1;

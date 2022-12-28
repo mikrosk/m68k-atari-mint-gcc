@@ -5557,7 +5557,8 @@ opt_lea_mem()
     {
       insn_info &ii = (*infos)[index - 1];
 
-      if (!ii.get_dst_reg())
+      // load into register and no self load?
+      if (!ii.get_dst_reg() || ii.get_src_regno() == ii.get_dst_regno())
 	continue;
 
       rtx set0 = single_set(ii.get_insn());
@@ -5577,7 +5578,7 @@ opt_lea_mem()
       if (!REG_P(reg))
 	continue;
 
-      if (REGNO(reg) != (unsigned)ii.get_dst_regno() || !is_reg_dead(REGNO(reg), index))
+      if (REGNO(reg) != (unsigned)ii.get_dst_regno() || REGNO(reg) == (unsigned)jj.get_dst_mem_regno() || !is_reg_dead(REGNO(reg), index))
 	continue;
 
       // try the conversion

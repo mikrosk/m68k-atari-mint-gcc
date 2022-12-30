@@ -2384,12 +2384,12 @@ maybe_lto_object_file (const char *prog_name)
 	  if (buf[0] != 0x82)
 	    break;
 	  len = (buf[1] << 16) | (buf[2] << 8) | buf[3];
-	  if (len != 4)
+	  if (len != 3 && len != 4)
 	    break;
 	  char name[16];
 	  if (fread (name, sizeof(name), 1, f) != 1)
 	    break;
-	  r = 0 == strcmp("___gnu_lto_v1", name);
+	  r = 0 == strcmp("___gnu_lto_v1", name) || 0 == strcmp("__gnu_lto_v1", name);
 	}
 #endif
     }

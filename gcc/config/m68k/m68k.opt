@@ -205,3 +205,38 @@ emit round to zero insns (e.g. fintrz.x fp0,fp0)
 mschulz
 Target RejectNegative Var(flag_no_x_mode,1)
 Don't use fmove.x, used fmove.d instead
+
+mregparm=
+Target RejectNegative Var(m68k_regparm) Joined UInteger Init(-1)
+Pass arguments through registers.
+
+mregparm
+Target RejectNegative Alias(mregparm=, 2)
+Same as -mregparm=2
+
+msasregparm
+Target RejectNegative Var(sas_regparm,1)
+Same as -mregparm=2 but do not use alternate registers
+
+fbbb=
+Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
+Enable Bebbo's optimizations.\n
++    enable all optimizations (default)\n
+a    commute add move instructions\n
+b    use register for base addresses\n
+c    convert load const and compare into a sub\n
+e    eliminate dead assignments + redundant loads\n
+f    shrink stack frame\n
+i    use post increment on addresses\n
+l    remove single used lea if possible\n
+n    pipeline instructions\n
+m    merge add and move statements\n
+p    propagate move assignment pairs out of loops\n
+r    register renaming to maybe save registers\n
+s    a strcpy optimization\n
+z    final pass with simple substitutions\n
+0    insert clear registers before storing a byte or word, if possible\n
+v    be verbose\n
+V    be very verbose\n
+x    dump insns\n
+Default: -fbbb=+ which yields -fbbb=abcefilmnprsz0

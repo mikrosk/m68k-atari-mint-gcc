@@ -5010,7 +5010,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
     }
   while (0);
 #endif
-#if defined(TARGET_AMIGA)
+#if defined(TARGET_AMIGAOS)
   /**
    * SBF: check the base register here,
    * since later no information exists, which reg is the base reg
@@ -6392,7 +6392,7 @@ subst_reloads (rtx_insn *insn)
       struct replacement *r = &replacements[i];
       rtx reloadreg = rld[r->what].reg_rtx;
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_AMIGAOS
       if (!reloadreg && !rld[r->what].optional && rld[r->what].rclass == ADDR_REGS)
       {
     	  rtx a = *r->where;

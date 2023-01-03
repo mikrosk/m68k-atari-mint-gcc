@@ -2736,7 +2736,7 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
   /*
    * SBF: Why?
    */
-#ifndef TARGET_AMIGA
+#if 0 && !defined(TARGET_M68K)
   tree overlap = tree_overlaps_hard_reg_set (t, clobbered_regs);
 
   if (overlap)
@@ -3263,10 +3263,10 @@ expand_asm_stmt (gasm *stmt)
 /**
  * SBF: Why?
  */
-#ifndef TARGET_AMIGA
+#if 0 && !defined(TARGET_M68K)
 	      for (unsigned k = 0; k < ninputs - ninout; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, input_rvec[k]))
-		  internal_error ("asm clobber conflict with input operand");
+		  error ("asm clobber conflict with input operand");
 #endif
 	    }
 	  XVECEXP (body, 0, i++) = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);

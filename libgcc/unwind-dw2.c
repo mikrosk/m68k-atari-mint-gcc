@@ -263,7 +263,7 @@ _Unwind_GetCFA (struct _Unwind_Context *context)
 }
 
 /* Overwrite the saved value for register INDEX in CONTEXT with VAL.  */
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 static int overregs[16];
 #endif
 
@@ -277,7 +277,7 @@ _Unwind_SetGR (struct _Unwind_Context *context, int index, _Unwind_Word val)
   gcc_assert (index < (int) sizeof(dwarf_reg_size_table));
   size = dwarf_reg_size_table[index];
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   overregs[index] = val;
 #endif
   if (_Unwind_IsExtendedContext (context) && context->by_value[index])
@@ -1672,7 +1672,7 @@ uw_install_context_1 (struct _Unwind_Context *current,
       else if (t && c && t != c)
 	memcpy (c, t, dwarf_reg_size_table[i]);
     }
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   /* SBF: evil hack to patch the values for d0/d1 into the stack location.
    * search the movem insn and count the saved regs.
    * Now patch the values into location.

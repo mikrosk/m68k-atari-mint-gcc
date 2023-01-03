@@ -61,7 +61,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
      threading handles these cases now.  */
   if (flag_loop_size_optimize == 1 || (flag_loop_size_optimize && optimize_loop_for_size_p (loop)))
     {
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
       /**
        * The idea of copying small headers is to support dbcc.
        *
@@ -125,7 +125,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (is_gimple_call (last))
 	return false;
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
       enum gimple_code code = gimple_code (last);
       if (code == GIMPLE_ASSIGN)
 	{

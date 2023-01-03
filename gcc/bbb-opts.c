@@ -5856,7 +5856,7 @@ namespace
       if (!string_bbb_opts)
 	string_bbb_opts = "+";
 
-      return TARGET_AMIGA && optimize > 0 && string_bbb_opts && !strchr (string_bbb_opts, '-');
+      return TARGET_M68K && optimize > 0 && string_bbb_opts && !strchr (string_bbb_opts, '-');
     }
 
     virtual unsigned int

@@ -470,7 +470,7 @@ switch_to_eh_frame_section (bool back ATTRIBUTE_UNUSED)
 			  ? data_section : readonly_data_section);
 #endif /* EH_FRAME_SECTION_NAME */
 
-#if defined(TARGET_AMIGA)
+#if defined(TARGET_AMIGAOS)
       fputs(
       "\t.section\t.data.__EH_FRAME_OBJECT__\n"
       "\t.align 2\n" 

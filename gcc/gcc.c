@@ -10138,7 +10138,7 @@ driver_get_configure_time_options (void (*cb) (const char *option,
   n_switches = 0;
 }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 const char * amiga_m68k_prefix_func(int argc, const char ** argv) {
   char * p;
   if (standard_libexec_prefix)

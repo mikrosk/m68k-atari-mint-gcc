@@ -28,7 +28,7 @@
 		<link>
 			<name>build-gcc</name>
 			<type>2</type>
-			<location>/home/stefan/amiga-gcc/build-Linux/gcc/gcc</location>
+			<location>/home/stefan/amiga-gcc/build-Linux-m68k-amigaos/gcc/gcc</location>
 		</link>
 	</linkedResources>
 </projectDescription>

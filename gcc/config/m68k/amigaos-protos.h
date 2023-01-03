@@ -24,16 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_AMIGAOS
 #define TARGET_AMIGAOS 1
 
-extern void amigaos_init_cumulative_args (CUMULATIVE_ARGS *, tree, tree);
-
-/* Initialize a variable CUM of type CUMULATIVE_ARGS
-   for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0.  */
-
-#undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
-  (amigaos_init_cumulative_args(&(CUM), (FNTYPE), (INDIRECT)))
-
 #ifdef RTX_CODE
 extern int read_only_operand (rtx);
 extern void amigaos_select_section (tree, int, unsigned HOST_WIDE_INT);
@@ -45,11 +35,11 @@ extern void amigaos_alternate_frame_setup (FILE *, int);
 extern struct rtx_def* gen_stack_cleanup_call (rtx, rtx);
 extern void amigaos_alternate_allocate_stack (rtx *);
 #ifdef TREE_CODE
-//extern void amigaos_function_arg_advance (CUMULATIVE_ARGS *);
-extern struct rtx_def *amigaos_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree);
+//extern void m68k_function_arg_advance (CUMULATIVE_ARGS *);
+extern struct rtx_def *m68k_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree);
 #endif
 #endif
 #ifdef TREE_CODE
 extern tree amigaos_handle_decl_attribute (tree *, tree, tree, int, bool *);
-extern tree amigaos_handle_type_attribute (tree *, tree, tree, int, bool *);
+extern tree m68k_handle_type_attribute (tree *, tree, tree, int, bool *);
 #endif 

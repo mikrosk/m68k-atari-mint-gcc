@@ -4346,7 +4346,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (!ivopts_integer_cost[i])
 	    ivopts_integer_cost[i] = 1;
 
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_M68K)
 	  if (ivopts_integer_cost[i] == small_integer_cost[i])
 	    small_integer_cost[i] = ivopts_integer_cost[i] >> 1;
 #endif
@@ -5656,7 +5656,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 				       &depends_on_express, NULL,
                                        &express_inv_expr_id);
 
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_M68K)
   /* SBF: force use of dbra. */
   if (!infinite_cost_p (express_cost) && express_cost.cost > small_integer_cost[0])
     {

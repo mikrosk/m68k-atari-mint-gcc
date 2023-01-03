@@ -5098,7 +5098,7 @@ move_unallocated_pseudos (void)
 }
 
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_M68K)
 /**
  * This is the partial structure from m68k.c - with all fields used here.
  */
@@ -5892,7 +5892,7 @@ do_reload (void)
 
       need_dce = reload (get_insns (), ira_conflicts_p);
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_M68K)
       fix_stack_regs(get_insns ());
 #endif
     }

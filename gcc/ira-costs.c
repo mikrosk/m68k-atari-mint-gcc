@@ -1461,7 +1461,7 @@ scan_one_insn (rtx_insn *insn)
 
       COSTS (costs, num)->mem_cost
 	-= ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency;
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_M68K)
       /* SBF: can result in negative costs which is no good.
        * => keep*/
       if (COSTS (costs, num)->mem_cost < ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency / 2)

@@ -28,6 +28,21 @@ along with GCC; see the file COPYING3.  If not see
 
 #define TARGET_M68K 1
 
+/* TARGET_AMIGAOS is used in defined(...) */
+#if defined (TARGET_AMIGAOS)
+#define TARGET_AMIGA 1
+#endif
+/* TARGET_AMIGA is used in boolean expressions => need 0 as default. */
+#ifndef TARGET_AMIGA
+#define TARGET_AMIGA 0
+#define DOUBLE_INDIRECT_JUMP 0
+#define PIC_REG 14
+#define TARGET_RESTORE_A4 0
+#define TARGET_ALWAYS_RESTORE_A4 0
+#define amiga_is_const_pic_ref(a) (0)
+#define amigaos_legitimate_src(a) (1)
+#endif
+
 /* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
   { "cpu",   "%{!m68020-40:%{!m68020-60:\
@@ -447,13 +462,6 @@ along with GCC; see the file COPYING3.  If not see
  */
 #define ARG_POINTER_REGNUM 24
 
-#define STATIC_CHAIN_REGNUM A0_REG
-#define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a0"
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-#define M68K_STRUCT_VALUE_REGNUM A1_REG
-
 
 
 /* The m68k has three kinds of registers, so eight classes would be
@@ -516,31 +524,85 @@ extern enum reg_class regno_reg_class[];
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
-/* On the m68k the return value defaults to D0.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)  \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), D0_REG)
+/* SBF: same as linux.h */
 
-/* On the m68k the return value defaults to D0.  */
-#define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, D0_REG)
+/* 1 if N is a possible register number for a function value.  For
+   m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
+   pointer, or floating types, respectively.  Reject fp0 if not using
+   a 68881 coprocessor.  */
 
-/* On the m68k, D0 is usually the only register used.  */
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == D0_REG)
+#undef FUNCTION_VALUE_REGNO_P
+#define FUNCTION_VALUE_REGNO_P(N) \
+  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
-   more than one register.
-   XXX This macro is m68k specific and used only for m68kemb.h.  */
-#define NEEDS_UNTYPED_CALL 0
+   more than one register.  */
 
-/* On the m68k, all arguments are usually pushed on the stack.  */
-#define FUNCTION_ARG_REGNO_P(N) 0
+#undef NEEDS_UNTYPED_CALL
+#define NEEDS_UNTYPED_CALL 1
+
+/* Define how to generate (in the callee) the output value of a
+   function and how to find (in the caller) the value returned by a
+   function.  VALTYPE is the data type of the value (as a tree).  If
+   the precise function being called is known, FUNC is its
+   FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
+   result in d0, a0, or fp0 as appropriate.  */
+
+#undef FUNCTION_VALUE
+#define FUNCTION_VALUE(VALTYPE, FUNC)					\
+  m68k_function_value (VALTYPE, FUNC)
+
+/* Define how to find the value returned by a library function
+   assuming the value has mode MODE.
+   For m68k/SVR4 look for integer values in d0, pointer values in d0
+   (returned in both d0 and a0), and floating values in fp0.  */
+
+#undef LIBCALL_VALUE
+#define LIBCALL_VALUE(MODE)						\
+  m68k_libcall_value (MODE)
+
 
-/* On the m68k, this is a single integer, which is a number of bytes
-   of arguments scanned so far.  */
+/* SBF: int is enough public info. rest is handled internally. */
 #define CUMULATIVE_ARGS int
+extern void m68k_init_cumulative_args (CUMULATIVE_ARGS *, tree, tree);
+extern int m68k_function_arg_reg(unsigned regno);
 
-/* On the m68k, the offset starts at 0.  */
+/* Initialize a variable CUM of type CUMULATIVE_ARGS
+   for a call to a function whose data type is FNTYPE.
+   For a library call, FNTYPE is 0.  */
+#undef INIT_CUMULATIVE_ARGS
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
- ((CUM) = 0)
+  (m68k_init_cumulative_args(&(CUM), (FNTYPE), (INDIRECT)))
+
+
+/* Max. number of data, address and float registers to be used for passing
+   integer, pointer and float arguments when TARGET_REGPARM.
+   It's 4, so d0-d3, a0-a3 and fp0-fp3 can be used.  */
+#undef M68K_MAX_REGPARM
+#define M68K_MAX_REGPARM 4
+
+/* The default number of data, address and float registers to use when
+   user specified '-mregparm' switch, not '-mregparm=<value>' option.  */
+#undef M68K_DEFAULT_REGPARM
+#define M68K_DEFAULT_REGPARM 2
+
+/* 1 if N is a possible register number for function argument passing.  */
+#undef FUNCTION_ARG_REGNO_P
+#define FUNCTION_ARG_REGNO_P(N)    m68k_function_arg_reg(N)
+
+/* Register in which address to store a structure value is passed to a
+   function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0.  */
+
+#undef M68K_STRUCT_VALUE_REGNUM
+#define M68K_STRUCT_VALUE_REGNUM A0_REG
+
+/* The static chain regnum defaults to a0, but we use that for
+   structure return, so have to use a1 for the static chain.  */
+
+#undef STATIC_CHAIN_REGNUM
+#define STATIC_CHAIN_REGNUM A1_REG
+#undef M68K_STATIC_CHAIN_REG_NAME
+#define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a1"
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))

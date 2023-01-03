@@ -25,10 +25,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef TARGET_AMIGAOS
-#define TARGET_AMIGAOS 1
-#endif
-
 #if 0
 /*  The function name __transfer_from_trampoline is not actually used.
    The function definition just permits use of asm with operands"
@@ -371,47 +367,6 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
  : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 
-/*
-   On the m68k, this is a structure:
-   num_of_regs: number of data, address and float registers to use for
-     arguments passing (if it's 2, than pass arguments in d0, d1, a0, a1,
-     fp0 and fp1). 0 - pass everything on stack. vararg calls are
-     always passed entirely on stack.
-   regs_already_used: bitmask of the already used registers.
-   last_arg_reg - register number of the most recently passed argument.
-     -1 if passed on stack.
-   last_arg_len - number of registers used by the most recently passed
-     argument.
-*/
-
-extern void amigaos_init_cumulative_args (CUMULATIVE_ARGS *cum, tree);
-extern void amigaos_function_arg_advance (cumulative_args_t, machine_mode, const_tree, bool);
-extern rtx amigaos_function_arg (cumulative_args_t, machine_mode, const_tree, bool);
-extern cumulative_args_t amigaos_pack_cumulative_args (CUMULATIVE_ARGS *);
-extern int amigaos_comp_type_attributes (const_tree, const_tree);
-extern tree amigaos_handle_type_attribute(tree *, tree, tree, int, bool*);
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
-
-#undef TARGET_FUNCTION_ARG_ADVANCE
-#define TARGET_FUNCTION_ARG_ADVANCE amigaos_function_arg_advance
-
-/* A C expression that controls whether a function argument is passed
-   in a register, and which register. */
-
-#undef TARGET_FUNCTION_ARG
-#define TARGET_FUNCTION_ARG amigaos_function_arg
-
-#undef TARGET_PACK_CUMULATIVE_ARGS
-#define TARGET_PACK_CUMULATIVE_ARGS(CUM) \
-    (amigaos_pack_cumulative_args(&(CUM)))
-
-#undef  TARGET_COMP_TYPE_ATTRIBUTES
-#define TARGET_COMP_TYPE_ATTRIBUTES amigaos_comp_type_attributes
-
-
 /* end-GG-local */
 
 #undef SUBTARGET_OVERRIDE_OPTIONS
@@ -426,35 +381,20 @@ do									\
       }									\
     if (!TARGET_68020 && flag_pic==4)					\
       error ("-fbaserel32 is not supported on the 68000 or 68010\n");	\
-    if (amigaos_regparm > 0 && amigaos_regparm > AMIGAOS_MAX_REGPARM)   \
-      error ("-mregparm=x with 1 <= x <= %d\n", AMIGAOS_MAX_REGPARM);   \
-    if (amigaos_retfp0 && !TARGET_68881)                           \
-      error ("-mreturnfp0 requires -m68881, -m68040, -m68060, -m68080 or -mhard-float\n"); \
   }									\
 while (0)
 
 /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
      affects_type_identity } */
 #define SUBTARGET_ATTRIBUTES                                            \
-  { "asmreg", 1, 1, false, true, false, amigaos_handle_type_attribute, true }, \
-  { "asmregs", 1, 1, false,  false, true, 0, true }, \
   { "chip", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "fast", 0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "far",  0, 0, false, true, false, amigaos_handle_type_attribute, false }, \
   { "saveds", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
   { "entrypoint", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
-  { "saveallregs", 0, 0, false, true, true, amigaos_handle_type_attribute, false }, \
-  { "regparm", 1, 1, false,  true, true, amigaos_handle_type_attribute, true }, \
-  { "stkparm", 0, 0, false,  true, true, amigaos_handle_type_attribute, true } ,\
-  { "retfp0", 0, 0, false,  true, true, amigaos_handle_type_attribute, true },
+  { "saveallregs", 0, 0, false, true, true, amigaos_handle_type_attribute, false },
 
 #define GOT_SYMBOL_NAME ""
-
-#undef TARGET_STATIC_CHAIN
-#define TARGET_STATIC_CHAIN amigaos_static_chain_rtx
-rtx
-amigaos_static_chain_rtx(const_tree fntype,
-			       bool incoming ATTRIBUTE_UNUSED);
 
 
 extern bool
@@ -486,17 +426,7 @@ amigaos_alternate_frame_setup (int fsize);
 void
 amigaos_insert_attribute (tree decl, tree * attr);
 
+extern tree
+amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRIBUTE_UNUSED, bool *no_add_attrs);
 
-#undef TARGET_FUNCTION_VALUE
-#define TARGET_FUNCTION_VALUE amigaos_function_value
-
-#undef TARGET_FUNCTION_VALUE_REGNO_P
-#define TARGET_FUNCTION_VALUE_REGNO_P amigaos_function_value_regno_p
-
-
-rtx
-amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool x);
-
-bool
-amigaos_function_value_regno_p(unsigned regno);
 

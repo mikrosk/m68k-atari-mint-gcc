@@ -2011,9 +2011,8 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
 	{
 	  rtx_insn *insn;
 
-#ifdef TARGET_AMIGA
-	  /*
-	   * we need replicated labels, if the labels are too far away,
+#if defined(TARGET_AMIGAOS)
+	  /* SBF: we need replicated labels, if the labels are too far away,
 	   * since on 68000 there are only 8 bits for the offset.
 	   */
 	  if (!TARGET_68020 && !TARGET_68040 && !TARGET_68080)

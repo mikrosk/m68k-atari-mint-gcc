@@ -343,7 +343,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	}
 #endif
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
+/* SBF: force linking __init_eh and replace new operator. */
 	{
 	  bool addglue = true;
 	  /* do not add glue if exceptions are disabled. */

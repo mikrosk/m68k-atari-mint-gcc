@@ -390,12 +390,12 @@ propagate_through_phis (tree var, edge e)
 /**
  * Return true if register params are used.
  *
- * The Amiga implementation is also checking if only scratch regs d0/d1/a0/a1 are used.
+ * The m68k implementation is also checking if only scratch regs d0/d1/a0/a1 are used.
  */
 static
 bool func_is_using_regparms(const_tree func)
 {
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
   tree attrs = TYPE_ATTRIBUTES(TREE_TYPE(func));
   if (attrs)
     {
@@ -413,10 +413,10 @@ bool func_is_using_regparms(const_tree func)
 	}
       if (0 != (attr = lookup_attribute ("regparm", attrs)))
 	return TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(attr))) > 2;
-      if (amigaos_regparm > 2 && !lookup_attribute ("stkparm", attrs))
+      if (m68k_regparm > 2 && !lookup_attribute ("stkparm", attrs))
 	return true;
     }
-  else if (amigaos_regparm > 2)
+  else if (m68k_regparm > 2)
     return true;
 #endif
   return false;

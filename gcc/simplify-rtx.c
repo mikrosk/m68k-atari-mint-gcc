@@ -4156,9 +4156,9 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       return immed_wide_int_const (result, mode);
     }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   /**
-   * Subtraction of two pic refs is be possible
+   * Subtraction of two pic refs is possible
    * if those refer to the same symbol.
    */
   if (mode == SImode && code == MINUS

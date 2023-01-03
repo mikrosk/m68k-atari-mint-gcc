@@ -453,7 +453,7 @@ struct c_parm {
   tree attrs;
   /* The declarator.  */
   struct c_declarator *declarator;
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
   /* The optional asm spec to specify the register. */
   tree asmspec;
 #endif

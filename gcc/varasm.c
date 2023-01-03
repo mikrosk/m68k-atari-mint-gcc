@@ -1804,7 +1804,7 @@ assemble_start_function (tree decl, const char *fnname)
 
       maybe_assemble_visibility (decl);
     }
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   else if (profile_flag)
     {
       char *p;
@@ -2243,7 +2243,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 	handle_vtv_comdat_section (sect, decl);
       else
 	{
-#ifdef TARGET_AMIGA
+#ifdef TARGET_AMIGAOS
 	  if ((sect->common.flags & SECTION_STYLE_MASK) == SECTION_NAMED)
 	    sect->named.decl = decl;
 #endif
@@ -6373,7 +6373,7 @@ default_select_section (tree decl, int reloc,
   else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
       if (! (
-#ifndef TARGET_AMIGA
+#ifndef TARGET_AMIGAOS
 	  (flag_pic && reloc) ||
 #endif
 	     !TREE_READONLY (decl)

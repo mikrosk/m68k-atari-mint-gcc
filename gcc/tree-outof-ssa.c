@@ -102,9 +102,7 @@ ssa_is_replaceable_p (gimple *stmt)
   if (gimple_has_volatile_ops (stmt))
     return false;
 
-#ifdef TARGET_AMIGA
-//  print_gimple_stmt (stderr, stmt, 0, TDF_SLIM | (dump_flags & TDF_LINENO));
-
+#if defined(TARGET_M68K)
   /* keep TARGET_MEM_REF for better scheduling. */
   if (rcode == TARGET_MEM_REF)
     return false;

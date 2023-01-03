@@ -247,7 +247,7 @@ static GTY(()) const char *lastfile;
    base_input_file.  */
 static GTY(()) int lastfile_is_base;
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 static unsigned files_num;
 static unsigned files_size;
 static unsigned files_current;
@@ -843,7 +843,7 @@ dbxout_finish_complex_stabs (tree sym, stab_code_type code,
 	  chunk += chunklen + 1;
 	  len   -= chunklen + 1;
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	  /* SBF: symbol is inside unspec */
 	  if (addr && GET_CODE(addr) == PLUS)
 	    {
@@ -1244,7 +1244,7 @@ static void
 dbxout_source_file (const char *filename)
 {
 
-#if defined TARGET_AMIGA && !defined TARGET_AMIGAOS_VASM
+#if defined TARGET_AMIGAOS && !defined TARGET_AMIGAOS_VASM
   if (filename && (lastfile == 0 || strcmp (filename, lastfile)))
     {
       // search file name
@@ -1326,7 +1326,7 @@ dbxout_source_line (unsigned int lineno, const char *filename,
 {
   dbxout_source_file (filename);
 
-#if defined TARGET_AMIGA && !defined TARGET_AMIGAOS_VASM
+#if defined TARGET_AMIGAOS && !defined TARGET_AMIGAOS_VASM
     fputs ("\t.loc ", asm_out_file);
     fprint_ul (asm_out_file, files_current);
     fputc (' ', asm_out_file);
@@ -3859,7 +3859,7 @@ void
 default_stabs_asm_out_destructor (rtx symbol ATTRIBUTE_UNUSED,
 				  int priority ATTRIBUTE_UNUSED)
 {
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_AMIGAOS)
   fprintf (asm_out_file,
 	   "\t.section\t.list___DTOR_LIST__\n"
 	   "\t.long\t_%s\n"
@@ -3882,7 +3882,7 @@ void
 default_stabs_asm_out_constructor (rtx symbol ATTRIBUTE_UNUSED,
 				   int priority ATTRIBUTE_UNUSED)
 {
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_AMIGAOS)
   fprintf (asm_out_file,
 	   "\t.section\t.list___CTOR_LIST__\n"
 	   "\t.long\t_%s\n"

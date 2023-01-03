@@ -131,7 +131,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
   code = _Unwind_RaiseException_Phase2 (exc, &cur_context);
 KOT:
   if (code != _URC_INSTALL_CONTEXT) {
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	  asm ("move.l %0, (sp)" :: "r"(code));
 #endif
     return code;

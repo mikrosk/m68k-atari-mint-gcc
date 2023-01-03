@@ -21,9 +21,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef TARGET_AMIGA
 #define TARGET_AMIGA 1
-#endif
 
 #define HAS_INIT_SECTION
 
@@ -145,20 +143,6 @@ else \
   fprintf (FILE, "\t.skip %u\n", (int)(SIZE)); \
 amiga_declare_object = 0
 #endif
-
-/* Register in which address to store a structure value is passed to a
-   function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0.  */
-
-#undef M68K_STRUCT_VALUE_REGNUM
-#define M68K_STRUCT_VALUE_REGNUM A0_REG
-
-/* The static chain regnum defaults to a0, but we use that for
-   structure return, so have to use a1 for the static chain.  */
-
-#undef STATIC_CHAIN_REGNUM
-#define STATIC_CHAIN_REGNUM A1_REG
-#undef M68K_STATIC_CHAIN_REG_NAME
-#define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a1"
 
 #ifndef TARGET_AMIGAOS_VASM
 #define ASM_COMMENT_START "|"
@@ -296,42 +280,6 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #endif
 
-/* SBF: same as linux.h */
-
-/* 1 if N is a possible register number for a function value.  For
-   m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
-   pointer, or floating types, respectively.  Reject fp0 if not using
-   a 68881 coprocessor.  */
-
-#undef FUNCTION_VALUE_REGNO_P
-#define FUNCTION_VALUE_REGNO_P(N) \
-  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
-
-/* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
-   more than one register.  */
-
-#undef NEEDS_UNTYPED_CALL
-#define NEEDS_UNTYPED_CALL 1
-
-/* Define how to generate (in the callee) the output value of a
-   function and how to find (in the caller) the value returned by a
-   function.  VALTYPE is the data type of the value (as a tree).  If
-   the precise function being called is known, FUNC is its
-   FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
-   result in d0, a0, or fp0 as appropriate.  */
-
-#undef FUNCTION_VALUE
-#define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  m68k_function_value (VALTYPE, FUNC)
-
-/* Define how to find the value returned by a library function
-   assuming the value has mode MODE.
-   For m68k/SVR4 look for integer values in d0, pointer values in d0
-   (returned in both d0 and a0), and floating values in fp0.  */
-
-#undef LIBCALL_VALUE
-#define LIBCALL_VALUE(MODE)						\
-  m68k_libcall_value (MODE)
 
 /* When creating shared libraries, use different 'errno'. */
 #define CPP_IXEMUL_SPEC \
@@ -688,6 +636,7 @@ amigaos_prelink_hook((const char **)(LD1_ARGV), (STRIP))
 #define MAX_OFILE_ALIGNMENT ((1 << 15)*BITS_PER_UNIT)
 
 #ifdef __amiga__
+#undef CROSS_DIRECTORY_STRUCTURE
 #define CROSS_DIRECTORY_STRUCTURE
 
 #undef CROSS_INCLUDE_DIR
@@ -735,25 +684,6 @@ extern int amiga_is_far_symbol(const_rtx x);
 #define TARGET_GCC_EXCEPT_TABLE_S ".text"
 
 #define EH_TABLES_CAN_BE_READ_ONLY 1
-
-
-/* Max. number of data, address and float registers to be used for passing
-   integer, pointer and float arguments when TARGET_REGPARM.
-   It's 4, so d0-d3, a0-a3 and fp0-fp3 can be used.  */
-#undef AMIGAOS_MAX_REGPARM
-#define AMIGAOS_MAX_REGPARM 4
-
-/* The default number of data, address and float registers to use when
-   user specified '-mregparm' switch, not '-mregparm=<value>' option.  */
-#undef AMIGAOS_DEFAULT_REGPARM
-#define AMIGAOS_DEFAULT_REGPARM 2
-
-/* 1 if N is a possible register number for function argument passing.  */
-#undef FUNCTION_ARG_REGNO_P
-#define FUNCTION_ARG_REGNO_P(N)    amigaos_function_arg_reg(N)
-
-extern int
-amigaos_function_arg_reg(unsigned regno);
 
 //extern bool debug_recog(char const * txt, int which_alternative, int n, rtx * operands);
 

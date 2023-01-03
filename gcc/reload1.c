@@ -739,7 +739,7 @@ will_delete_init_insn_p (rtx_insn *insn)
   return false;
 }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 
 extern rtx
 alter_subreg (rtx *xp, bool final_p);
@@ -1334,7 +1334,7 @@ reload (rtx_insn *first, int global)
 	if (AUTO_INC_DEC)
 	  add_auto_inc_notes (insn, PATTERN (insn));
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	fix_invalid_addresses (insn);
 #endif
 
@@ -2125,7 +2125,7 @@ find_reload_regs (struct insn_chain *chain)
 	    if (dump_file)
 	      fprintf (dump_file, "reload failure for reload %d\n", r);
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	    rld[r].in = 0; // mark as optional - bbb pass will fix this later
 #else
 	    spill_failure (chain->insn, rld[r].rclass);

@@ -137,328 +137,6 @@ amigaos_prologue_begin_hook (FILE *stream, int fsize)
 //}
 #endif
 
-/*
- * begin-GG-local: explicit register specification for parameters.
- *
- * Reworked and ported to gcc-6.2.0 by Stefan "Bebbo" Franke.
- */
-
-/**
- * Define this here and add it to tm_p -> all know the custom type and allocate/use the correct size.
- */
-struct amigaos_args
-{
-  int num_of_regs;
-  long regs_already_used;
-  int last_arg_reg;
-  int last_arg_len;
-  tree current_param_type; /* New field: formal type of the current argument.  */
-  tree fntype; /* initial function type */
-};
-
-static struct amigaos_args mycum, othercum;
-
-bool amiga_is_ok_for_sibcall(tree decl, tree exp);
-/**
- * Sibcall is only ok, if max regs d0/d1/a0 are used.
- * a1 is used for the sibcall
- * others might be trashed due to stack pop.
- */
-bool amiga_is_ok_for_sibcall(tree decl, tree exp)
-{
-  tree fntype = decl ? TREE_TYPE (decl) : TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (exp)));
-  if (othercum.fntype == fntype)
-    return (othercum.regs_already_used & ~0x010103) == 0;
-  return false;
-}
-
-/* Argument-passing support functions.  */
-
-/* Initialize a variable CUM of type CUMULATIVE_ARGS
- for a call to a function whose data type is FNTYPE.
- For a library call, FNTYPE is 0.  */
-
-void
-amigaos_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
-{
-  struct amigaos_args * cum = decl == current_function_decl ? &mycum : &othercum;
-  *cump = decl == current_function_decl;
-  if (sas_regparm)
-    amigaos_regparm = 2;
-  cum->num_of_regs = amigaos_regparm > 0 ? amigaos_regparm : 0;
-  DPRINTF((stderr, "0amigaos_init_cumulative_args %s %d -> %d\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, cum->num_of_regs));
-
-  /* Initialize a variable CUM of type CUMULATIVE_ARGS
-   for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0.  */
-
-  cum->last_arg_reg = -1;
-  cum->regs_already_used = 0;
-
-  if (!fntype && decl)
-    fntype = TREE_TYPE(decl);
-// SBF: oh my ... - this caused crafted functions to lose asm parameters....
-// but it was needed for memset - uh  oh - doh - use virtual instead
-  if (decl && decl->decl_common.virtual_flag)
-    fntype = 0;
-
-  if (decl && DECL_BUILT_IN(decl))
-    fntype = 0;
-
-  tree attrs = NULL;
-  if (fntype)
-    {
-      attrs = TYPE_ATTRIBUTES(fntype);
-      DPRINTF((stderr, "1amigaos_init_cumulative_args %s %d attrs: %p\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, attrs));
-      if (attrs)
-	{
-	  tree stkp = lookup_attribute ("stkparm", attrs);
-	  tree fnspec = lookup_attribute ("fn spec", attrs);
-	  DPRINTF((stderr, "2amigaos_init_cumulative_args %s %d stkp: %p %s\r\n", decl ? lang_hooks.decl_printable_name (decl, 2) : "?", *cump, stkp ? stkp : fnspec, IDENTIFIER_POINTER(TREE_PURPOSE(attrs))));
-	  if (stkp || fnspec)
-	    cum->num_of_regs = 0;
-	  else
-	    {
-	      tree ratree = lookup_attribute ("regparm", attrs);
-	      cum->num_of_regs = amigaos_regparm != 0 ? amigaos_regparm :
-							AMIGAOS_DEFAULT_REGPARM;
-	      if (ratree)
-		{
-		  int no = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(ratree)));
-		  if (no > 0)
-		    cum->num_of_regs = no < AMIGAOS_MAX_REGPARM ? no : AMIGAOS_MAX_REGPARM;
-		}
-	    }
-	}
-    }
-  else
-    /* Libcall.  */
-    cum->num_of_regs = 0;
-
-  if (cum->num_of_regs)
-    {
-      /* If this is a vararg call, put all arguments on stack.  */
-      tree param, next_param;
-      for (param = TYPE_ARG_TYPES(fntype); param; param = next_param)
-	{
-	  next_param = TREE_CHAIN(param);
-	  if (!next_param && TREE_VALUE (param) != void_type_node)
-	  cum->num_of_regs = 0;
-	}
-    }
-
-#if ! defined (PCC_STATIC_STRUCT_RETURN) && defined (M68K_STRUCT_VALUE_REGNUM)
-  /* If return value is a structure, and we pass the buffer address in a
-   register, we can't use this register for our own purposes.
-   FIXME: Something similar would be useful for static chain.  */
-  if (fntype && aggregate_value_p (TREE_TYPE(fntype), fntype))
-    cum->regs_already_used |= (1 << M68K_STRUCT_VALUE_REGNUM);
-#endif
-
-  if (fntype && DECL_STATIC_CHAIN(fntype))
-    {
-      rtx reg = amigaos_static_chain_rtx (decl, 0);
-      if (reg)
-	cum->regs_already_used |= (1 << REGNO(reg));
-    }
-
-  if (fntype)
-    cum->current_param_type = TYPE_ARG_TYPES(cum->fntype = fntype);
-  else
-    /* Call to compiler-support function. */
-    cum->current_param_type = cum->fntype = 0;
-  DPRINTF((stderr, "9amigaos_init_cumulative_args %p -> %d\r\n", cum, cum->num_of_regs));
-
-#if 0
-  if (cum->num_of_regs && decl && !lookup_attribute("asmreg", attrs))
-    {
-      char const * name = IDENTIFIER_POINTER (DECL_NAME(decl));
-      if (*name != '@')
-	{
-	  if (cum->num_of_regs == 2)
-	    name = concat("@", IDENTIFIER_POINTER (DECL_NAME(decl)), NULL);
-	  else
-	    {
-	      char nn[2] = {'0' + cum->num_of_regs, 0};
-	      name = concat("@", nn, IDENTIFIER_POINTER (DECL_NAME(decl)), NULL);
-	    }
-	  extern tree get_identifier (const char *text);
-	  DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name =
-	  DECL_NAME(decl) = get_identifier(name);
-	}
-    }
-#endif
-}
-
-int
-amigaos_function_arg_reg (unsigned regno)
-{
-  return (mycum.regs_already_used & (1 << regno)) != 0;
-}
-
-rtx
-amigaos_function_value(const_tree type, const_tree fn_decl_or_type, bool outgoing)
-{
-  machine_mode mode = TYPE_MODE(type);
-  if (!fn_decl_or_type)
-    fn_decl_or_type = outgoing ? mycum.fntype : othercum.fntype;
-  if (fn_decl_or_type && TARGET_68881 && (mode == DFmode || mode == SFmode))
-    return gen_rtx_REG (mode, FP0_REG);
-  return gen_rtx_REG (mode, D0_REG);
-}
-
-bool
-amigaos_function_value_regno_p(unsigned regno) {
-  if (TARGET_68881 && mycum.fntype)
-	return regno == FP0_REG;
-  return regno == D0_REG;
-}
-
-
-/* Update the data in CUM to advance over an argument.  */
-
-void
-amigaos_function_arg_advance (cumulative_args_t cum_v, machine_mode, const_tree, bool)
-{
-  struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
-  /* Update the data in CUM to advance over an argument.  */
-
-  DPRINTF((stderr, "amigaos_function_arg_advance1 %p\r\n", cum));
-
-  if (cum->last_arg_reg != -1)
-    {
-      int count;
-      for (count = 0; count < cum->last_arg_len; count++)
-	cum->regs_already_used |= (1 << (cum->last_arg_reg + count));
-      cum->last_arg_reg = -1;
-    }
-
-  if (cum->current_param_type)
-    cum->current_param_type = TREE_CHAIN(cum->current_param_type);
-}
-
-/* Define where to put the arguments to a function.
- Value is zero to push the argument on the stack,
- or a hard register in which to store the argument.
-
- MODE is the argument's machine mode.
- TYPE is the data type of the argument (as a tree).
- This is null for libcalls where that information may
- not be available.
- CUM is a variable of type CUMULATIVE_ARGS which gives info about
- the preceding args and about the function being called.  */
-
-static struct rtx_def *
-_m68k_function_arg (struct amigaos_args * cum, machine_mode mode, const_tree type)
-{
-  DPRINTF((stderr, "m68k_function_arg numOfRegs=%d\r\n", cum ? cum->num_of_regs : 0));
-
-  if (cum->num_of_regs)
-    {
-      int regbegin = -1, altregbegin = -1, len;
-
-      /* FIXME: The last condition below is a workaround for a bug.  */
-      if (TARGET_68881 && FLOAT_MODE_P(mode) &&
-      GET_MODE_UNIT_SIZE (mode) <= 12 && (GET_MODE_CLASS (mode) != MODE_COMPLEX_FLOAT || mode == SCmode))
-	{
-	  regbegin = 16; /* FPx */
-	  len = GET_MODE_NUNITS(mode);
-	}
-      /* FIXME: Two last conditions below are workarounds for bugs.  */
-      else if (INTEGRAL_MODE_P (mode) && mode != CQImode && mode != CHImode)
-	{
-	  if (!type || POINTER_TYPE_P(type))
-	    regbegin = 8; /* Ax */
-	  else
-	    regbegin = 0; /* Dx */
-
-	  if (!sas_regparm)
-	    altregbegin = 8 - regbegin;
-	  len = (GET_MODE_SIZE (mode) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
-	}
-
-      if (regbegin != -1)
-	{
-	  int reg;
-	  long mask;
-
-	  look_for_reg: mask = 1 << regbegin;
-	  for (reg = 0; reg < cum->num_of_regs; reg++, mask <<= 1)
-	    if (!(cum->regs_already_used & mask))
-	      {
-		int end;
-		for (end = reg; end < cum->num_of_regs && end < reg + len; end++, mask <<= 1)
-		  if (cum->regs_already_used & mask)
-		    break;
-		if (end == reg + len)
-		  {
-		    cum->last_arg_reg = reg + regbegin;
-		    cum->last_arg_len = len;
-		    break;
-		  }
-	      }
-
-	  if (reg == cum->num_of_regs && altregbegin != -1)
-	    {
-	      DPRINTF((stderr, "look for alt reg\n"));
-	      regbegin = altregbegin;
-	      altregbegin = -1;
-	      goto look_for_reg;
-	    }
-	}
-
-      if (cum->last_arg_reg != -1)
-	{
-	  DPRINTF((stderr, "-> gen_rtx_REG %d\r\n", cum->last_arg_reg));
-	  return gen_rtx_REG (mode, cum->last_arg_reg);
-	}
-    }
-  return 0;
-}
-
-/* A C expression that controls whether a function argument is passed
- in a register, and which register. */
-
-struct rtx_def *
-amigaos_function_arg (cumulative_args_t cum_v, machine_mode mode, const_tree type, bool)
-{
-  DPRINTF((stderr, "amigaos_function_arg %p\r\n", cum_v.p));
-
-  struct amigaos_args *cum = *get_cumulative_args (cum_v) ? &mycum : &othercum;
-
-  tree asmtree = type && cum->current_param_type ? lookup_attribute("asmreg", TYPE_ATTRIBUTES(TREE_VALUE(cum->current_param_type))) : NULL_TREE;
-
-  if (asmtree)
-    {
-      int i;
-      cum->last_arg_reg = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmtree)));
-      cum->last_arg_len = HARD_REGNO_NREGS(cum->last_arg_reg, mode);
-
-      for (i = 0; i < cum->last_arg_len; i++)
-	{
-	  if (cum->regs_already_used & (1 << (cum->last_arg_reg + i)))
-	    {
-	      error ("two parameters allocated for one register");
-	      break;
-	    }
-	  cum->regs_already_used |= (1 << (cum->last_arg_reg + i));
-	}
-      return gen_rtx_REG (mode, cum->last_arg_reg);
-    }
-  return _m68k_function_arg (cum, mode, type);
-}
-
-void
-amiga_emit_regparm_clobbers (void)
-{
-  for (int i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-    if (mycum.regs_already_used & (1 << i))
-      {
-	rtx reg = gen_raw_REG (Pmode, i);
-	emit_insn (gen_rtx_CLOBBER(Pmode, gen_rtx_SET(reg, gen_rtx_MEM(Pmode, reg))));
-      }
-}
-
 /* Return zero if the attributes on TYPE1 and TYPE2 are incompatible,
  one if they are compatible, and two if they are nearly compatible
  (which causes a warning to be generated). */
@@ -466,85 +144,29 @@ amiga_emit_regparm_clobbers (void)
 int
 amigaos_comp_type_attributes (const_tree type1, const_tree type2)
 {
-  DPRINTF((stderr, "amigaos_comp_type_attributes\n"));
-  /* Functions or methods are incompatible if they specify mutually exclusive
-   ways of passing arguments. */
-  if (TREE_CODE(type1) == FUNCTION_TYPE || TREE_CODE(type1) == METHOD_TYPE)
-    {
-      tree attrs1 = TYPE_ATTRIBUTES(type1);
+  DPRINTF((stderr, "m68k_comp_type_attributes\n"));
+  tree attrs1 = TYPE_ATTRIBUTES(type1);
 
-      tree asm1 = lookup_attribute("asmregs", attrs1);
-      tree stack1 = lookup_attribute("stkparm", attrs1);
-      tree reg1 = lookup_attribute("regparm", attrs1);
+  tree chip1 = lookup_attribute("chip", attrs1);
+  tree fast1 = lookup_attribute("fast", attrs1);
+  tree far1 = lookup_attribute("far", attrs1);
 
-      tree attrs2 = TYPE_ATTRIBUTES(type2);
+  tree attrs2 = TYPE_ATTRIBUTES(type2);
 
-      tree asm2 = lookup_attribute("asmregs", attrs2);
-      tree stack2 = lookup_attribute("stkparm", attrs2);
-      tree reg2 = lookup_attribute("regparm", attrs2);
+  tree chip2 = lookup_attribute("chip", attrs2);
+  tree fast2 = lookup_attribute("fast", attrs2);
+  tree far2 = lookup_attribute("far", attrs2);
 
-      if ((asm1 && !asm2) || (!asm1 && asm2))
-	return 0;
+  if (chip1)
+    return chip2 && !fast2 && !far2;
 
-      if (reg1)
-	{
-	  if (stack2)
-	    return 0;
+  if (fast1)
+    return !chip2 && fast2 && !far2;
 
-	  int no1 = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(reg1)));
-	  int no2 = reg2 ? TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(reg2))) : amigaos_regparm;
-	  if (no1 != no2)
-	    return 0;
-	}
-      else if (reg2)
-	{
-	  if (stack1)
-	    return 0;
+  if (far1)
+    return !chip2 && !fast2 && far2;
 
-	  int no2 = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(reg2)));
-	  if (amigaos_regparm != no2)
-	    return 0;
-	}
-
-      if (stack1) {
-	  if (stack2)
-	    return 1;
-	  return amigaos_regparm  <= 0;
-      }
-
-      if (stack2)
-	  return amigaos_regparm  <= 0;
-
-      if (asm1)
-	return 0 == strcmp(IDENTIFIER_POINTER(TREE_VALUE(asm1)), IDENTIFIER_POINTER(TREE_VALUE(asm2)));
-
-    }
-  else
-    {
-      tree attrs1 = TYPE_ATTRIBUTES(type1);
-
-      tree chip1 = lookup_attribute("chip", attrs1);
-      tree fast1 = lookup_attribute("fast", attrs1);
-      tree far1 = lookup_attribute("far", attrs1);
-
-      tree attrs2 = TYPE_ATTRIBUTES(type2);
-
-      tree chip2 = lookup_attribute("chip", attrs2);
-      tree fast2 = lookup_attribute("fast", attrs2);
-      tree far2 = lookup_attribute("far", attrs2);
-
-      if (chip1)
-	return chip2 && !fast2 && !far2;
-
-      if (fast1)
-	return !chip2 && fast2 && !far2;
-
-      if (far1)
-	return !chip2 && !fast2 && far2;
-
-      return !chip2 && !fast2 && !far2;
-    }
-  return 1;
+  return !chip2 && !fast2 && !far2;
 }
 /* end-GG-local */
 
@@ -559,52 +181,7 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
       DPRINTF((stderr, "%p with treecode %d\n", node, TREE_CODE(nnn)));
       if (TREE_CODE (nnn) == FUNCTION_DECL || TREE_CODE (nnn) == FUNCTION_TYPE || TREE_CODE (nnn) == METHOD_TYPE)
 	{
-	  /* 'regparm' accepts one optional argument - number of registers in
-	   single class that should be used to pass arguments.  */
-	  if (is_attribute_p ("regparm", name))
-	    {
-	      DPRINTF((stderr, "regparm found\n"));
-
-	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
-		{
-		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
-		  break;
-		}
-	      if (args && TREE_CODE (args) == TREE_LIST)
-		{
-		  tree val = TREE_VALUE(args);
-		  DPRINTF((stderr, "regparm with val: %d\n", TREE_CODE(val)));
-		  if (TREE_CODE (val) == INTEGER_CST)
-		    {
-		      unsigned no = TREE_INT_CST_LOW(val);
-		      if (no > AMIGAOS_MAX_REGPARM)
-			{
-			  error ("`regparm' attribute: value %d not in [0 - %d]", no,
-			  AMIGAOS_MAX_REGPARM);
-			  break;
-			}
-		    }
-		  else
-		    {
-		      error ("invalid argument(s) to `regparm' attribute");
-		      break;
-		    }
-		}
-	    }
-	  else if (is_attribute_p ("stkparm", name))
-	    {
-	      if (lookup_attribute ("regparm", TYPE_ATTRIBUTES(nnn)))
-		{
-		  error ("`regparm' and `stkparm' (__stdargs) are mutually exclusive");
-		  break;
-		}
-	      if (lookup_attribute ("retfp0", TYPE_ATTRIBUTES(nnn)))
-		{
-		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
-		  break;
-		}
-	    }
-	  else if (is_attribute_p ("stackext", name))
+	  if (is_attribute_p ("stackext", name))
 	    {
 	      if (lookup_attribute ("interrupt", TYPE_ATTRIBUTES(nnn)))
 		{
@@ -640,14 +217,6 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 		  break;
 		}
 	    }
-	  else if (is_attribute_p ("retfp0", name))
-	    {
-	      if (lookup_attribute ("stkparm", TYPE_ATTRIBUTES(nnn)))
-		{
-		  error ("`retfp0' and `stkparm' (__stdargs) are mutually exclusive");
-		  break;
-		}
-	    }
 	  else
 	    {
 	      warning (OPT_Wattributes, "`%s' attribute only applies to data", IDENTIFIER_POINTER(name));
@@ -658,27 +227,6 @@ amigaos_handle_type_attribute (tree *node, tree name, tree args, int flags ATTRI
 	  if (is_attribute_p ("chip", name) || is_attribute_p ("fast", name) || is_attribute_p ("far", name))
 	    {
 	      // OK
-	    }
-	  else if (is_attribute_p ("asmreg", name))
-	    {
-	      if (args && TREE_CODE (args) == TREE_LIST)
-		{
-		  tree val = TREE_VALUE(args);
-		  if (TREE_CODE (val) == INTEGER_CST)
-		    {
-		      unsigned no = TREE_INT_CST_LOW(val);
-		      if (no >= 23)
-			{
-			  error ("`asmreg' attribute: value %d not in [0 - 23]", no);
-			  break;
-			}
-		    }
-		  else
-		    {
-		      error ("invalid argument(s) to `asmreg' attribute");
-		      break;
-		    }
-		}
 	    }
 	  else
 	    {
@@ -877,37 +425,6 @@ read_only_operand (rtx operand)
   if (GET_CODE (operand) == SYMBOL_REF)
     return SYMBOL_REF_FLAG (operand) || CONSTANT_POOL_ADDRESS_P(operand);
   return 1;
-}
-
-rtx
-amigaos_static_chain_rtx (const_tree decl, bool incoming ATTRIBUTE_UNUSED)
-{
-  if (!decl || !DECL_STATIC_CHAIN(decl))
-    return 0;
-
-  unsigned used = 0;
-  tree fntype = TREE_TYPE(decl);
-  if (fntype)
-    for (tree current_param_type = TYPE_ARG_TYPES(fntype); current_param_type; current_param_type = TREE_CHAIN(current_param_type))
-      {
-	tree asmtree = TYPE_ATTRIBUTES(TREE_VALUE(current_param_type));
-	if (!asmtree || strcmp ("asmreg", IDENTIFIER_POINTER(TREE_PURPOSE(asmtree))))
-	  continue;
-
-	unsigned regno = TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmtree)));
-	used |= 1 << regno;
-      }
-
-  if (!(used & (1 << 9)))
-    return gen_rtx_REG (Pmode, 9);
-  if (!(used & (1 << 10)))
-    return gen_rtx_REG (Pmode, 10);
-  if (!(used & (1 << 11)))
-    return gen_rtx_REG (Pmode, 11);
-  if (!(used & (1 << 14)))
-    return gen_rtx_REG (Pmode, 14);
-
-  return 0;
 }
 
 /**

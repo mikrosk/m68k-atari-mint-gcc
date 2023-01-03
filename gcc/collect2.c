@@ -2368,7 +2368,8 @@ maybe_lto_object_file (const char *prog_name)
 	    break;
 	  }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
+      /* SBF: check amiga hunk for gnu lto section name. */
       if (buf[0] == 0 && buf[1] == 0 && buf[2] == 3 && buf[3] == 0xe7)
 	{
 	  // skip file name

@@ -266,7 +266,7 @@ lto_end_uncompression (struct lto_compression_stream *stream)
   gcc_assert (!stream->is_compression);
   timevar_push (TV_IPA_LTO_DECOMPRESS);
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   while (remaining > 3)
 #else
   while (remaining > 0)

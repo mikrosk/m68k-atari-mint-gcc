@@ -3983,7 +3983,7 @@ output_addr_const (FILE *file, rtx x)
       /* Some assemblers need integer constants to appear last (eg masm).  */
       if (CONST_INT_P (XEXP (x, 0)))
 	{
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	  output_addr_const (file, XEXP (x, 0));
 	  fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 1));
@@ -3996,7 +3996,7 @@ output_addr_const (FILE *file, rtx x)
 	}
       else
 	{
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	  output_addr_const (file, XEXP (x, 1));
 	  fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 0));

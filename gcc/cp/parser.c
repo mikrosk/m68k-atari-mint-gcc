@@ -20570,10 +20570,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	}
     }
 
-  /**
-   * SBF: Add support for __asm("xy") register spec.
-   */
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
     tree pasmspec = cp_parser_asm_specification_opt (parser);
 #endif
 
@@ -20681,7 +20679,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
   else
     default_argument = NULL_TREE;
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
   if (pasmspec)
     {
       const char *asmspec = TREE_STRING_POINTER(pasmspec);

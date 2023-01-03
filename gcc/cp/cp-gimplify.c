@@ -1946,7 +1946,8 @@ cp_fold_maybe_rvalue (tree x, bool rval)
       x = cp_fold (x);
       if (rval && DECL_P (x))
 	{
-#ifdef TARGET_AMIGA
+#if defined(TARGET_M68K)
+/* SBF: do not fold on m68k. */
 	  if (VAR_P (x))
 	    break;
 #endif

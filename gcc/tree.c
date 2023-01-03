@@ -4803,7 +4803,7 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
   return ddecl;
 }
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 /**
  * Filter __chip__ and __fast__ storage attributes from type's attributes.
  */
@@ -4835,7 +4835,7 @@ tree
 build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute)
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   && ! attribute_list_equal (TYPE_ATTRIBUTES (ttype), strip_amiga_storage_attrs(attribute))
 #endif
   )

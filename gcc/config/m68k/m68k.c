@@ -170,12 +170,6 @@ static void m68k_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void m68k_trampoline_init (rtx, tree, rtx);
 static int m68k_return_pops_args (tree, tree, int);
 static rtx m68k_delegitimize_address (rtx);
-#ifndef TARGET_AMIGA
-static void m68k_function_arg_advance (cumulative_args_t, machine_mode,
-				       const_tree, bool);
-static rtx m68k_function_arg (cumulative_args_t, machine_mode,
-			      const_tree, bool);
-#endif
 static bool m68k_cannot_force_const_mem (machine_mode mode, rtx x);
 static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
@@ -333,12 +327,6 @@ static section * m68k_select_section (tree, int, unsigned HOST_WIDE_INT);
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS m68k_delegitimize_address
 
-#undef TARGET_FUNCTION_ARG
-#define TARGET_FUNCTION_ARG m68k_function_arg
-
-#undef TARGET_FUNCTION_ARG_ADVANCE
-#define TARGET_FUNCTION_ARG_ADVANCE m68k_function_arg_advance
-
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P m68k_legitimate_constant_p
 
@@ -367,21 +355,68 @@ static section * m68k_select_section (tree, int, unsigned HOST_WIDE_INT);
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION	m68k_select_section
 
+/*
+   On the m68k, this is a structure:
+   num_of_regs: number of data, address and float registers to use for
+     arguments passing (if it's 2, than pass arguments in d0, d1, a0, a1,
+     fp0 and fp1). 0 - pass everything on stack. vararg calls are
+     always passed entirely on stack.
+   regs_already_used: bitmask of the already used registers.
+   last_arg_reg - register number of the most recently passed argument.
+     -1 if passed on stack.
+   last_arg_len - number of registers used by the most recently passed
+     argument.
+*/
 
-#ifdef TARGET_AMIGA
+extern void m68k_function_arg_advance (cumulative_args_t, machine_mode, const_tree, bool);
+extern rtx m68k_function_arg (cumulative_args_t, machine_mode, const_tree, bool);
+extern cumulative_args_t m68k_pack_cumulative_args (CUMULATIVE_ARGS *);
+extern tree m68k_handle_type_attribute(tree *, tree, tree, int, bool*);
+
+
+/* Update the data in CUM to advance over an argument
+   of mode MODE and data type TYPE.
+   (TYPE is null for libcalls where that information may not be available.)  */
+
+#undef TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE m68k_function_arg_advance
+
+/* A C expression that controls whether a function argument is passed
+   in a register, and which register. */
+
+#undef TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG m68k_function_arg
+
+#undef TARGET_PACK_CUMULATIVE_ARGS
+#define TARGET_PACK_CUMULATIVE_ARGS(CUM)  (m68k_pack_cumulative_args(&(CUM)))
+
+
+extern int m68k_comp_type_attributes (const_tree, const_tree);
+#undef  TARGET_COMP_TYPE_ATTRIBUTES
+#define TARGET_COMP_TYPE_ATTRIBUTES m68k_comp_type_attributes
+
+#undef TARGET_STATIC_CHAIN
+#define TARGET_STATIC_CHAIN m68k_static_chain_rtx
+extern rtx
+m68k_static_chain_rtx(const_tree fntype,
+			       bool incoming ATTRIBUTE_UNUSED);
+
+
+#if defined(TARGET_AMIGAOS)
 #include "amigaos.h"
 #endif
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
-  { "interrupt", 0, 0, true,  false, false, m68k_handle_fndecl_attribute,
-    false },
-  { "interrupt_handler", 0, 0, true,  false, false,
-    m68k_handle_fndecl_attribute, false },
-  { "interrupt_thread", 0, 0, true,  false, false,
-    m68k_handle_fndecl_attribute, false },
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler, affects_type_identity } */
+  { "interrupt", 0, 0, true,  false, false, m68k_handle_fndecl_attribute,false },
+  { "interrupt_handler", 0, 0, true,  false, false, m68k_handle_fndecl_attribute, false },
+  { "interrupt_thread", 0, 0, true,  false, false, m68k_handle_fndecl_attribute, false },
+  { "asmreg", 1, 1, false, true, false, m68k_handle_type_attribute, true },
+  { "asmregs", 1, 1, false,  false, true, 0, true },
+  { "regparm", 1, 1, false,  true, true, m68k_handle_type_attribute, true },
+  { "stkparm", 0, 0, false,  true, true, m68k_handle_type_attribute, true },
+
 #ifdef SUBTARGET_ATTRIBUTES
   SUBTARGET_ATTRIBUTES
 #endif
@@ -410,7 +445,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
    gcc 2.93 does not set the 68881 flag.
 
    */
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 #define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
 			  | FL_BITFIELD)
 #else
@@ -644,7 +679,7 @@ m68k_option_override (void)
   if (TARGET_PCREL && !TARGET_68020 && flag_pic == 2)
     error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
-#ifndef TARGET_AMIGA
+#if !defined(TARGET_AMIGAOS)
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
      significance that it does on hosted ELF systems?  */
@@ -725,6 +760,9 @@ m68k_option_override (void)
       warning (0, "-fstack-limit- options are not supported on this cpu");
       stack_limit_rtx = NULL_RTX;
     }
+
+  if (m68k_regparm > 0 && m68k_regparm > M68K_MAX_REGPARM)
+    error ("-mregparm=x with 1 <= x <= %d\n", M68K_MAX_REGPARM);
 
   SUBTARGET_OVERRIDE_OPTIONS;
 
@@ -967,7 +1005,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 	{
 	  tree attr = lookup_attribute ("saveds", attrs);
 	  if (attr
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_AMIGAOS)
 	      || TARGET_RESTORE_A4 || TARGET_ALWAYS_RESTORE_A4
 #endif
 	      )
@@ -1086,7 +1124,7 @@ m68k_set_frame_related (rtx_insn *insn)
 
 /* Emit RTL for the "prologue" define_expand.  */
 
-extern void amiga_emit_regparm_clobbers(void);
+extern void m68k_emit_regparm_clobbers(void);
 
 void
 m68k_expand_prologue (void)
@@ -1096,9 +1134,7 @@ m68k_expand_prologue (void)
 
   m68k_compute_frame_layout ();
 
-#ifdef TARGET_AMIGA
-  amiga_emit_regparm_clobbers();
-#endif
+  m68k_emit_regparm_clobbers();
 
   if (flag_stack_usage_info)
     current_function_static_stack_size
@@ -1135,7 +1171,7 @@ m68k_expand_prologue (void)
 
   if (frame_pointer_needed)
     {
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
       if (HAVE_ALTERNATE_FRAME_SETUP_F (fsize_with_regs))
 	ALTERNATE_FRAME_SETUP_F (fsize_with_regs);
       else
@@ -1149,7 +1185,7 @@ m68k_expand_prologue (void)
 	  m68k_set_frame_related (emit_move_insn (frame_pointer_rtx,
 						  stack_pointer_rtx));
 	}
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   else if (HAVE_ALTERNATE_FRAME_SETUP (fsize_with_regs))
     ALTERNATE_FRAME_SETUP (fsize_with_regs);
 #endif
@@ -1272,7 +1308,7 @@ m68k_expand_prologue (void)
       && crtl->uses_pic_offset_table && flag_pic < 3)
     emit_insn (gen_load_got (pic_offset_table_rtx));
 
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   amigaos_restore_a4 ();
 #endif
 }
@@ -1555,7 +1591,7 @@ m68k_reg_present_p (const_rtx parallel, unsigned int regno)
   return false;
 }
 
-extern bool amiga_is_ok_for_sibcall(tree decl, tree exp);
+extern bool m68k_is_ok_for_sibcall(tree decl, tree exp);
 /* Implement TARGET_FUNCTION_OK_FOR_SIBCALL_P.  */
 
 static bool
@@ -1563,10 +1599,8 @@ m68k_ok_for_sibcall_p (tree decl, tree exp)
 {
   enum m68k_function_kind kind;
 
-#ifdef TARGET_AMIGA
-  if (!amiga_is_ok_for_sibcall(decl, exp))
+  if (!m68k_is_ok_for_sibcall(decl, exp))
     return false;
-#endif
 
   /* We cannot use sibcalls for nested functions because we use the
      static chain register for indirect calls.  */
@@ -1606,30 +1640,6 @@ m68k_ok_for_sibcall_p (tree decl, tree exp)
 
   return false;
 }
-
-#ifndef TARGET_AMIGA
-/* On the m68k all args are always pushed.  */
-
-static rtx
-m68k_function_arg (cumulative_args_t cum ATTRIBUTE_UNUSED,
-		   machine_mode mode ATTRIBUTE_UNUSED,
-		   const_tree type ATTRIBUTE_UNUSED,
-		   bool named ATTRIBUTE_UNUSED)
-{
-  return NULL_RTX;
-}
-
-static void
-m68k_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			   const_tree type, bool named ATTRIBUTE_UNUSED)
-{
-  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-
-  *cum += (mode != BLKmode
-	   ? (GET_MODE_SIZE (mode) + 3) & ~3
-	   : (int_size_in_bytes (type) + 3) & ~3);
-}
-#endif
 
 /* Convert X to a legitimate function call memory reference and return the
    result.  */
@@ -2777,7 +2787,7 @@ bool
 m68k_legitimate_constant_p (machine_mode mode, rtx x)
 {
   return mode != XFmode && !m68k_illegitimate_symbolic_constant_p (x)
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
       &&  amigaos_legitimate_src (x)
 #endif
       ;
@@ -5150,7 +5160,7 @@ print_operand (FILE *file, rtx op, int letter)
 	  && !(GET_CODE (XEXP (op, 0)) == CONST_INT
 	       && INTVAL (XEXP (op, 0)) < 0x8000
 	       && INTVAL (XEXP (op, 0)) >= -0x8000)
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 /* SBF: Do not append some 'l' with baserel(32). */
 	       && !amiga_is_const_pic_ref(XEXP(op, 0))
 #endif
@@ -5214,7 +5224,7 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
     {
     case RELOC_GOT:
       /* SBF: add the proper extension for baserel relocs with baserel(32). */
-      if (TARGET_AMIGA)
+  if (TARGET_AMIGA)
 	{
 #ifndef TARGET_AMIGAOS_VASM
 	  if (flag_pic == 1)
@@ -5459,7 +5469,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	  if (ket) putc ('[', file);
 	  if (offset) fprintf(file, "%d+", offset);
 	  output_addr_const (file, addr);
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	  asm_fprintf (file, ",%Rpc");
 #else
 	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc");
@@ -5482,7 +5492,7 @@ print_operand_address2 (FILE *file, rtx addr, int offset)
 	      if (ket) putc ('[', file);
 	      if (offset) fprintf(file, "%d+", offset);
 	      output_addr_const (file, addr);
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
 	      if (SYMBOL_REF_FUNCTION_P(addr))
 		{
 		  if (flag_smallcode)
@@ -5809,7 +5819,11 @@ output_call (rtx x)
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_call;
 
-  return flag_smallcode ? "jbsr %a0" : "jsr %a0";
+#if defined (TARGET_AMIGAOS)
+  if (flag_smallcode)
+    return "jbsr %a0";
+#endif
+  return "jsr %a0";
 }
 
 /* Likewise sibling calls.  */
@@ -5820,7 +5834,11 @@ output_sibcall (rtx x)
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_jump;
 
-  return flag_smallcode ? "jbra %a0" : "jmp %a0";
+#if defined (TARGET_AMIGAOS)
+  if (flag_smallcode)
+    return "jbra %a0";
+#endif
+  return "jmp %a0";
 }
 
 static void
@@ -5987,7 +6005,7 @@ m68k_secondary_reload_class (enum reg_class rclass,
 			     machine_mode mode, rtx x)
 {
   int regno;
-#ifdef TARGET_AMIGA
+#if defined(TARGET_AMIGAOS)
   /* SBF: check for baserel's const pic_ref
    * and return ADDR_REGS or NO_REGS
    */

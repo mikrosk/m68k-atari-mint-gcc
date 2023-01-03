@@ -302,7 +302,8 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
       goto cleanup;
     }
 
-#ifdef TARGET_AMIGAOS
+#if defined(TARGET_AMIGAOS)
+  /* SBF: avoid const pic stuff, yields invalid insns. */
   if (desc->noloop_assumptions)
     {
       rtx cmp = XEXP (desc->noloop_assumptions, 0);

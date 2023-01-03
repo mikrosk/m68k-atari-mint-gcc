@@ -4083,7 +4083,8 @@ pass_rtl_pre::gate (function *fun)
 {
   return optimize > 0 && flag_gcse
     && !fun->calls_setjmp
-#ifndef TARGET_AMIGA
+#if !defined(TARGET_M68K)
+/* SBF: also for -Os on 68k, since hoist is not good */
     && optimize_function_for_speed_p (fun)
 #endif
     && dbg_cnt (pre);
@@ -4128,7 +4129,8 @@ public:
 bool
 pass_rtl_hoist::gate (function *)
 {
-#ifdef TARGET_AMIGA
+#if defined(TARGET_M68K)
+/* SBF: hoist is not good on m68k */
   return false;
 #else
   return optimize > 0 && flag_gcse

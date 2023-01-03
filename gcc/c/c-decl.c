@@ -1793,11 +1793,11 @@ locate_old_decl (tree decl)
     inform (input_location, "previous declaration of %q+D was here", decl);
 }
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
 /**
  * Filter __stkparm__ storage attributes from type's attributes.
  */
-static tree strip_amiga_stkparm_attrs(tree t1)
+static tree strip_m68k_stkparm_attrs(tree t1)
 {
 	tree filtered = NULL;
 
@@ -1884,14 +1884,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	     This is for the ffs and fprintf builtins.  */
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
 	  bool ok = false;
 	  if (trytype)
 	    {
 	      tree saved_attrs = TYPE_ATTRIBUTES(newtype);
 	      tree stkp = lookup_attribute ("stkparm", saved_attrs);
 	      if (stkp)
-		TYPE_ATTRIBUTES(newtype) = strip_amiga_stkparm_attrs(saved_attrs);
+		TYPE_ATTRIBUTES(newtype) = strip_m68k_stkparm_attrs(saved_attrs);
 	      ok = comptypes (newtype, trytype);
 	      TYPE_ATTRIBUTES(newtype) = saved_attrs;
 	    }
@@ -4482,7 +4482,7 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 
   tree returned_attrs = decl_attributes (node, attributes, flags);
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
   /* add an attribute to the function decl's type if there are asm register parameters. */
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
@@ -5115,7 +5115,7 @@ grokparm (const struct c_parm *parm, tree *expr)
   return decl;
 }
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
 
 /* Create a new variant of TYPE, equivalent but distinct.
  This is so the caller can modify it.  */
@@ -5156,7 +5156,7 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
 
   decl = pushdecl (decl);
 
-#ifdef TARGET_AMIGA
+#ifdef TARGET_M68K
   if (parm->asmspec)
     {
       tree atype = TREE_TYPE(decl);

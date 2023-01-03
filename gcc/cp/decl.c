@@ -7912,8 +7912,9 @@ grokfndecl (tree ctype,
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
   tree t;
 
-#ifdef TARGET_AMIGA
-  if (amigaos_regparm > 0)
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
+  if (m68k_regparm > 0)
     {
       tree asm1 = lookup_attribute("asmregs", *attrlist);
       tree stack1 = lookup_attribute("stkparm", *attrlist);
@@ -7921,7 +7922,7 @@ grokfndecl (tree ctype,
       if (!asm1 && !stack1 && !reg1)
 	{
 	  tree ttasm = get_identifier("regparm");
-	  tree value = tree_cons(ttasm, build_int_cst(NULL, amigaos_regparm), NULL_TREE);
+	  tree value = tree_cons(ttasm, build_int_cst(NULL, m68k_regparm), NULL_TREE);
 	  tree attrs = tree_cons(ttasm, value, NULL_TREE);
 	  *attrlist = chainon(attrs, *attrlist);
 	}

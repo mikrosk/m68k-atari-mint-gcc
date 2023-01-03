@@ -733,8 +733,6 @@ extern int amiga_is_far_symbol(const_rtx x);
   asm_fprintf (FILE, "\tjsr _mcount\n")
 
 
-#define DOUBLE_INDIRECT_JUMP 1
-
 #define HAVE_GAS_WEAKREF 1
 
 /* This is how we tell the assembler that a symbol is weak.  */

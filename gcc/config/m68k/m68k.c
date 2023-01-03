@@ -2375,12 +2375,11 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
       return true;
     }
 
+  // contains a double indirect address.
   if (MEM_P(x))
     {
-#if !DOUBLE_INDIRECT_JUMP
-      // disable until reloading for address->offset + address->outer_offset is implemented.
-      return false;
-#else
+      if (!flag_double_indirect)
+	return false;
       // plus (mem) (mem)  does not work either
       if (address->mem_loc)
 	return false;
@@ -2390,7 +2389,6 @@ decompose_one(rtx * loc, struct m68k_address_part *address)
       if (address->mem_loc == (rtx *)-1)
 	return false;
       return decompose_one(&XEXP(x,0), address);
-#endif
     }
   return false;
 }

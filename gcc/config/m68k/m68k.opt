@@ -218,6 +218,10 @@ msasregparm
 Target RejectNegative Var(sas_regparm,1)
 Same as -mregparm=2 but do not use alternate registers
 
+fdouble-indirect
+Target Var(flag_double_indirect) Init(1)
+Use double indirect addressing mode.
+
 fbbb=
 Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
 Enable Bebbo's optimizations.\n

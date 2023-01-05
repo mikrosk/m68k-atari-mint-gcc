@@ -546,11 +546,14 @@ extern enum reg_class regno_reg_class[];
    function.  VALTYPE is the data type of the value (as a tree).  If
    the precise function being called is known, FUNC is its
    FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
-   result in d0, a0, or fp0 as appropriate.  */
+   result in d0, a0, or fp0 as appropriate.
+
+   SBF: we need the libcall calling convention.
+   */
 
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  m68k_function_value (VALTYPE, FUNC)
+		m68k_libcall_value (TYPE_MODE (VALTYPE))
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.

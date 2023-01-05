@@ -5625,7 +5625,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
-#ifdef TARGET_M68K
+#if defined(TARGET_M68K)
       if (elim_cost.cost && !infinite_cost_p (elim_cost) && TREE_CODE (bound) != INTEGER_CST)
 	elim_cost.cost += 4*ivopts_integer_cost[0];
 #endif	

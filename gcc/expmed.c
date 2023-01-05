@@ -572,7 +572,7 @@ simple_mem_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	      || (bitnum % GET_MODE_ALIGNMENT (mode) == 0
 		  && (
 				  MEM_ALIGN (op0) >= GET_MODE_ALIGNMENT (mode)
-#ifdef TARGET_M68K
+#if defined(TARGET_M68K)
   ||(!TUNE_68000 && !TUNE_68010)
 #endif
 				  ))));

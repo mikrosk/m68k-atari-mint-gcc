@@ -591,7 +591,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 tree
 decl_constant_value_for_optimization (tree exp)
 {
-#ifdef TARGET_M68K
+#if defined(TARGET_M68K)
   /* SBF: m68k doesn't like that early optimization. */
   return exp;
 #else

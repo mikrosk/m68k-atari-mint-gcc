@@ -395,7 +395,7 @@ propagate_through_phis (tree var, edge e)
 static
 bool func_is_using_regparms(const_tree func)
 {
-#ifdef TARGET_M68K
+#if defined(TARGET_M68K)
   tree attrs = TYPE_ATTRIBUTES(TREE_TYPE(func));
   if (attrs)
     {

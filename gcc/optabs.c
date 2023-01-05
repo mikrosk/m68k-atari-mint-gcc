@@ -4830,7 +4830,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	      from = convert_to_mode (fmode, from, 0);
 
 	    if (must_trunc
-#ifdef TARGET_M68K
+#if defined(TARGET_M68K)
 		&& !flag_no_truncz_same_mode
 #endif
 		)

@@ -72,7 +72,6 @@ int main()
       || x != 6
       || strcmp (dst + 1, "ello "))
     abort ();
-  puts("a");
   memset (dst, ' ', sizeof dst);
   if (strncpy (dst + (++x & 1), (y++ & 3) + "foo", 10) != dst + 1
       || x != 7

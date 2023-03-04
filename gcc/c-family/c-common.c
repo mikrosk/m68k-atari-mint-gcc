@@ -6559,6 +6559,9 @@ attribute_takes_identifier_p (const_tree attr_id)
     return true;
   else if (!strcmp ("mode", spec->name)
 	   || !strcmp ("format", spec->name)
+#ifdef TARGET_M68K
+	   || !strcmp ("regparm", spec->name)
+#endif
 	   || !strcmp ("cleanup", spec->name))
     return true;
   else

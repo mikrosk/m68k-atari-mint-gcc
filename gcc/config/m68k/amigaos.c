@@ -302,11 +302,18 @@ amiga_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED, tree
   if (0 == strncmp (".text.startup", name, 13) || 0 == strncmp (".text.exit", name, 10))
     name = ".text";
 
-  if (0 == strncmp(".data", name, 5) && (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl))))
+  if (0 == strncmp(".data", name, 5))
     {
-      extern section * in_section;
-      fprintf (asm_out_file, "\t.section .bss%s\n", name + 5);
-      in_section = NULL;
+     if (!DECL_INITIAL (decl) || initializer_zerop (DECL_INITIAL (decl)))
+      {
+	extern section * in_section;
+	fprintf (asm_out_file, "\t.section .bss%s\n", name + 5);
+      }
+     else
+       fprintf (asm_out_file, "\t.section %s\n", name);
+
+     if (strstr(name, "chip") || strstr(name, "fast") || strstr(name, "far"))
+       in_section = NULL;
     }
 //  else if (0 == strncmp(".section ", name, 8) || 0 == strncmp(".text", name, 5) || 0 == strncmp(".data", name, 5) || 0 == strncmp(".bss", name, 4))
 //    fprintf (asm_out_file, "\t%s\n", name);

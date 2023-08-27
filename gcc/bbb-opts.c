@@ -4530,6 +4530,8 @@ opt_shrink_stack_frame (void)
  *
  * now redundant loads are found and eliminated
  *
+ * Also the used bits per register are tracked.
+ * This info is used to eliminate superfluous AND insns.
  */
 
 static unsigned
@@ -4791,7 +4793,41 @@ opt_elim_dead_assign (int blocked_regno)
       if ((def - 1) & def)
 	continue;
 
-      if (GET_CODE(SET_SRC(set)) == AND)
+      rtx ssrc = SET_SRC(set);
+      rtx_code opcode = GET_CODE(ssrc);
+
+      // look for superfluous ZERO_EXTEND or SIGN_EXTEND
+      if (opcode == ASHIFT || opcode == LSHIFTRT)
+	{
+	  rtx op = XEXP(ssrc, 1);
+	  if (REG_P (op))
+	    {
+	      int opreg = REGNO (op);
+	      for (int jndex = index - 1; jndex > 0; --jndex)
+		{
+		  insn_info & jj = (*infos)[jndex];
+		  if (jj.is_label())
+		    break;
+
+		  // ZERO_EXTEND and SIGN_EXTEND use and def that register.
+		  if (jj.is_myuse(opreg))
+		    {
+		      if (jj.get_dst_regno() == opreg &&
+			  (jj.get_src_op() == ZERO_EXTEND || jj.get_src_op() == SIGN_EXTEND))
+			{
+			  delete_and_update(jndex);
+			  ++change_count;
+			}
+		      break;
+		    }
+		  // if the reg is set by something different break
+		  if (jj.is_def(opreg))
+		    break;
+	        }
+	    }
+	  continue;
+        }
+      if (opcode == AND)
 	{
 	  track_var * tv = ii.get_track_var();
 	  unsigned lmask = tv->getMask(ii.get_dst_regno());

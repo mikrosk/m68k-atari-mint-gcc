@@ -494,6 +494,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 #else
 #define LINK_SPEC \
   "-L%:sdk_root(../lib) " \
+  "%{fexceptions:-u___init_eh } "\
   "%{noixemul:%(link_libnix)} " \
   "%{mcrt=nix*:%(link_libnix)} " \
   "%{mcrt=ixemul:%(link_ixemul)} " \

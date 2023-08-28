@@ -4797,7 +4797,7 @@ opt_elim_dead_assign (int blocked_regno)
       rtx_code opcode = GET_CODE(ssrc);
 
       // look for superfluous ZERO_EXTEND or SIGN_EXTEND
-      if (opcode == ASHIFT || opcode == LSHIFTRT)
+      if (opcode == ASHIFT || opcode == ASHIFTRT || opcode == LSHIFTRT)
 	{
 	  rtx op = XEXP(ssrc, 1);
 	  if (REG_P (op))

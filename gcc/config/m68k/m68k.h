@@ -1018,11 +1018,11 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)			\
   if ((LOG) > 0)						\
     fprintf ((FILE), "\t.balignw %u,0x284c\n", 1 << (LOG));
-#endif
 #else
 #define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)			\
   if ((LOG) > 0)						\
     fprintf ((FILE), "\tcnop 0,%u\n", 1 << (LOG));
+#endif
 #endif
 
 #ifndef TARGET_AMIGAOS_VASM

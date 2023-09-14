@@ -244,4 +244,4 @@ z    final pass with simple substitutions\n
 v    be verbose\n
 V    be very verbose\n
 x    dump insns\n
-Default: -fbbb=+ which yields -fbbb=abcefilmnprsz0
+Default: -fbbb=+ which yields -fbbb=abcefhilmnprsz0

@@ -231,6 +231,7 @@ b    use register for base addresses\n
 c    convert load const and compare into a sub\n
 e    eliminate dead assignments + redundant loads\n
 f    shrink stack frame\n
+h    optimize shift instructions\n
 i    use post increment on addresses\n
 l    remove single used lea if possible\n
 n    pipeline instructions\n

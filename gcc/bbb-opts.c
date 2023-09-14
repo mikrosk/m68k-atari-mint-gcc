@@ -5964,6 +5964,20 @@ opt_shift (void)
 		    }
 		}
 	    }
+	  // there might be an AND
+	  // and.l #255,dy
+	  else if (jj->get_mode() == SImode && jj->get_src_op() == AND
+	      && !jj->is_src_mem())
+	    {
+	      int val = jj->get_src_intval();
+	      if ((val == 255 && mode == QImode) || (val == 65535 && mode == HImode))
+		{
+		  reduce = true;
+		  if (srcop == ASHIFTRT)
+		    srcop = LSHIFTRT;
+		  SET_INSN_DELETED(jj->get_insn());
+		}
+	    }
 	  // move.b ..,dy or move.w ...,dy
 	  else if (jj->get_mode() == mode)
 	    {

@@ -958,22 +958,8 @@ public:
 
   /** mark usage here as 32 bit. */
   inline void
-  mark_myuse (int regno)
+  mark_myuse (int regno, int sz)
   {
-    myuse8 |= 1 << regno;
-    myuse16 |= 1 << regno;
-    myuse32 |= 1 << regno;
-    use8 |= 1 << regno;
-    use16 |= 1 << regno;
-    use32 |= 1 << regno;
-  }
-
-  /** mark usage here as 32 bit. */
-  inline void
-  mark_myuse (rtx reg)
-  {
-    int regno = REGNO(reg);
-    int sz = GET_MODE_SIZE(GET_MODE(reg));
     myuse8 |= 1 << regno;
     use8 |= 1 << regno;
     if (sz > 1)
@@ -986,6 +972,15 @@ public:
 	    use32 |= 1 << regno;
 	  }
       }
+  }
+
+  /** mark usage here as 32 bit. */
+  inline void
+  mark_myuse (rtx reg)
+  {
+    int regno = REGNO(reg);
+    int sz = GET_MODE_SIZE(GET_MODE(reg));
+    mark_myuse(regno, sz);
   }
 
   /** mark usage as 32 bit. */
@@ -1526,11 +1521,11 @@ insn_info::scan ()
       if (sz && sz <= 64)
 	{
 	  mark_hard (0);
-	  mark_myuse (0);
+	  mark_myuse (0, sz/8);
 	  if (sz > 32)
 	    {
 	      mark_hard (1);
-	      mark_myuse (1);
+	      mark_myuse (1, 4);
 	    }
 	}
     }
@@ -1545,13 +1540,13 @@ insn_info::scan ()
 	    {
 	      if (REG_NREGS(reg) > 1)
 		for (unsigned r = REGNO(reg); r < END_REGNO (reg); ++r)
-		  mark_myuse (r);
+		  mark_myuse (r, 4);
 	      else
 		mark_myuse (reg);
 	    }
 	}
       /* mark stack pointer used. there could be parameters on stack*/
-      mark_myuse (15);
+      mark_myuse (15, 4);
       /* mark scratch registers. */
       mark_def (0);
       mark_def (1);
@@ -1568,7 +1563,7 @@ insn_info::scan ()
 	if (global_regs[i])
 	  {
 	    mark_hard (i);
-	    mark_myuse(i);
+	    mark_myuse(i, 4);
 	  }
     }
   scan_rtx (pattern);
@@ -1583,38 +1578,23 @@ insn_info::scan_rtx (rtx x)
       if (!REG_P(x))
         x = XEXP(x, 0);
         
-      int msize = GET_MODE_SIZE(GET_MODE(x));
       int n0 = REG_NREGS(x);
       if (n0 > 1)
 	{
 	  for (int n = n0, r = REGNO(x); n > 0; --n, ++r)
 	    {
-	      mark_myuse (r);
+	      mark_myuse (r, 4);
 	      multi_reg |= 1<<r;
 	    }
 	}
       else
-	{
-	  unsigned regno = REGNO(x);
-	  myuse8 |= 1 << regno;
-	  use8 |= 1 << regno;
-	  if (msize > 1)
-	    {
-	      myuse16 |= 1 << regno;
-	      use16 |= 1 << regno;
-	      if (msize > 2)
-		{
-		  myuse32 |= 1 << regno;
-		  use32 |= 1 << regno;
-		}
-	    }
-      }
+	mark_myuse(x);
       return;
     }
 
   if (x == cc0_rtx)
     {
-      mark_myuse (FIRST_PSEUDO_REGISTER);
+      mark_myuse (FIRST_PSEUDO_REGISTER, 4);
       return;
     }
 
@@ -2145,7 +2125,7 @@ insn_info::absolute2base (unsigned regno, unsigned base, rtx with_symbol)
   SET_INSN_DELETED(insn);
   insn = emit_insn_after (pattern, insn);
 
-  mark_myuse (regno);
+  mark_myuse (regno, 4);
 
   insn2info->insert (std::make_pair (insn, this));
 }
@@ -3572,7 +3552,6 @@ opt_const_cmp_to_sub (void)
   for (unsigned index = infos->size () - 2; index > 0; --index)
     {
       insn_info & i1 = (*infos)[index];
-
       /* we wan't a compare or tst insn, */
       if (!i1.is_compare ())
 	continue;
@@ -5860,6 +5839,179 @@ void print_inline_info()
   printf(":bbb: inline weight = %4d\t%s\n", count, get_current_function_name ());
 }
 
+static unsigned
+opt_shift (void)
+{
+  unsigned change_count = 0;
+  for (int index = infos->size () - 2; index > 0; --index)
+    {
+      insn_info & ii = (*infos)[index];
+      // it's a shift ?
+      if (ii.get_mode() != SImode || !ii.get_dst_reg() || !(ii.get_src_op() == ASHIFT || ii.get_src_op() == ASHIFTRT || ii.get_src_op() == LSHIFTRT))
+	continue;
+
+      int dy = ii.get_dst_regno();
+
+      // check the next insn if only a word/byte is used.
+      insn_info & next = (*infos)[index + 1];
+      int usedSize = next.getX(dy);
+      if (usedSize >= 4)
+	continue;
+
+//      debug(ii.get_insn());
+      machine_mode mode = usedSize == 1 ? QImode : HImode;
+      int srcop = ii.get_src_op(); // can be changed
+
+      // are there insns like move.l dx,dy in front of that can be changed too?
+      bool reduce = false;
+      for (int jndex = index - 1; jndex > 0; --jndex)
+	{
+	  insn_info * jj = &(*infos)[jndex];
+	  if (jj->is_label())
+	    break;
+
+	  // skip unrelated insns
+	  if (!jj->is_def(dy) && !jj->is_myuse(dy))
+	    continue;
+
+	  // we want sign_extend or set
+	  if (!jj->is_def(dy))
+	    break;
+
+//	  debug(jj->get_insn());
+
+	  // there might be the use of a temp register:
+	  // moveq #0,dx
+	  // move.w dy,dx
+	  // move.l dx,dy <--- this one
+	  if (jj->get_mode() == SImode && !jj->get_src_op() && jj->get_src_reg())
+	    {
+	      int dx = jj->get_src_regno();
+	      // search the assignment for dx
+
+	      for (int kndex = jndex - 1; kndex > 0; --kndex)
+		{
+		  insn_info * kk = &(*infos)[kndex];
+		  if (kk->is_label())
+		    break;
+
+		  // skip unrelated insns
+		  if (!kk->is_def(dx) && !kk->is_myuse(dx))
+		    continue;
+
+		  // we want sign_extend or set
+		  if (!kk->is_def(dx))
+		    break;
+
+		  if (kk->get_mode() == mode && !kk->get_src_op())
+		    {
+		      if (srcop == ASHIFTRT)
+			{
+			  // we need a clr.l dx
+			  insn_info * ll = &(*infos)[kndex - 1];
+			  if (ll->get_dst_reg() && ll->get_dst_regno() == dx && ll->get_mode() == SImode
+			      && !ll->get_src_op() && !ll->is_src_mem()
+			      && ll->get_src_intval() == 0)
+			    {
+			      srcop = LSHIFTRT;
+			      reduce = true;
+			    }
+			}
+		      else
+			reduce = true;
+
+		      // if dx is dead after assignment to dy
+		      if (reduce && is_reg_dead(dx, jndex))
+			{
+			  // assign src to dy unless src == dy
+			  if (!kk->get_src_reg() || kk->get_src_regno() != dy)
+			    {
+			      rtx set = single_set(kk->get_insn());
+			      rtx x = gen_rtx_SET(gen_rtx_REG (mode, dy), SET_SRC (set));
+			      rtx notes = REG_NOTES (ii.get_insn());
+			      rtx_insn * neu = emit_insn_before (x, kk->get_insn ());
+			      REG_NOTES(neu) = notes;
+			    }
+			  SET_INSN_DELETED(kk->get_insn());
+			  SET_INSN_DELETED(jj->get_insn());
+			}
+		    }
+		  break;
+	        }
+	      break;
+	    }
+	  // there might be one or two sign extends
+	  // ext.w dy
+	  // ext.l dy
+	  else if (jj->get_mode() == SImode && jj->get_src_op() == SIGN_EXTEND)
+	    {
+	      if (GET_MODE(jj->get_src_reg()) == mode)
+		{
+		  SET_INSN_DELETED(jj->get_insn());
+		  reduce = true;
+		}
+	      else if (mode == QImode && GET_MODE(jj->get_src_reg()) == HImode)
+		{
+		  // check previous insn for 2nd SIGN_EXTEND
+		  insn_info * ll = &(*infos)[jndex - 1];
+		  if (ll->get_dst_reg() && ll->get_dst_regno() == dy
+		      && ll->get_src_op() == SIGN_EXTEND
+		      && GET_MODE(ll->get_src_reg()) == QImode)
+		    {
+		      SET_INSN_DELETED(ll->get_insn());
+		      SET_INSN_DELETED(jj->get_insn());
+		      reduce = true;
+		    }
+		}
+	    }
+	  // move.b ..,dy or move.w ...,dy
+	  else if (jj->get_mode() == mode)
+	    {
+	      if (srcop == ASHIFT)
+		reduce = true;
+	      else if (srcop == ASHIFTRT)
+		{
+		  // we need a clr.l dy
+		  insn_info * ll = &(*infos)[jndex - 1];
+		  if (ll->get_dst_reg() && ll->get_dst_regno() == dy && ll->get_mode() == SImode
+		      && !ll->get_src_op() && !ll->is_src_mem()
+		      && ll->get_src_intval() == 0)
+		    {
+		      srcop = LSHIFTRT;
+		      reduce = true;
+		    }
+		}
+	    }
+
+	  break;
+	}
+
+      if (reduce)
+	{
+	  rtx op1 = XEXP(SET_SRC(PATTERN(ii.get_insn())), 1);
+	  rtx r = gen_rtx_REG (mode, dy);
+	  rtx shift;
+	  if (srcop == ASHIFT)
+	    shift = gen_rtx_ASHIFT (mode, r, op1);
+	  else if (srcop == ASHIFTRT)
+	    shift = gen_rtx_ASHIFTRT (mode, r, op1);
+	  else
+	    shift = gen_rtx_LSHIFTRT (mode, r, op1);
+	  rtx x = gen_rtx_SET(r, shift);
+	  rtx notes = REG_NOTES (ii.get_insn());
+	  SET_INSN_DELETED(ii.get_insn());
+
+	  rtx_insn * neu = emit_insn_before (x, ii.get_insn ());
+	  REG_NOTES(neu) = notes;
+	  ++change_count;
+
+	  log ("(h) long shift replaced with shorter variant for %s\n", reg_names[ii.get_dst_regno ()]);
+	}
+    }
+  return change_count;
+}
+
+
 namespace
 {
 
@@ -5943,6 +6095,7 @@ namespace
     bool do_const_cmp_to_sub = strchr (string_bbb_opts, 'c') || strchr (string_bbb_opts, '+');
     bool do_elim_dead_assign = strchr (string_bbb_opts, 'e') || strchr (string_bbb_opts, '+');
     bool do_shrink_stack_frame = strchr (string_bbb_opts, 'f') || strchr (string_bbb_opts, '+');
+    bool do_handle_shift = strchr (string_bbb_opts, 'h') || strchr (string_bbb_opts, '+');
     bool do_autoinc = strchr (string_bbb_opts, 'i') || strchr (string_bbb_opts, '+');
     bool do_lea_mem = strchr (string_bbb_opts, 'l') || strchr (string_bbb_opts, '+');
     bool do_merge_add = strchr (string_bbb_opts, 'm') || strchr (string_bbb_opts, '+');
@@ -5959,6 +6112,9 @@ namespace
     unsigned r = update_insns ();
     if (!r)
       {
+	if (do_handle_shift && opt_shift())
+	  update_insns ();
+
 	if (do_lea_mem && opt_lea_mem())
 	  update_insns ();
 

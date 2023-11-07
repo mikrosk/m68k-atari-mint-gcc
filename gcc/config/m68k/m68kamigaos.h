@@ -367,7 +367,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 #define STARTFILE_LIBNIX_SPEC \
   "%{ramiga-*:" \
-    "%{ramiga-lib:libinit.o%s}" \
+    "%{ramiga-lib: %{!fbaserel:libinit.o%s}%{fbaserel:libinitb.o%s}}" \
     "%{ramiga-libr:libinitr.o%s}" \
     "%{ramiga-dev:devinit.o%s}}" \
   "%{!ramiga-*:" \

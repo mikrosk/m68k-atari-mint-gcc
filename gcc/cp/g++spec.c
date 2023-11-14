@@ -363,10 +363,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	      }
 	    else
 	      {
-		char const * add =
-		    "../lib/gcc/m68k-amigaos/" DEFAULT_TARGET_VERSION "/new_op.o";
-		char const * p = amiga_m68k_prefix_func (1, &add);
-		generate_option_input_file (p, &new_decoded_options[j]);
+		generate_option (OPT_Wl_, "-l,new_op", 1, CL_DRIVER,
+					   &new_decoded_options[j]);
 	      }
 	    ++j;
 	  }

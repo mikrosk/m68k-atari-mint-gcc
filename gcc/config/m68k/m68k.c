@@ -654,9 +654,6 @@ m68k_option_override (void)
     }
 
   /* Set the type of FPU.  */
-  if (m68k_cpu_flags & (FL_ISA_68040 | FL_ISA_68060 | FL_ISA_68080))
-    target_flags |= MASK_HARD_FLOAT;
-
   m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE
 	      : (m68k_cpu_flags & FL_COLDFIRE) != 0 ? FPUTYPE_COLDFIRE
 		  : FPUTYPE_68881);

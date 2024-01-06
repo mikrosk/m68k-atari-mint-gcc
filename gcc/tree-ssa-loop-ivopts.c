@@ -5649,7 +5649,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    elim_cost.cost -= 2*ivopts_integer_cost[0];
+    elim_cost.cost -= 3*ivopts_integer_cost[0];
 
 
   express_cost = get_computation_cost (data, use, cand, false,

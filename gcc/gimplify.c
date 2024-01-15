@@ -4893,16 +4893,19 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
    * p1: b = b.0 + 4;
    */
   gimple * p2 = gimple_seq_last_stmt(*pre_p);
+  extern void debug (gimple *ptr);
+  debug(p2);
   if (p2->code == GIMPLE_ASSIGN)
     {
       tree p2lhs = gimple_assign_lhs(p2);
-      if (TREE_CODE(p2lhs) == VAR_DECL)
+      tree p2rhs = gimple_assign_rhs1(p2);
+      if (  (TREE_CODE(p2lhs) == VAR_DECL && TREE_CODE(p2rhs) == MEM_REF)
+	  ||(TREE_CODE(p2lhs) == MEM_REF ))
 	{
-	  tree p2rhs = gimple_assign_rhs1(p2);
-	  if (TREE_CODE(p2rhs) == MEM_REF)
+	  tree mem = TREE_CODE(p2rhs) == MEM_REF ? p2rhs : p2lhs;
+	  tree var = TREE_OPERAND(mem, 0);
 	    {
-	      tree var = TREE_OPERAND(p2rhs, 0);
-	      if (TREE_CODE(var) == VAR_DECL)
+	      if (TREE_CODE(var) == VAR_DECL || TREE_CODE(var) == PARM_DECL)
 		{
 		  // search the assignment for this var and move current stmt behind
 		  gimple_stmt_iterator from = gsi_last (*pre_p);
@@ -4917,7 +4920,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		      // do not move over assignment to the same MEM_REF
 		      if (TREE_CODE(ilhs) == MEM_REF)
 			{
-			  if (ilhs == p2rhs || TREE_OPERAND(ilhs, 0) == TREE_OPERAND(p2rhs, 0))
+			  if (ilhs == mem || TREE_OPERAND(ilhs, 0) == var)
 			    break;
 			}
 //		      else

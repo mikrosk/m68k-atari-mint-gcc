@@ -283,6 +283,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 
 /* When creating shared libraries, use different 'errno'. */
 #define CPP_IXEMUL_SPEC \
+  "-isystem %:sdk_root(ixemul/include) " \
   "%{!ansi:-Dixemul} -D__ixemul__ -D__ixemul " \
   "%{malways-restore-a4:-Derrno=(*ixemul_errno)} " \
   "%{mrestore-a4:-Derrno=(*ixemul_errno)}"
@@ -395,6 +396,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
 #define SELF_SPEC \
  "%{noixemul:-B %:sdk_root(libnix/lib/)} " \
  "%{mcrt=nix*:-B %:sdk_root(libnix/lib/)} " \
+ "%{mcrt=ixemul:-B %:sdk_root(ixemul/lib/)} " \
  "%{mcrt=clib2:-B %:sdk_root(clib2/lib/)} "
 
 #undef    STARTFILE_SPEC
@@ -471,7 +473,7 @@ if (target_flags & (MASK_RESTORE_A4|MASK_ALWAYS_RESTORE_A4)) \
    Also, pass appropriate linker flavours depending on user-supplied
    commandline options.  */
 
-#define LINK_IXEMUL_SPEC ""
+#define LINK_IXEMUL_SPEC "-L%:sdk_root(ixemul/lib)"
 #define LINK_LIBNIX_SPEC "-L%:sdk_root(libnix/lib)"
 #define LINK_CLIB2_SPEC "-L%:sdk_root(clib2/lib)"
 

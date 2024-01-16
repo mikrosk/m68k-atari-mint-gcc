@@ -1245,6 +1245,8 @@ record_address_regs (machine_mode mode, addr_space_t as, rtx x,
 	  {
 	    i = cost_classes[k];
 	    add_cost = (move_in_cost[i][rclass] * scale) / 2;
+	    if (ADDR_REGS != i)
+	      ++add_cost;
 	    if (INT_MAX - add_cost < pp_costs[k])
 	      pp_costs[k] = INT_MAX;
 	    else 

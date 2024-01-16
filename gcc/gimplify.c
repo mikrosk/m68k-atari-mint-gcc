@@ -4884,64 +4884,41 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   maybe_fold_stmt (&gsi);
 
   /* check if a post increment can be reordered...
-   * p0: b.0 = b;
-   * p1: b = b.0 + 4;
-   * p2: x = *b.0;
+   * p1: b = a + 4;
+   * p2: x1 = *a;
    * ==>
-   * p0: b.0 = b;
-   * p2: x = *b.0;
-   * p1: b = b.0 + 4;
+   * p2: x1 = *a;
+   * p1: b = a + 4;
+   *
+   * or
+   *
+   * p1: b = a + 4;
+   * p2: *a = x2;
+   * ==>
+   * p2: *a = x2;
+   * p1: b = a + 4;
    */
   gimple * p2 = gimple_seq_last_stmt(*pre_p);
   extern void debug (gimple *ptr);
-  if (p2->code == GIMPLE_ASSIGN)
+  if (p2->code == GIMPLE_ASSIGN && p2->prev)
     {
-      tree p2lhs = gimple_assign_lhs(p2);
-      tree p2rhs = gimple_assign_rhs1(p2);
-      if (  (TREE_CODE(p2lhs) == VAR_DECL && TREE_CODE(p2rhs) == MEM_REF)
-	  ||(TREE_CODE(p2lhs) == MEM_REF && 
-	    (TREE_CODE(p2rhs) == VAR_DECL || TREE_CODE(p2rhs) == PARM_DECL || TREE_CODE(p2rhs) == CONST_INT)))
+      gimple * p1 = p2->prev;
+      if (p1->code == GIMPLE_ASSIGN)
 	{
-	  tree mem = TREE_CODE(p2rhs) == MEM_REF ? p2rhs : p2lhs;
-	  tree var = TREE_OPERAND(mem, 0);
+	  tree b = gimple_assign_lhs(p1);
+	  tree x1 = gimple_assign_lhs(p2);
+	  tree x2 = gimple_assign_rhs1(p2);
+	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL) &&
+	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF && TREE_OPERAND(x2, 0) != b) ||
+	      (TREE_CODE(x2) == VAR_DECL && TREE_CODE(x1) == MEM_REF && TREE_OPERAND(x1, 0) != b)))
 	    {
-	      if (TREE_CODE(var) == VAR_DECL)
-		{
-		  // search the assignment for this var and move current stmt behind
-		  gimple_stmt_iterator from = gsi_last (*pre_p);
-		  gimple_seq_node next, cur = from.ptr;
-		  for (next = cur->prev; next != last && from.ptr && next != from.ptr; next = next->prev)
-		    {
-		      if (next->code != GIMPLE_ASSIGN)
-			break;
-		      tree ilhs = gimple_assign_lhs(next);
-
-		      // do not move over assignment to the same MEM_REF
-		      if (TREE_CODE(ilhs) == MEM_REF)
-			{
-			  if (ilhs == mem || TREE_OPERAND(ilhs, 0) == var)
-			    break;
-			}
-//		      else
-//		     if (TREE_CODE(ilhs) != VAR_DECL)
-//			break;
-
-		      if (ilhs == var)
-			{
-			  if (next != cur->prev)
-			    {
-			      gimple_stmt_iterator to = from;
-			      to.ptr = next;
-			      gsi_move_after(&from, &to);
-//			      debug(p2);
-			      fprintf(stderr, "swap\n");
-			      debug(gsi_stmt (to));
-			      debug(gsi_stmt (from));
-			    }
-			  break;
-			}
-		    }
-		}
+	      gimple_stmt_iterator from = gsi_last (*pre_p);
+	      gimple_stmt_iterator to = from;
+	      to.ptr = p1;
+//	      fprintf(stderr, "swap\n");
+//	      debug(p1);
+//	      debug(p2);
+	      gsi_move_after(&from, &to);
 	    }
 	}
     }

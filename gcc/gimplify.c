@@ -4899,8 +4899,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
    * p1: b = a + 4;
    */
   gimple * p2 = gimple_seq_last_stmt(*pre_p);
-  extern void debug (gimple *ptr);
-  if (p2->code == GIMPLE_ASSIGN && p2->prev)
+  if (p2->code == GIMPLE_ASSIGN && p2->prev && p2->prev != p2)
     {
       gimple * p1 = p2->prev;
       if (p1->code == GIMPLE_ASSIGN)
@@ -4910,12 +4909,13 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  tree x2 = gimple_assign_rhs1(p2);
 	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL) &&
 	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF && TREE_OPERAND(x2, 0) != b) ||
-	      (TREE_CODE(x2) == VAR_DECL && TREE_CODE(x1) == MEM_REF && TREE_OPERAND(x1, 0) != b)))
+	       (TREE_CODE(x2) == VAR_DECL && TREE_CODE(x1) == MEM_REF && TREE_OPERAND(x1, 0) != b)))
 	    {
 	      gimple_stmt_iterator from = gsi_last (*pre_p);
 	      gimple_stmt_iterator to = from;
 	      to.ptr = p1;
 //	      fprintf(stderr, "swap\n");
+//	      extern void debug (gimple *ptr);
 //	      debug(p1);
 //	      debug(p2);
 	      gsi_move_after(&from, &to);

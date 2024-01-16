@@ -4883,7 +4883,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gsi = gsi_last (*pre_p);
   maybe_fold_stmt (&gsi);
 
-  /* check if a post increment can be reordered...
+  /* SBF: check if a post increment can be reordered...
    * p1: b = a + 4;
    * p2: x1 = *a;
    * ==>
@@ -4907,18 +4907,21 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  tree b = gimple_assign_lhs(p1);
 	  tree x1 = gimple_assign_lhs(p2);
 	  tree x2 = gimple_assign_rhs1(p2);
-	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL) &&
-	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF && TREE_OPERAND(x2, 0) != b) ||
-	       (TREE_CODE(x2) == VAR_DECL && TREE_CODE(x1) == MEM_REF && TREE_OPERAND(x1, 0) != b)))
+	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL || TREE_CODE(b) == PARM_DECL || TREE_CODE(x2) == PARM_DECL) &&
+	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF && TREE_OPERAND(x2, 0) != b
+		  && (TREE_CODE(TREE_OPERAND(x2, 0)) == VAR_DECL || TREE_CODE(TREE_OPERAND(x2, 0)) == PARM_DECL)) ||
+	       (TREE_CODE(x1) == MEM_REF && (TREE_CODE(x2) == INTEGER_CST || (TREE_CODE(x2) == VAR_DECL && TREE_OPERAND(x1, 0) != b)))
+		   && (TREE_CODE(TREE_OPERAND(x1, 0)) == VAR_DECL || TREE_CODE(TREE_OPERAND(x1, 0)) == PARM_DECL)))
 	    {
-	      gimple_stmt_iterator from = gsi_last (*pre_p);
-	      gimple_stmt_iterator to = from;
-	      to.ptr = p1;
+	      gimple_stmt_iterator to = gsi_last (*pre_p);
+	      gimple_stmt_iterator from = to;
+	      from.ptr = p1;
 //	      fprintf(stderr, "swap\n");
 //	      extern void debug (gimple *ptr);
 //	      debug(p1);
 //	      debug(p2);
-	      gsi_move_after(&from, &to);
+	      gsi_remove (&from, false);
+	      gsi_insert_after (&to, p1, GSI_NEW_STMT);
 	    }
 	}
     }

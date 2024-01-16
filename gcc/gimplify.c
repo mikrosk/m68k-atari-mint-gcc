@@ -4899,19 +4899,20 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
    * p1: b = a + 4;
    */
   gimple * p2 = gimple_seq_last_stmt(*pre_p);
-  if (p2->code == GIMPLE_ASSIGN && p2->prev && p2->prev != p2)
+  if (p2->code == GIMPLE_ASSIGN && p2->num_ops == 2 && p2->prev && p2->prev != p2)
     {
       gimple * p1 = p2->prev;
-      if (p1->code == GIMPLE_ASSIGN)
+      if (p1->code == GIMPLE_ASSIGN && p1->num_ops == 3)
 	{
 	  tree b = gimple_assign_lhs(p1);
+	  tree var = gimple_assign_rhs1(p1); /* must be the same as in p2. */
 	  tree x1 = gimple_assign_lhs(p2);
 	  tree x2 = gimple_assign_rhs1(p2);
 	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL || TREE_CODE(b) == PARM_DECL || TREE_CODE(x2) == PARM_DECL) &&
-	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF && TREE_OPERAND(x2, 0) != b
-		  && (TREE_CODE(TREE_OPERAND(x2, 0)) == VAR_DECL || TREE_CODE(TREE_OPERAND(x2, 0)) == PARM_DECL)) ||
-	       (TREE_CODE(x1) == MEM_REF && (TREE_CODE(x2) == INTEGER_CST || (TREE_CODE(x2) == VAR_DECL && TREE_OPERAND(x1, 0) != b)))
-		   && (TREE_CODE(TREE_OPERAND(x1, 0)) == VAR_DECL || TREE_CODE(TREE_OPERAND(x1, 0)) == PARM_DECL)))
+	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF &&
+		TREE_OPERAND(x2, 0) != b && TREE_OPERAND(x2, 0) == var) ||
+	       (TREE_CODE(x1) == MEM_REF && (TREE_CODE(x2) == INTEGER_CST || (TREE_CODE(x2) == VAR_DECL && TREE_OPERAND(x1, 0) != b))
+		   && TREE_OPERAND(x1, 0) == var)))
 	    {
 	      gimple_stmt_iterator to = gsi_last (*pre_p);
 	      gimple_stmt_iterator from = to;

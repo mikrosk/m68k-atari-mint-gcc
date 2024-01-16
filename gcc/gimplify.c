@@ -4910,11 +4910,10 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  // search the assignment for this var and move current stmt behind
 		  gimple_stmt_iterator from = gsi_last (*pre_p);
 		  gimple_seq_node next, cur = from.ptr;
-		  for (next = cur->prev; next != last && next != from.ptr; next = next->prev)
+		  for (next = cur->prev; next != last && from.ptr && next != from.ptr; next = next->prev)
 		    {
 		      if (next->code != GIMPLE_ASSIGN)
 			break;
-
 		      tree ilhs = gimple_assign_lhs(next);
 
 		      // do not move over assignment to the same MEM_REF
@@ -4935,6 +4934,9 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			      to.ptr = next;
 			      gsi_move_after(&from, &to);
 //			      debug(p2);
+			      fprintf(stderr, "swap\n");
+			      debug(gsi_stmt (to));
+			      debug(gsi_stmt (from));
 			    }
 			  break;
 			}

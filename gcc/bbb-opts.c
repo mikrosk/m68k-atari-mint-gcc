@@ -5429,7 +5429,7 @@ opt_autoinc ()
 
       // move.w (a0)+,a1 reads a word but writes a long...
       int dsize = GET_MODE_SIZE(ii.get_mode());
-      if (dsize > 4 && !(TARGET_68881 && ii.get_mode() == DFmode))
+      if (dsize > 4 && !((TARGET_68881 && ii.get_mode() == DFmode) || ii.get_mode() == DImode))
         return 0;
 
       int ssize = dsize;

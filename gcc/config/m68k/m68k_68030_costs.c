@@ -79,7 +79,7 @@ m68k_68030_costs (rtx x, machine_mode mode, int outer_code, int opno,
       break;
     case LABEL_REF:
     case SYMBOL_REF:
-      *total = GET_MODE_SIZE(mode) > 2 ? 4 : 2;
+      *total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
       return true;
     case CONST_INT:
       if (INTVAL(x) >= -128 && INTVAL(x) <= 127)
@@ -98,7 +98,7 @@ m68k_68030_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case REG:
     case PC:
-      *total = 2;
+      *total = 3;
       return true;
     case SUBREG:
     case STRICT_LOW_PART:
@@ -131,19 +131,19 @@ m68k_68030_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	rtx a = XEXP(x, 0);
 	if (REG_P(a))
 	  {
-	    *total = opno ? 4 : 3;
+	    *total = opno ? 5 : 4;
 	    if (REGNO(a) < 8)
 	      *total += 5;
 	    return true;
 	  }
 	if (GET_CODE(a) == POST_INC)
 	  {
-	    *total = opno ? 4 : 3;
+	    *total = opno ? 5 : 4;
 	    return true;
 	  }
 	if (GET_CODE(a) == PRE_DEC)
 	  {
-	    *total = 4;
+	    *total = opno ? 6 : 5;
 	    return true;
 	  }
 	if (GET_CODE(a) == SYMBOL_REF || GET_CODE(a) == LABEL_REF)

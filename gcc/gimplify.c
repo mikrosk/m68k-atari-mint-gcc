@@ -4917,10 +4917,10 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      gimple_stmt_iterator to = gsi_last (*pre_p);
 	      gimple_stmt_iterator from = to;
 	      from.ptr = p1;
-	      fprintf(stderr, "swap\n");
-	      extern void debug (gimple *ptr);
-	      debug(p1);
-	      debug(p2);
+//	      fprintf(stderr, "swap\n");
+//	      extern void debug (gimple *ptr);
+//	      debug(p1);
+//	      debug(p2);
 	      gsi_remove (&from, false);
 	      gsi_insert_after (&to, p1, GSI_NEW_STMT);
 	    }

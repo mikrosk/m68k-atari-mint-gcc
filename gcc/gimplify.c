@@ -4908,7 +4908,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  tree var = gimple_assign_rhs1(p1); /* must be the same as in p2. */
 	  tree x1 = gimple_assign_lhs(p2);
 	  tree x2 = gimple_assign_rhs1(p2);
-	  if (b != x2 && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL || TREE_CODE(b) == PARM_DECL || TREE_CODE(x2) == PARM_DECL) &&
+	  if (b != x2 && b != var && (TREE_CODE(b) == VAR_DECL || TREE_CODE(x2) == VAR_DECL || TREE_CODE(b) == PARM_DECL || TREE_CODE(x2) == PARM_DECL) &&
 	      ((TREE_CODE(x1) == VAR_DECL && TREE_CODE(x2) == MEM_REF &&
 		TREE_OPERAND(x2, 0) != b && TREE_OPERAND(x2, 0) == var) ||
 	       (TREE_CODE(x1) == MEM_REF && (TREE_CODE(x2) == INTEGER_CST || (TREE_CODE(x2) == VAR_DECL && TREE_OPERAND(x1, 0) != b))
@@ -4917,10 +4917,10 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      gimple_stmt_iterator to = gsi_last (*pre_p);
 	      gimple_stmt_iterator from = to;
 	      from.ptr = p1;
-//	      fprintf(stderr, "swap\n");
-//	      extern void debug (gimple *ptr);
-//	      debug(p1);
-//	      debug(p2);
+	      fprintf(stderr, "swap\n");
+	      extern void debug (gimple *ptr);
+	      debug(p1);
+	      debug(p2);
 	      gsi_remove (&from, false);
 	      gsi_insert_after (&to, p1, GSI_NEW_STMT);
 	    }

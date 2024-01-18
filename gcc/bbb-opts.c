@@ -1430,25 +1430,25 @@ add_clobbers (rtx_insn * oldinsn)
   return newpat;
 }
 
-void insn_info::patch_mem_offsets(rtx x, int size)
+void insn_info::patch_mem_offsets(rtx x, int offset)
 {
   if (MEM_P(x))
     {
       rtx plus = XEXP(x, 0);
 
-      if (size == 0)
+      if (offset == 0)
 	XEXP(x, 0) = XEXP(plus, 0);
       else
-	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, size);
+	XEXP(plus, 1) = gen_rtx_CONST_INT (VOIDmode, offset);
 
       return;
     }
 
   const char * format = GET_RTX_FORMAT(GET_CODE(x));
   if (format[0] == 'e')
-    patch_mem_offsets(XEXP(x, 0), size);
+    patch_mem_offsets(XEXP(x, 0), offset);
   if (format[1] == 'e')
-    patch_mem_offsets(XEXP(x, 1), size);
+    patch_mem_offsets(XEXP(x, 1), offset);
 }
 
 void
@@ -1489,10 +1489,7 @@ insn_info::auto_inc_fixup (int regno, int size, int addend)
     {
       int offset = get_dst_mem_addr() - size * addend;
       patch_mem_offsets(SET_DEST(set), offset);
-      if (offset == 0)
-	dst_mem_addr = 0;
-      else
-	dst_mem_addr = offset;
+      dst_mem_addr = offset;
     }
 
   rtx pattern = add_clobbers (insn);

@@ -95,7 +95,7 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case REG:
     case PC:
-      *total = 1;
+      *total = 2;
       return true;
     case SUBREG:
     case STRICT_LOW_PART:

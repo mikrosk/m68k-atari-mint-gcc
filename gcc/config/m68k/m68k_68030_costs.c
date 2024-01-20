@@ -98,7 +98,7 @@ m68k_68030_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case REG:
     case PC:
-      *total = 3;
+      *total = 2;
       return true;
     case SUBREG:
     case STRICT_LOW_PART:
@@ -185,9 +185,8 @@ m68k_68030_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	else if (m68k_68030_costs (dst, mode, code, 0, total, speed)
 	    && m68k_68030_costs (src, mode, code, 1, &total2, speed))
 	  {
-	    *total += total2;
-	    if (!REG_P(dst))
-	      *total -= 2;
+	    *total += total2 - 2;
+
 	    return true;
 	  }
       }

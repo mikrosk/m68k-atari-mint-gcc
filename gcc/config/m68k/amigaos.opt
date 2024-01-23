@@ -47,7 +47,3 @@ data is addressed relative to a4, linked as resident
 resident32
 Target Common Report Var(flag_resident,4)
 data is addressed relative to a4 with 32 bit offsets, linked as resident
-
-mexperimental
-Target RejectNegative Var(flag_experimental,1)
-experimental code, e.g. using new 68080 instructions, registers, etc.p.p.

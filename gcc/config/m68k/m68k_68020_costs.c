@@ -98,11 +98,11 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case REG:
     case PC:
-      *total = 3;
-      return true;
     case SUBREG:
     case STRICT_LOW_PART:
-      *total = 0;
+    case NOT:
+    case NEG:
+      *total = 3;
       return true;
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
@@ -111,10 +111,6 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
     case TRUNCATE:
     case ZERO_EXTEND:
       *total = GET_MODE_SIZE(mode) > 2 ? 5 : 3;
-      return true;
-    case NOT:
-    case NEG:
-      *total = 3;
       return true;
     case SIGN_EXTEND:
       *total = 4;
@@ -186,8 +182,6 @@ m68k_68020_costs (rtx x, machine_mode mode, int outer_code, int opno,
 	    && m68k_68020_costs (src, mode, code, 1, &total2, speed))
 	  {
 	    *total += total2;
-	    if (!REG_P(dst))
-	      *total -= 3;
 	    return true;
 	  }
       }

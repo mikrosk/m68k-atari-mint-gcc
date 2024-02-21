@@ -182,7 +182,7 @@ m68k_init_cumulative_args (CUMULATIVE_ARGS *cump, tree fntype, tree decl)
     cum->regs_already_used |= (1 << M68K_STRUCT_VALUE_REGNUM);
 #endif
 
-  if (fntype && DECL_STATIC_CHAIN(fntype))
+  if (decl && DECL_STATIC_CHAIN(decl))
     {
       rtx reg = m68k_static_chain_rtx (decl, 0);
       if (reg)

@@ -413,7 +413,7 @@ static const struct attribute_spec m68k_attribute_table[] =
   { "interrupt_handler", 0, 0, true,  false, false, m68k_handle_fndecl_attribute, false },
   { "interrupt_thread", 0, 0, true,  false, false, m68k_handle_fndecl_attribute, false },
   { "asmreg", 1, 1, false, true, false, m68k_handle_type_attribute, true },
-  { "asmregs", 1, 1, false,  false, true, 0, true },
+  { "asmregs", 1, 1, false,  true, true, 0, true },
   { "regparm", 1, 1, false,  true, true, m68k_handle_type_attribute, true },
   { "stkparm", 0, 0, false,  true, true, m68k_handle_type_attribute, true },
 

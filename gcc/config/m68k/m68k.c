@@ -1772,43 +1772,43 @@ output_dbcc_and_branch (rtx *operands)
     switch (GET_CODE (operands[3]))
       {
 	case EQ:
-	  output_asm_insn ("dbeq %0,%l1\n|\tjeq %l2", operands);
+	  output_asm_insn ("dbeq %0,%l1", operands);
 	  break;
 
 	case NE:
-	  output_asm_insn ("dbne %0,%l1\n|\tjne %l2", operands);
+	  output_asm_insn ("dbne %0,%l1", operands);
 	  break;
 
 	case GT:
-	  output_asm_insn ("dbgt %0,%l1\n|\tjgt %l2", operands);
+	  output_asm_insn ("dbgt %0,%l1", operands);
 	  break;
 
 	case GTU:
-	  output_asm_insn ("dbhi %0,%l1\n|\tjhi %l2", operands);
+	  output_asm_insn ("dbhi %0,%l1", operands);
 	  break;
 
 	case LT:
-	  output_asm_insn ("dblt %0,%l1\n|\tjlt %l2", operands);
+	  output_asm_insn ("dblt %0,%l1", operands);
 	  break;
 
 	case LTU:
-	  output_asm_insn ("dbcs %0,%l1\n|\tjcs %l2", operands);
+	  output_asm_insn ("dbcs %0,%l1", operands);
 	  break;
 
 	case GE:
-	  output_asm_insn ("dbge %0,%l1\n|\tjge %l2", operands);
+	  output_asm_insn ("dbge %0,%l1", operands);
 	  break;
 
 	case GEU:
-	  output_asm_insn ("dbcc %0,%l1\n|\tjcc %l2", operands);
+	  output_asm_insn ("dbcc %0,%l1", operands);
 	  break;
 
 	case LE:
-	  output_asm_insn ("dble %0,%l1\n|\tjle %l2", operands);
+	  output_asm_insn ("dble %0,%l1", operands);
 	  break;
 
 	case LEU:
-	  output_asm_insn ("dbls %0,%l1\n|\tjls %l2", operands);
+	  output_asm_insn ("dbls %0,%l1", operands);
 	  break;
 
 	default:

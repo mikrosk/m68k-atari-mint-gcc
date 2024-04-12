@@ -100,12 +100,12 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 
       if (code == _URC_END_OF_STACK)
 	/* Hit end of stack with no handler found.  */
-	{ code = _URC_END_OF_STACK; goto KOT; }
+	return _URC_END_OF_STACK;
 
       if (code != _URC_NO_REASON)
 	/* Some error encountered.  Usually the unwinder doesn't
 	   diagnose these and merely crashes.  */
-  	{ code = _URC_FATAL_PHASE1_ERROR; goto KOT; }
+	return _URC_FATAL_PHASE1_ERROR;
 
       /* Unwind successful.  Run the personality routine, if any.  */
       if (fs.personality)
@@ -115,7 +115,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 	  if (code == _URC_HANDLER_FOUND)
 	    break;
 	  else if (code != _URC_CONTINUE_UNWIND)
-	  	{ code = _URC_FATAL_PHASE1_ERROR; goto KOT; }
+	    return _URC_FATAL_PHASE1_ERROR;
 	}
 
       /* Update cur_context to describe the same frame as fs.  */
@@ -129,15 +129,10 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 
   cur_context = this_context;
   code = _Unwind_RaiseException_Phase2 (exc, &cur_context);
-KOT:
-  if (code != _URC_INSTALL_CONTEXT) {
-#if defined(TARGET_AMIGAOS)
-	  asm ("move.l %0, (sp)" :: "r"(code));
-#endif
+  if (code != _URC_INSTALL_CONTEXT)
     return code;
-  }
 
-  uw_install_context (&this_context, &cur_context, 0);
+  uw_install_context (&this_context, &cur_context);
 }
 
 
@@ -213,7 +208,7 @@ _Unwind_ForcedUnwind (struct _Unwind_Exception *exc,
   if (code != _URC_INSTALL_CONTEXT)
     return code;
 
-  uw_install_context (&this_context, &cur_context, 1);
+  uw_install_context (&this_context, &cur_context);
 }
 
 
@@ -238,7 +233,7 @@ _Unwind_Resume (struct _Unwind_Exception *exc)
 
   gcc_assert (code == _URC_INSTALL_CONTEXT);
 
-  uw_install_context (&this_context, &cur_context, 2);
+  uw_install_context (&this_context, &cur_context);
 }
 
 
@@ -263,7 +258,7 @@ _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *exc)
 
   gcc_assert (code == _URC_INSTALL_CONTEXT);
 
-  uw_install_context (&this_context, &cur_context, 3);
+  uw_install_context (&this_context, &cur_context);
 }
 
 

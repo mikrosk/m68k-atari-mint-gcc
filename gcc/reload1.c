@@ -739,6 +739,100 @@ will_delete_init_insn_p (rtx_insn *insn)
   return false;
 }
 
+#if defined(TARGET_AMIGAOS)
+
+extern rtx
+alter_subreg (rtx *xp, bool final_p);
+
+static bool
+darn_reload_did_not_catch_these(rtx *loc, rtx set, rtx_insn *insn)
+{
+  rtx x = *loc;
+  rtx ad = x;
+  if (GET_CODE(x) == PLUS && (REG_P(XEXP(x, 0)) || SUBREG_P(XEXP(x, 0))))
+    x = *(loc = &XEXP(x, 0));
+  rtx reg = x;
+  if (SUBREG_P(x))
+    reg = XEXP(x, 0), alter_subreg(&x, true);
+  // handle the case that a memory_loc was created with a data register.
+  if (REG_P(reg) && !ADDRESS_REGNO_P (REGNO (reg))
+      && (GET_MODE_SIZE(GET_MODE(reg)) > GET_MODE_SIZE(GET_MODE(x))
+       || !targetm.legitimate_address_p(GET_MODE(SET_DEST(set)), ad, true)))
+    {
+      // if there is a data register at dest - without overlap, use it
+      if (ADDRESS_REG_P(SET_DEST(set)) && !reg_overlap_mentioned_p(SET_DEST(set), SET_SRC(set)))
+	{
+	  int regno = REGNO(SET_DEST(set));
+	  rtx areg = gen_rtx_REG(SImode, regno);
+	  emit_insn_before(gen_rtx_SET(areg, x), insn);
+	  *loc = areg;
+//	  fprintf(stderr, "+");
+	  return true;
+	}
+
+      // try all address regs
+	int regno;
+	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
+	  if (ADDRESS_REGNO_P(regno))
+	    {
+	      rtx areg = gen_rtx_REG(SImode, regno);
+
+	      if (!reg_overlap_mentioned_p(areg, set))
+		{
+		  rtx pat = gen_swapsi(areg, x);
+    		  emit_insn_before (pat, insn);
+    		  *loc = areg;
+    		  if (REG_P(SET_DEST(set)) && REGNO(SET_DEST(set)) == REGNO(reg))
+    		    SET_DEST(set) = gen_rtx_REG(GET_MODE(SET_DEST(set)), regno);
+    		  emit_insn_after (pat, insn);
+//    		  fprintf(stderr, ":");
+    		  return true;
+		}
+	    }
+    }
+  return false;
+}
+
+static void
+fix_invalid_addresses (rtx_insn * insn)
+{
+  rtx set = single_set(insn);
+  if (set)
+    {
+      rtx dst = SET_DEST(set);
+      rtx * src = &SET_SRC(set);
+
+      // handle invalid lea
+      if (ADDRESS_REG_P(dst) && GET_CODE(*src) == PLUS)
+	{
+	  rtx x = XEXP(*src, 0);
+	  if (REG_P(x) && !ADDRESS_REGNO_P (REGNO (x)))
+	    {
+	      emit_insn_before(gen_rtx_SET(dst, x), insn);
+	      *src = copy_rtx(*src);
+	      XEXP(*src, 0) = dst;
+	    }
+	}
+      else
+	{
+	  if (GET_CODE(*src) == COMPARE)
+	    src = &XEXP(*src, 0);
+	  if (MEM_P(*src))
+	    darn_reload_did_not_catch_these(&XEXP(*src, 0), set, insn);
+	  if (MEM_P(dst))
+	    {
+	      darn_reload_did_not_catch_these(&XEXP(SET_DEST(set), 0), set, insn);
+	      if (GET_CODE(XEXP(dst, 0)) == PRE_DEC
+		  && GET_CODE(*src) == PLUS
+		  && REG_P(XEXP(*src, 0))
+		  && !ADDRESS_REGNO_P (REGNO (XEXP(*src, 0)))) // pea
+		darn_reload_did_not_catch_these(src, set, insn);
+	    }
+	}
+    }
+}
+#endif
+
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -1239,6 +1333,10 @@ reload (rtx_insn *first, int global)
 
 	if (AUTO_INC_DEC)
 	  add_auto_inc_notes (insn, PATTERN (insn));
+
+#if defined(TARGET_AMIGAOS)
+	fix_invalid_addresses (insn);
+#endif
 
 	/* Simplify (subreg (reg)) if it appears as an operand.  */
 	cleanup_subreg_operands (insn);
@@ -1846,6 +1944,20 @@ find_reg (struct insn_chain *chain, int order)
 	  SET_HARD_REG_BIT (used_by_other_reload, rld[other].regno + j);
     }
 
+  /* SBF: hack to prevent different registers in auto inc with operation insns:
+   * (set (mem:HI (post_inc:SI (reg:SI 6)))
+   *      (ior:HI (mem:HI (reg:SI 6))
+   *              (reg/v:HI 1)))
+   *
+   * needs a reload into a address register.
+   * => don't reload into two different registers
+   * => use the register of the previos reload.
+   */
+  if (order == 1 && rld->in == rld->out && rld->in == rl->in
+      && rld->rclass == rl->rclass
+      && rld->when_needed == RELOAD_OTHER && rl->when_needed == RELOAD_FOR_OPERAND_ADDRESS)
+      best_reg = rld->regno;
+  else
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
 #ifdef REG_ALLOC_ORDER
@@ -2012,9 +2124,14 @@ find_reload_regs (struct insn_chain *chain)
 	  {
 	    if (dump_file)
 	      fprintf (dump_file, "reload failure for reload %d\n", r);
+
+#if defined(TARGET_AMIGAOS)
+	    rld[r].in = 0; // mark as optional - bbb pass will fix this later
+#else
 	    spill_failure (chain->insn, rld[r].rclass);
 	    failure = 1;
 	    return;
+#endif
 	  }
     }
 
@@ -2190,6 +2307,8 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
 				  || total_size > inherent_size ? -1 : 0);
+
+	  MEM_IN_STRUCT_P (x) = 1; // mark as stack slot == restrict
 
 	  stack_slot = x;
 
@@ -3295,6 +3414,13 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 		  }
 	      }
 
+	    /* SBF: there can't be assignments to the FRAME_POINTER - keep it. */
+	    if (ep->from == FRAME_POINTER_REGNUM && !frame_pointer_needed)
+	      {
+		// warning_for_asm (insn, "keeping assignment to %s", reg_names[FRAME_POINTER_REGNUM]);
+		goto done;
+	      }
+
 	    /* In this case this insn isn't serving a useful purpose.  We
 	       will delete it in reload_as_needed once we know that this
 	       elimination is, in fact, being done.
@@ -3621,6 +3747,11 @@ elimination_costs_in_insn (rtx_insn *insn)
 
   if (! insn_is_asm && icode < 0)
     {
+      if (!(DEBUG_INSN_P (insn)
+		  || GET_CODE (PATTERN (insn)) == USE
+		  || GET_CODE (PATTERN (insn)) == CLOBBER
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT))
+	debug(insn);
       gcc_assert (DEBUG_INSN_P (insn)
 		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
@@ -4546,6 +4677,10 @@ fixup_eh_region_note (rtx_insn *insn, rtx_insn *prev, rtx_insn *next)
    We update these for the reloads that we perform,
    as the insns are scanned.  */
 
+#if AUTO_INC_DEC
+rtx_insn *old_prev;
+#endif
+
 static void
 reload_as_needed (int live_known)
 {
@@ -4574,7 +4709,7 @@ reload_as_needed (int live_known)
       rtx_insn *insn = chain->insn;
       rtx_insn *old_next = NEXT_INSN (insn);
 #if AUTO_INC_DEC
-      rtx_insn *old_prev = PREV_INSN (insn);
+      old_prev = PREV_INSN (insn);
 #endif
 
       if (will_delete_init_insn_p (insn))
@@ -6226,6 +6361,15 @@ allocate_reload_reg (struct insn_chain *chain ATTRIBUTE_UNUSED, int r,
 	 of leapfrogging each other.  */
 
       i = last_spill_reg;
+
+      /**
+       * SBF: This is an REG_INC for the same reg in in/out.
+       * Use the last_spill_reg.
+       */
+      if (r == 1 && rld->in == rld->out && rld->in == rld[1].in
+          && rld->rclass == rld[1].rclass
+          && rld->when_needed == RELOAD_OTHER && rld[1].when_needed == RELOAD_FOR_OPERAND_ADDRESS)
+	break;
 
       for (count = 0; count < n_spills; count++)
 	{
@@ -7974,9 +8118,19 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
       /* The insn might have already some references to stackslots
 	 replaced by MEMs, while reload_out_reg still names the
 	 original pseudo.  */
-      && (dead_or_set_p (insn, spill_reg_stored_to[REGNO (reg_rtx)])
-	  || rtx_equal_p (spill_reg_stored_to[REGNO (reg_rtx)], rl->out_reg)))
-    delete_output_reload (insn, j, REGNO (reg_rtx), reg_rtx);
+      && (
+/**
+ * SBF: a later reload might rely on this reload which is marked dead for now...
+ * ... then this reload is missing.
+ */
+#if 0
+	  dead_or_set_p (insn, spill_reg_stored_to[REGNO (reg_rtx)])
+	  ||
+#endif	  
+	  rtx_equal_p (spill_reg_stored_to[REGNO (reg_rtx)], rl->out_reg)))
+    {
+      delete_output_reload (insn, j, REGNO (reg_rtx), reg_rtx);
+    }
 }
 
 /* Do output reloading for reload RL, which is for the insn described by

@@ -26,6 +26,23 @@ along with GCC; see the file COPYING3.  If not see
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
 #endif
 
+#define TARGET_M68K 1
+
+/* TARGET_AMIGAOS is used in defined(...) */
+#if defined (TARGET_AMIGAOS)
+#define TARGET_AMIGA 1
+#endif
+/* TARGET_AMIGA is used in boolean expressions => need 0 as default. */
+#ifndef TARGET_AMIGA
+#define TARGET_AMIGA 0
+#define DOUBLE_INDIRECT_JUMP 0
+#define PIC_REG 14
+#define TARGET_RESTORE_A4 0
+#define TARGET_ALWAYS_RESTORE_A4 0
+#define amiga_is_const_pic_ref(a) (0)
+#define amigaos_legitimate_src(a) (1)
+#endif
+
 /* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
   { "cpu",   "%{!m68020-40:%{!m68020-60:\
@@ -86,7 +103,9 @@ along with GCC; see the file COPYING3.  If not see
 	case u68060:							\
 	  builtin_define_std ("mc68060");				\
 	  break;							\
-									\
+	case u68080:							\
+	  builtin_define_std ("mc68080");				\
+	  break;							\
 	case u68020_60:							\
 	  builtin_define_std ("mc68060");				\
 	  /* Fall through.  */						\
@@ -207,7 +226,11 @@ along with GCC; see the file COPYING3.  If not see
 #define INT_OP_DC	3	/* dc.b, dc.w, dc.l */
 
 /* Set the default.  */
+#ifndef TARGET_AMIGAOS_VASM
 #define INT_OP_GROUP INT_OP_DOT_WORD
+#else
+#define INT_OP_GROUP INT_OP_DC
+#endif
 
 /* Bit values used by m68k-devices.def to identify processor capabilities.  */
 #define FL_BITFIELD  (1 << 0)    /* Support bitfield instructions.  */
@@ -223,18 +246,23 @@ along with GCC; see the file COPYING3.  If not see
 #define FL_ISA_68010 (1 << 10)
 #define FL_ISA_68020 (1 << 11)
 #define FL_ISA_68040 (1 << 12)
-#define FL_ISA_A     (1 << 13)
-#define FL_ISA_APLUS (1 << 14)
-#define FL_ISA_B     (1 << 15)
-#define FL_ISA_C     (1 << 16)
-#define FL_FIDOA     (1 << 17)
-#define FL_CAS	     (1 << 18)	/* Support cas insn.  */
+#define FL_ISA_68060 (1 << 13)
+#define FL_ISA_68080 (1 << 14)
+#define FL_ISA_A     (1 << 15)
+#define FL_ISA_APLUS (1 << 16)
+#define FL_ISA_B     (1 << 17)
+#define FL_ISA_C     (1 << 18)
+#define FL_FIDOA     (1 << 19)
+#define FL_CAS	     (1 << 20)	/* Support cas insn.  */
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 #define FL_UCLINUX   0   /* Used by multilib machinery.  */
 
+#define TARGET_68000		((m68k_cpu_flags & FL_ISA_68000) != 0)
 #define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
+#define TARGET_68060		((m68k_cpu_flags & FL_ISA_68060) != 0)
+#define TARGET_68080		((m68k_cpu_flags & FL_ISA_68080) != 0)
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
@@ -249,21 +277,28 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_ISAC		((m68k_cpu_flags & FL_ISA_C) != 0)
 
 /* Some instructions are common to more than one ISA.  */
-#define ISA_HAS_MVS_MVZ	(TARGET_ISAB || TARGET_ISAC)
+#define ISA_HAS_MVS_MVZ	(TARGET_ISAB || TARGET_ISAC || TARGET_68080)
 #define ISA_HAS_FF1	(TARGET_ISAAPLUS || TARGET_ISAC)
 #define ISA_HAS_TAS	(!TARGET_COLDFIRE || TARGET_ISAB || TARGET_ISAC)
 
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
 #define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
+#define TUNE_68020	(m68k_tune == u68020 \
+			 || m68k_tune == u68020_40 \
+			 || m68k_tune == u68020_60)
 #define TUNE_68030	(m68k_tune == u68030 \
 			 || m68k_tune == u68020_40 \
 			 || m68k_tune == u68020_60)
 #define TUNE_68040	(m68k_tune == u68040 \
 			 || m68k_tune == u68020_40 \
 			 || m68k_tune == u68020_60)
-#define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68020_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
+#define TUNE_68060	(m68k_tune == u68060)
+#define TUNE_68080	(m68k_tune == u68080)
+#define TUNE_68020_80	(TUNE_68020 || TUNE_68030 || TUNE_68040 || TUNE_68060 || TUNE_68080)
+#define TUNE_68040_80	(TUNE_68040 || TUNE_68060 || TUNE_68080)
+#define TUNE_68060_80	(TUNE_68060 || TUNE_68080)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
 #define TUNE_CFV1       (m68k_tune == ucfv1)
 #define TUNE_CFV2	(m68k_tune == ucfv2)
@@ -388,7 +423,6 @@ along with GCC; see the file COPYING3.  If not see
   16, 17, 18, 19, 20, 21, 22, 23\
 }
 
-
 /* On the m68k, ordinary registers hold 32 bits worth;
    for the 68881 registers, a single register is always enough for
    anything that can be stored in them at all.  */
@@ -431,13 +465,6 @@ along with GCC; see the file COPYING3.  If not see
  */
 #define ARG_POINTER_REGNUM 24
 
-#define STATIC_CHAIN_REGNUM A0_REG
-#define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a0"
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-#define M68K_STRUCT_VALUE_REGNUM A1_REG
-
 
 
 /* The m68k has three kinds of registers, so eight classes would be
@@ -452,7 +479,7 @@ enum reg_class {
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 #define REG_CLASS_NAMES \
- { "NO_REGS", "DATA_REGS",              \
+ { "NO_REGS", "DATA_REGS", \
    "ADDR_REGS", "FP_REGS",              \
    "GENERAL_REGS", "DATA_OR_FP_REGS",   \
    "ADDR_OR_FP_REGS", "ALL_REGS" }
@@ -500,31 +527,88 @@ extern enum reg_class regno_reg_class[];
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
-/* On the m68k the return value defaults to D0.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)  \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), D0_REG)
+/* SBF: same as linux.h */
 
-/* On the m68k the return value defaults to D0.  */
-#define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, D0_REG)
+/* 1 if N is a possible register number for a function value.  For
+   m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
+   pointer, or floating types, respectively.  Reject fp0 if not using
+   a 68881 coprocessor.  */
 
-/* On the m68k, D0 is usually the only register used.  */
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == D0_REG)
+#undef FUNCTION_VALUE_REGNO_P
+#define FUNCTION_VALUE_REGNO_P(N) \
+  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
-   more than one register.
-   XXX This macro is m68k specific and used only for m68kemb.h.  */
-#define NEEDS_UNTYPED_CALL 0
+   more than one register.  */
 
-/* On the m68k, all arguments are usually pushed on the stack.  */
-#define FUNCTION_ARG_REGNO_P(N) 0
+#undef NEEDS_UNTYPED_CALL
+#define NEEDS_UNTYPED_CALL 1
+
+/* Define how to generate (in the callee) the output value of a
+   function and how to find (in the caller) the value returned by a
+   function.  VALTYPE is the data type of the value (as a tree).  If
+   the precise function being called is known, FUNC is its
+   FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
+   result in d0, a0, or fp0 as appropriate.
+
+   SBF: we need the libcall calling convention.
+   */
+
+#undef FUNCTION_VALUE
+#define FUNCTION_VALUE(VALTYPE, FUNC)					\
+		m68k_libcall_value (TYPE_MODE (VALTYPE))
+
+/* Define how to find the value returned by a library function
+   assuming the value has mode MODE.
+   For m68k/SVR4 look for integer values in d0, pointer values in d0
+   (returned in both d0 and a0), and floating values in fp0.  */
+
+#undef LIBCALL_VALUE
+#define LIBCALL_VALUE(MODE)						\
+  m68k_libcall_value (MODE)
+
 
-/* On the m68k, this is a single integer, which is a number of bytes
-   of arguments scanned so far.  */
+/* SBF: int is enough public info. rest is handled internally. */
 #define CUMULATIVE_ARGS int
+extern void m68k_init_cumulative_args (CUMULATIVE_ARGS *, tree, tree);
+extern int m68k_function_arg_reg(unsigned regno);
 
-/* On the m68k, the offset starts at 0.  */
+/* Initialize a variable CUM of type CUMULATIVE_ARGS
+   for a call to a function whose data type is FNTYPE.
+   For a library call, FNTYPE is 0.  */
+#undef INIT_CUMULATIVE_ARGS
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
- ((CUM) = 0)
+  (m68k_init_cumulative_args(&(CUM), (FNTYPE), (INDIRECT)))
+
+
+/* Max. number of data, address and float registers to be used for passing
+   integer, pointer and float arguments when TARGET_REGPARM.
+   It's 4, so d0-d3, a0-a3 and fp0-fp3 can be used.  */
+#undef M68K_MAX_REGPARM
+#define M68K_MAX_REGPARM 4
+
+/* The default number of data, address and float registers to use when
+   user specified '-mregparm' switch, not '-mregparm=<value>' option.  */
+#undef M68K_DEFAULT_REGPARM
+#define M68K_DEFAULT_REGPARM 2
+
+/* 1 if N is a possible register number for function argument passing.  */
+#undef FUNCTION_ARG_REGNO_P
+#define FUNCTION_ARG_REGNO_P(N)    m68k_function_arg_reg(N)
+
+/* Register in which address to store a structure value is passed to a
+   function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0.  */
+
+#undef M68K_STRUCT_VALUE_REGNUM
+#define M68K_STRUCT_VALUE_REGNUM A0_REG
+
+/* The static chain regnum defaults to a0, but we use that for
+   structure return, so have to use a1 for the static chain.  */
+
+#undef STATIC_CHAIN_REGNUM
+#define STATIC_CHAIN_REGNUM A1_REG
+#undef M68K_STATIC_CHAIN_REG_NAME
+#define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a1"
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))
@@ -617,11 +701,11 @@ __transfer_from_trampoline ()					\
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)			\
   (INT_REGNO_P (REGNO)					\
-   || INT_REGNO_P (reg_renumber[REGNO]))
+   || (reg_renumber && INT_REGNO_P (reg_renumber[REGNO])))
 
 #define REGNO_OK_FOR_BASE_P(REGNO)			\
   (ADDRESS_REGNO_P (REGNO)				\
-   || ADDRESS_REGNO_P (reg_renumber[REGNO]))
+   || (reg_renumber && ADDRESS_REGNO_P (reg_renumber[REGNO])))
 
 #define REGNO_OK_FOR_INDEX_NONSTRICT_P(REGNO)		\
   (INT_REGNO_P (REGNO)					\
@@ -730,9 +814,49 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
   if (cc_prev_status.flags & CC_NO_OVERFLOW)			\
     return NO_OV;						\
   return NORMAL; } while (0)
+
+#ifdef TARGET_AMIGAOS_VASM
+#define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
+  do {                                                                        \
+    FILE *_hide_asm_out_file = (MYFILE);                                      \
+    const unsigned char *_hide_p = (const unsigned char *) (MYSTRING);        \
+    int _hide_thissize = (MYLENGTH);                                          \
+    {                                                                         \
+      FILE *asm_out_file = _hide_asm_out_file;                                \
+      const unsigned char *p = _hide_p;                                       \
+      int thissize = _hide_thissize;                                          \
+      int i;                                                                  \
+      fprintf (asm_out_file, "\tdc.b \"");                                    \
+                                                                              \
+      for (i = 0; i < thissize; i++)                                          \
+        {                                                                     \
+          int c = p[i];                                                       \
+          if (c == '\"' || c == '\\')                                         \
+            putc ('\\', asm_out_file);                                        \
+          if (ISPRINT (c))                                                    \
+            putc (c, asm_out_file);                                           \
+          else                                                                \
+            {                                                                 \
+              fprintf (asm_out_file, "\\%o", c);                              \
+              /* After an octal-escape, if a digit follows,                   \
+                 terminate one string constant and start another.             \
+                 The VAX assembler fails to stop reading the escape           \
+                 after three digits, so this is the only way we               \
+                 can get it to parse the data properly.  */                   \
+              if (i < thissize - 1 && ISDIGIT (p[i + 1]))                     \
+                fprintf (asm_out_file, "\"\n\tdc.b \"");                      \
+          }                                                                   \
+        }                                                                     \
+      fprintf (asm_out_file, "\"\n");                                         \
+    }                                                                         \
+  }                                                                           \
+  while (0)
+#endif
 
+
 /* Control the assembler format that we output.  */
 
+#ifndef TARGET_AMIGAOS_VASM
 #define ASM_APP_ON "#APP\n"
 #define ASM_APP_OFF "#NO_APP\n"
 #define TEXT_SECTION_ASM_OP "\t.text"
@@ -742,6 +866,17 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define LOCAL_LABEL_PREFIX ""
 #define USER_LABEL_PREFIX "_"
 #define IMMEDIATE_PREFIX "#"
+#else
+#define ASM_APP_ON ""
+#define ASM_APP_OFF ""
+#define TEXT_SECTION_ASM_OP "\tsection .text,code"
+#define DATA_SECTION_ASM_OP "\tsection .data,data"
+#define GLOBAL_ASM_OP "\txdef\t"
+#define REGISTER_PREFIX ""
+#define LOCAL_LABEL_PREFIX "_."
+#define USER_LABEL_PREFIX "_"
+#define IMMEDIATE_PREFIX "#"
+#endif
 
 #define REGISTER_NAMES \
 {REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
@@ -835,6 +970,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    pointer for code and global references.  We still use pc-relative
    references to data, as this avoids a relocation.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)			   \
+  (TARGET_68000 || TARGET_68010) ? DW_EH_PE_aligned :                      \
   (flag_pic								   \
    && !((TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)			   \
 	&& ((GLOBAL) || (CODE)))					   \
@@ -842,7 +978,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  asm_fprintf (FILE, "%U%s", NAME)
+  asm_fprintf (FILE, (*(NAME)) == '@' ? "%s" : "%U%s", NAME)
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
@@ -861,11 +997,17 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 /* The m68k does not use absolute case-vectors, but we must define this macro
    anyway.  */
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
+#ifndef TARGET_AMIGAOS_VASM
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)	\
   asm_fprintf (FILE, "\t.long %LL%d\n", VALUE)
-
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)	\
   asm_fprintf (FILE, "\t.word %LL%d-%LL%d\n", VALUE, REL)
+#else
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)	\
+ asm_fprintf (FILE, "\tdc.l %LL%d\n", VALUE)
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
+  asm_fprintf (FILE, "\tdc.w %LL%d-%LL%d\n", VALUE, REL)
+#endif
 
 /* We don't have a way to align to more than a two-byte boundary, so do the
    best we can and don't complain.  */
@@ -875,13 +1017,24 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
 /* Use "move.l %a4,%a4" to advance within code.  */
+#ifndef TARGET_AMIGAOS_VASM
 #define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)			\
   if ((LOG) > 0)						\
     fprintf ((FILE), "\t.balignw %u,0x284c\n", 1 << (LOG));
+#else
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)			\
+  if ((LOG) > 0)						\
+    fprintf ((FILE), "\tcnop 0,%u\n", 1 << (LOG));
+#endif
 #endif
 
+#ifndef TARGET_AMIGAOS_VASM
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (int)(SIZE))
+#else
+#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
+  fprintf (FILE, "\tds.b %u\n", (int)(SIZE))
+#endif
 
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
@@ -974,3 +1127,64 @@ extern int m68k_sched_address_bypass_p (rtx_insn *, rtx_insn *);
 extern int m68k_sched_indexed_address_bypass_p (rtx_insn *, rtx_insn *);
 
 #define CPU_UNITS_QUERY 1
+
+#if 1
+extern void default_stabs_asm_out_constructor (rtx, int);
+extern void default_stabs_asm_out_destructor (rtx, int);
+#endif
+
+/* Structure describing an m68k address.
+
+   If CODE is UNKNOWN, the address is BASE + INDEX * SCALE + OFFSET,
+   with null fields evaluating to 0.  Here:
+
+   - BASE satisfies m68k_legitimate_base_reg_p
+   - INDEX satisfies m68k_legitimate_index_reg_p
+   - OFFSET satisfies m68k_legitimate_constant_address_p
+   - OUTER_INDEX satisfies m68k_legitimate_index_reg_p
+   - OUTER_OFFSET satisfies m68k_legitimate_constant_address_p
+
+   INDEX is either HImode or SImode.  The other fields are SImode.
+
+   If CODE is PRE_DEC, the address is -(BASE).  If CODE is POST_INC,
+   the address is (BASE)+.
+
+   If CODE is MEM, then it's a double indirect address
+   and the outer_index or outer_offset may be used.
+
+   MEM_LOC contains the address of the inner MEM. This is needed by reload
+   if reload needs to reload the inner MEM, if OFFSET plus OUTER_OFFSET are in use.
+
+   BASE_LOC contains the address of BASE - needed by reload.
+   INDEX_LOC contains the address of INDEX - also needed by reload.
+*/
+struct m68k_address {
+  int code;
+  rtx * mem_loc;
+  rtx base;
+  rtx * base_loc;
+  rtx index;
+  rtx * index_loc;
+  int scale;
+  rtx offset;
+  rtx outer_index;
+  rtx * outer_index_loc;
+  int outer_scale;
+  rtx outer_offset;
+};
+
+int decompose_mem(int reach, rtx * x, struct m68k_address * address, int strict_p);
+
+
+const char *
+print_fp_const(const char * cmd, const char * prec, rtx x);
+
+int
+m68k_emit_movmemsi(rtx dest, rtx src, rtx length, rtx alignment);
+
+int
+m68k_emit_setmemsi(rtx dest, rtx val, rtx length, rtx alignment);
+
+
+#define BRANCH_COST(speed_p, predictable_p) 1
+

@@ -451,7 +451,7 @@ switch_to_eh_frame_section (bool back ATTRIBUTE_UNUSED)
 						       /*global=*/1);
 	  lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0,
 							/*global=*/0);
-	  flags = ((! flag_pic
+	  flags = (( (!flag_pic || flag_pic > 2)
 		    || ((fde_encoding & 0x70) != DW_EH_PE_absptr
 			&& (fde_encoding & 0x70) != DW_EH_PE_aligned
 			&& (per_encoding & 0x70) != DW_EH_PE_absptr
@@ -469,6 +469,26 @@ switch_to_eh_frame_section (bool back ATTRIBUTE_UNUSED)
       eh_frame_section = ((flags == SECTION_WRITE)
 			  ? data_section : readonly_data_section);
 #endif /* EH_FRAME_SECTION_NAME */
+
+#if defined(TARGET_AMIGAOS)
+      fputs(
+      "\t.section\t.data.__EH_FRAME_OBJECT__\n"
+      "\t.align 2\n" 
+      "\t__EH_FRAME_OBJECT__:\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n\t.long 0\n", asm_out_file);
+      fputs("\t.section\t.dlist___EH_FRAME_OBJECTS__\n"
+	    "\t.align 2\n"
+	    "\t.long\t__EH_FRAME_OBJECT__\n", asm_out_file);
+
+      fputs(
+      "\t.section\t.list___EH_FRAME_BEGINS__\n"
+      "\t.align 2\n"
+      "\t.long\t__EH_FRAME_BEGIN__\n", asm_out_file);
+      switch_to_section (eh_frame_section);
+      fputs(
+      "\t.text\n\t.align 2\n"
+      "\t__EH_FRAME_BEGIN__:\n", asm_out_file);
+
+#endif
     }
 
   switch_to_section (eh_frame_section);
@@ -2054,9 +2074,9 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	/* Make sure the offset has been computed and that we can encode it as
 	   an operand.  */
 	gcc_assert (die_offset > 0
-		    && die_offset <= (loc->dw_loc_opc == DW_OP_call2)
+		    && die_offset <= ((loc->dw_loc_opc == DW_OP_call2)
 				     ? 0xffff
-				     : 0xffffffff);
+				     : 0xffffffff));
 	dw2_asm_output_data ((loc->dw_loc_opc == DW_OP_call2) ? 2 : 4,
 			     die_offset, NULL);
       }

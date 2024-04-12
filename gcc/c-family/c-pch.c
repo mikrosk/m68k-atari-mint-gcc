@@ -32,7 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must
    fit in a 'signed char'.  */
-
+#ifdef __amiga__
+__near
+#endif
 static const struct c_pch_matching
 {
   int *flag_var;

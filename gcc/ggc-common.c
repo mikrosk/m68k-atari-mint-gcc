@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "hosthooks.h"
 #include "plugin.h"
+#include <sys/resource.h>
 
 /* When set, ggc_collect will do collection.  */
 bool ggc_force_collect;
@@ -729,6 +730,7 @@ static double
 ggc_rlimit_bound (double limit)
 {
 #if defined(HAVE_GETRLIMIT)
+// && !defined __amiga__
   struct rlimit rlim;
 # if defined (RLIMIT_AS)
   /* RLIMIT_AS is what POSIX says is the limit on mmap.  Presumably

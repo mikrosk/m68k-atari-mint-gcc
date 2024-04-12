@@ -1356,6 +1356,12 @@ memory_operand (rtx op, machine_mode mode)
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
 
+#if defined(TARGET_AMIGAOS)
+  /* SBF: allow direct mem ref to a4. */
+  if (MEM_P(op) && amiga_is_const_pic_ref(XEXP(op, 0)))
+    return true;
+#endif
+
   inner = op;
   if (GET_CODE (inner) == SUBREG)
     inner = SUBREG_REG (inner);
@@ -2187,7 +2193,11 @@ extract_constrain_insn (rtx_insn *insn)
 {
   extract_insn (insn);
   if (!constrain_operands (reload_completed, get_enabled_alternatives (insn)))
-    fatal_insn_not_found (insn);
+    {
+      debug_rtx(insn);
+      constrain_operands (reload_completed, get_enabled_alternatives (insn));
+      fatal_insn_not_found (insn);
+    }
 }
 
 /* Do cached extract_insn, constrain_operands and complain about failures.
@@ -3252,6 +3262,7 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
   /* If we are splitting an RTX_FRAME_RELATED_P insn, do not allow it to
      match more than one insn, or to be split into more than one insn.  */
   old_insn = peep2_insn_data[peep2_current].insn;
+
   if (RTX_FRAME_RELATED_P (old_insn))
     {
       bool any_note = false;
@@ -3382,6 +3393,33 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
 	  gcc_assert (!CALL_P (old_insn));
 	}
       break;
+    }
+
+  /* SBF: keep REG_INC notes. */
+  while ((as_note = find_reg_note (old_insn, REG_INC, NULL)))
+    {
+      add_reg_note(attempt, REG_INC, XEXP (as_note, 0));
+      remove_note(old_insn, as_note);
+    }
+
+  /* SBF: move REG_DEAD notes. */
+  for (i = match_len; i >= 0; --i)
+    {
+      int j = peep2_buf_position (peep2_current + i);
+      old_insn = peep2_insn_data[j].insn;
+      while ((as_note = find_reg_note (old_insn, REG_DEAD, NULL)))
+	{
+	  rtx reg = XEXP (as_note, 0);
+	  rtx_insn * p, * last = 0;
+	  for (p = attempt; p; p = NEXT_INSN (p))
+	      if (reg_mentioned_p(reg, p))
+		last = p;
+
+	  if (last)
+	    add_reg_note(last, REG_DEAD, reg);
+
+	  remove_note(old_insn, as_note);
+	}
     }
 
   /* If we matched any instruction that had a REG_ARGS_SIZE, then
@@ -3613,7 +3651,7 @@ peephole2_optimize (void)
 
 	  /* Match the peephole.  */
 	  head = peep2_insn_data[peep2_current].insn;
-	  attempt = peephole2_insns (PATTERN (head), head, &match_len);
+	  attempt = PATTERN (head) ? peephole2_insns (PATTERN (head), head, &match_len) : NULL;
 	  if (attempt != NULL)
 	    {
 	      rtx_insn *last = peep2_attempt (bb, head, match_len, attempt);
@@ -3788,6 +3826,7 @@ if_test_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
   return true;
 }
 
+
 static unsigned int
 rest_of_handle_peephole2 (void)
 {
@@ -3826,7 +3865,12 @@ public:
   virtual bool gate (function *) { return (optimize > 0 && flag_peephole2); }
   virtual unsigned int execute (function *)
     {
-      return rest_of_handle_peephole2 ();
+      static unsigned peephole2_pass;
+      unsigned pn = static_pass_number;
+      static_pass_number = peephole2_pass++;
+      unsigned r = rest_of_handle_peephole2 ();
+      static_pass_number = pn;
+      return r;
     }
 
 }; // class pass_peephole2

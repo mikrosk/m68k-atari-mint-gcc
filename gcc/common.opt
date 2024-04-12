@@ -1424,6 +1424,10 @@ floop-nest-optimize
 Common Report Var(flag_loop_nest_optimize) Optimization
 Enable the loop nest optimizer.
 
+floop-size-optimize
+Common Report Var(flag_loop_size_optimize) Optimization Init(-1)
+Enable loop for size optimization.
+
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1) Optimization
 Force bitfield accesses to match their type width.
@@ -1920,6 +1924,10 @@ fprofile-reorder-functions
 Common Report Var(flag_profile_reorder_functions)
 Enable function reordering that improves code placement.
 
+fprune-stack-vars
+Common Report Var(flag_prune_stack_vars)
+Try to prune read only stack variable which contain a copied value which could be used instead.
+
 frandom-seed
 Common Var(common_deferred_options) Defer
 
@@ -2275,7 +2283,7 @@ EnumValue
 Enum(tls_model) String(local-exec) Value(TLS_MODEL_LOCAL_EXEC)
 
 ftoplevel-reorder
-Common Report Var(flag_toplevel_reorder) Init(2)
+Common Report Var(flag_toplevel_reorder) Init(0)
 Reorder top level functions, variables, and asms.
 
 ftracer
@@ -2965,6 +2973,10 @@ Don't create a position independent executable.
 pie
 Driver RejectNegative Negative(no-pie)
 Create a position independent executable.
+
+pthread
+Driver RejectNegative
+add -lpthread
 
 z
 Driver Joined Separate

@@ -364,6 +364,9 @@ along with GCC; see the file COPYING3.  If not see
 
 
 #include "config.h"
+#define INCLUDE_VECTOR
+#define INCLUDE_SET
+#define INCLUDE_MAP
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -391,6 +394,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "shrink-wrap.h"
 #include "print-rtl.h"
+#include "langhooks.h"
+#include <vector>
+#include <set>
+#include <map>
 
 struct target_ira default_target_ira;
 struct target_ira_int default_target_ira_int;
@@ -5090,6 +5097,423 @@ move_unallocated_pseudos (void)
       }
 }
 
+
+#if defined(TARGET_M68K)
+/**
+ * This is the partial structure from m68k.c - with all fields used here.
+ */
+extern struct m68k_frame {
+  /* Stack pointer to frame pointer offset.  */
+  HOST_WIDE_INT offset;
+
+  /* Offset of FPU registers.  */
+  HOST_WIDE_INT foffset;
+
+  /* Frame size in bytes (rounded up).  */
+  HOST_WIDE_INT size;
+
+} current_frame;
+
+/**
+ * Test a src or dst, if it needs a fix and fix it.
+ */
+static void fix_one(rtx_insn * insn, rtx * mem_loc, int opno, int size, int offset)
+{
+  tree name;
+  rtx mem = *mem_loc;
+  if (MEM_P(mem) && GET_CODE(XEXP(mem, 0)) == PLUS
+      && REG_P(XEXP(XEXP(mem, 0), 0))
+      && REGNO(XEXP(XEXP(mem, 0), 0)) == SP_REG
+      && CONST_INT_P(XEXP(XEXP(mem, 0), 1))
+      && MEM_OFFSET_KNOWN_P (mem)
+      && MEM_EXPR (mem)
+      && MEM_OFFSET(mem)
+      && MEM_EXPR(mem)->base.code == VAR_DECL
+      && (name = MEM_EXPR (mem)->var_decl.common.common.common.common.name)
+      && 0 == strcmp("%sfp", (char *)name->identifier.id.str)
+      )
+    {
+      int n = INTVAL(XEXP(XEXP(mem, 0), 1));
+      int m = MEM_OFFSET(mem);
+      int add = size + offset - n + m;
+      if (add > 0)
+	{
+//	  fprintf(stderr, "add=%d, size=%d, offset=%d, n=%d, m=%d\n", add, size, offset, n, -m);
+//	  // debug_rtx (insn);
+	  mem = copy_rtx_if_shared(mem);
+	  XEXP(XEXP(mem, 0), 1) = GEN_INT(n + add);
+	  *mem_loc = mem;
+//	  // debug_rtx (insn);
+	}
+    }
+}
+/**
+ * This is a hack!
+ *
+ * Reload seems to fail adjusting a spill reg on stack
+ * if it is used while function args are pushed
+ * and -fomit-frame-pointer is active.
+ *
+ * since I did not manage to find the real location to fix this,
+ * I wrote this patcher, which validates the spf related offsets
+ * and fixes these.
+ */
+static void
+fix_stack_regs(rtx_insn * first)
+{
+  rtx_insn * insn;
+
+  int offset = 0;
+  int size = current_frame.offset + current_frame.size;
+
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    {
+      if (CALL_P(insn))
+	{
+	  offset = 0;
+	  continue;
+	}
+
+      if (!NONJUMP_INSN_P (insn))
+	continue;
+
+      int last_offset = offset;
+      // update the offset
+      rtx note = find_reg_note(insn, REG_ARGS_SIZE, 0);
+      if (note)
+	offset = INTVAL(XEXP(note, 0));
+
+      if (last_offset == 0)
+	continue;
+
+      rtx set = single_set(insn);
+      if (!set)
+	continue;
+
+      if (GET_CODE(set) == COMPARE)
+	set = XEXP(set, 1);
+
+      fix_one(insn, &XEXP(set, 0), 0, size, last_offset);
+      fix_one(insn, &XEXP(set, 1), 1, size, last_offset);
+    }
+}
+#endif
+
+/**
+ * SBF:
+ * Search artifical regs which end up as as spilled variables plus
+ * - pushed once to the stack
+ * - read only
+ * - where reading the original isn't more expensive as reading from the stack
+ *
+ * Then delete the assignment and replace the spilled variable with the original.
+ *
+ * If at least one variable is affected, restart ira.
+ *
+ * If the register in original mem ref ends up spilled, undo that replacement.
+ *
+ */
+
+// the registers which live longer
+static std::set<rtx> prolonged_regs;
+// already resurrected - don't try again
+static std::set<rtx> forbidden_regs;
+// removed insn - needed for resurrection, DEST contains the register to use during restiore
+static std::vector<std::pair<rtx, rtx_insn *> > reg2deleted_insn;
+// modified insns
+static std::vector<std::pair<rtx, rtx_insn *> > dst2modified_insn;
+// REG_EQUAL notes
+static std::vector<std::pair<rtx_insn *, rtx> > insn2req_equals;
+
+static int prune_pass;
+
+static void
+init_prune_stack_vars ()
+{
+  prolonged_regs.clear();
+  forbidden_regs.clear();
+  reg2deleted_insn.clear();
+  dst2modified_insn.clear();
+  insn2req_equals.clear();
+  prune_pass = 0;
+
+  rtx_insn *insn;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (NONJUMP_INSN_P(insn))
+      {
+	rtx note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
+	if (note)
+	  insn2req_equals.push_back(std::make_pair(insn, note));
+      }
+}
+
+/**
+ * Search eliminable artifical spilled variables and replace them.
+ */
+static bool
+prune_stack_vars (bool loops_p)
+{
+  bool changed = false;
+  int regno, max_regno;
+  max_regno = max_reg_num ();
+
+
+  if (ira_dump_file )
+    fprintf(ira_dump_file, "pruning stack variables pass %d in: %s\n", prune_pass + 1, lang_hooks.decl_printable_name (current_function_decl, 2));
+
+  /*
+   * Check the longer living registers which are used in the replacement mem.
+   * If these end up spilled, it's better to live with the spilled variable,
+   * => undo the change.
+   */
+  std::set<rtx>::iterator i = prolonged_regs.begin();
+  for(;i != prolonged_regs.end(); ++i)
+    {
+      rtx prolonged_reg = *i;
+      if (REGNO(prolonged_reg) < FIRST_PSEUDO_REGISTER)
+	continue;
+
+      /* no double undo. */
+      if (forbidden_regs.find(prolonged_reg) != forbidden_regs.end())
+	continue;
+
+      if (ira_regno_allocno_map[REGNO(prolonged_reg)] && ira_regno_allocno_map[REGNO(prolonged_reg)]->hard_regno < 0)
+	{
+	  changed = true;
+	  if (ira_dump_file)
+	    {
+	      fprintf(ira_dump_file, "***************************************************\n");
+	      fprintf(ira_dump_file, "whoops: %d did not get a hard register... undoing :-)\n", REGNO(prolonged_reg));
+	    }
+
+	  /* once undone, prevent working with / undoing them again and prevent endless loops. */
+	  forbidden_regs.insert(prolonged_reg);
+
+	  std::vector<std::pair<rtx, rtx_insn *> >::iterator j = reg2deleted_insn.begin();
+	  for(; j != reg2deleted_insn.end(); ++j)
+	    {
+	      std::pair<rtx, rtx_insn *> p = *j;
+	      if (p.first != prolonged_reg)
+		continue;
+
+	      /* undo the deletion and restore the insn. */
+	      rtx pattern = PATTERN(p.second);
+	      rtx_insn * undel = emit_insn_after(pattern, p.second);
+
+	      rtx src = SET_SRC(pattern);
+	      rtx dst = SET_DEST(pattern);
+	      std::vector<std::pair<rtx, rtx_insn *> >::iterator  k = dst2modified_insn.begin();
+	      for(; k != dst2modified_insn.end(); ++k)
+		{
+		  std::pair<rtx, rtx_insn *> q = *k;
+		  if (q.first != dst)
+		    continue;
+
+		  /* undo the replacement. */
+		  rtx_insn * insn = q.second;
+		  replace_rtx(insn, src, dst, true);
+		  df_insn_rescan(insn);
+		}
+	    }
+	}
+    }
+
+  if (prune_pass <= 3)
+    {
+      // iterate over all registers.
+      for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+	{
+	  // this only applies to spilled variables
+	  if (!ira_regno_allocno_map[regno] || ira_regno_allocno_map[regno]->hard_regno >= 0)
+	    continue;
+
+	  if (ira_reg_equiv[regno].constant != NULL_RTX)
+	    continue;
+
+	  // which are defined once
+	  if (DF_REG_DEF_COUNT(regno) != 1)
+	    continue;
+
+	  df_ref defref;
+	  defref = DF_REG_DEF_CHAIN(regno);
+
+	  // no handling for parallel insn's for now.
+	  rtx_insn * def = defref->base.insn_info->insn;
+	  rtx set = single_set(def);
+	  if (!set)
+	    continue;
+
+	  // only consider MEM <-> MEM replacements
+	  rtx src = SET_SRC(set);
+	  if (!MEM_P(src))
+	    continue;
+
+	  rtx dst = SET_DEST(set);
+	  if (!REG_P(dst))
+	    continue;
+
+	  // only temp / artificial vars!
+	  tree var = REG_EXPR(dst);
+	  if (!var)
+	    continue;
+	  if (var->base.code != SSA_NAME)// !DECL_ARTIFICIAL (var))
+	    continue;
+
+	  /**
+	   * Handle MEM of
+	   *  - reg
+	   *  - plus(reg, int)
+	   *  - symbol_ref
+	   *  - plus(symbol_ref, int)
+	   */
+	  rtx address = XEXP(src, 0);
+	  if (!( REG_P(address)
+	      || SYMBOL_REF_P(address)
+	      || (GET_CODE(address) == PLUS
+		  && (REG_P(XEXP(address, 0))
+		      || SYMBOL_REF_P(XEXP(address,0))
+		  )
+		  && CONST_INT_P(XEXP(address, 1)))
+	     ))
+	    continue;
+
+	  rtx address_reg = 0;
+	  if (REG_P(address))
+	    address_reg = address;
+	  else if (GET_CODE(address) == PLUS && REG_P(XEXP(address, 0)))
+	    address_reg = XEXP(address, 0);
+
+	  /* we tried already to prolong the live time of this register. don't touch again. */
+	  if (address_reg && forbidden_regs.find(address_reg) != forbidden_regs.end())
+	    continue;
+
+
+	  df_ref ref;
+	  machine_mode mode = GET_MODE(dst);
+	  bool skip = false;
+	  if (address_reg)
+	    {
+	      if (DF_REG_DEF_COUNT(REGNO(address_reg)) != 1)
+		skip = true;
+	      else
+	      /* check that there is no use as dest and all uses refer to this regno. */
+	      for(ref = DF_REG_USE_CHAIN(REGNO(address_reg));ref; ref = DF_REF_NEXT_REG (ref))
+		{
+		  if (!ref->base.insn_info)
+		    continue;
+
+		  rtx_insn * insn = ref->base.insn_info->insn;
+		  rtx iset = single_set(insn);
+		  if (!iset || rtx_equal_p(src, SET_DEST(iset)))
+		    {
+		      skip = true;
+		      break;
+		    }
+
+		  rtx isrc = SET_SRC(iset);
+		  /* does it feed other vars as well? */
+		  if (rtx_equal_p(src, isrc) && !rtx_equal_p(dst, SET_DEST(iset)))
+		    {
+		      skip = true;
+		      break;
+		    }
+		}
+	    }
+
+	  if (skip)
+	    {
+	      // do not try again
+	      if (address_reg)
+		forbidden_regs.insert(address_reg);
+	      continue;
+	    }
+
+	  if (address_reg)
+	    {
+	      if (ira_dump_file)
+		fprintf(ira_dump_file, "use %d instead of ", REGNO(address_reg));
+	      prolonged_regs.insert(address_reg);
+	      reg2deleted_insn.push_back(std::make_pair(address_reg, def));
+	    }
+
+	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	    {
+	      fprintf(ira_dump_file, "ref %d:\t", regno);
+	      df_refs_chain_dump(DF_REG_DEF_CHAIN(regno), true, ira_dump_file);
+	      df_refs_chain_dump(DF_REG_USE_CHAIN(regno), true, ira_dump_file);
+	      fprintf(ira_dump_file, "\n");
+	    }
+
+	  /* drop the assignment. */
+	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	    {
+	      fprintf(ira_dump_file, "eliminating insn:\n");
+	      print_inline_rtx(ira_dump_file, def, 2);
+	    }
+
+	  /* replace the variable in all locations. */
+	  bool ok = true;
+	  for(ref = DF_REG_USE_CHAIN(regno);ref; ref = DF_REF_NEXT_REG (ref))
+	    {
+	      rtx_insn * insn = ref->base.insn_info->insn;
+	      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+		{
+		  fprintf(ira_dump_file, "from:\n");
+		  print_inline_rtx(ira_dump_file, insn, 2);
+		}
+	      validate_replace_rtx_group(dst, src, insn);
+	      df_insn_rescan(insn);
+	      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+		{
+		  fprintf(ira_dump_file, "to:\n");
+		  print_inline_rtx(ira_dump_file, insn, 2);
+		}
+	      if (address_reg)
+		dst2modified_insn.push_back(std::make_pair(dst, insn));
+	    }
+
+	  if (ok && apply_change_group())
+	    {
+   	      changed = true;
+	      SET_INSN_DELETED(def)
+	    }
+	  else
+	    {
+	      cancel_changes(0);
+	      forbidden_regs.insert(address_reg);
+	    }
+	}
+    }
+
+  if (changed)
+    {
+      /* make stats visible. */
+      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	calculate_allocation_cost ();
+
+      /* the lifetime of all registers must be reconsidered - reset what's needed. */
+      regstat_free_n_sets_and_refs ();
+      regstat_free_ri ();
+      if (loops_p)
+	loop_optimizer_finalize ();
+      free_dominance_info (CDI_DOMINATORS);
+
+      /* plus restore the REG_EQUAL notes which were recorded during init_prune_stack_vars() ! */
+      std::vector<std::pair<rtx_insn *, rtx> >::iterator i2r = insn2req_equals.begin();
+      for (;i2r != insn2req_equals.end(); ++i2r)
+	{
+	  rtx_insn * insn = i2r->first;
+	  REG_NOTES (insn) = i2r->second;
+	}
+
+      df_mark_solutions_dirty();
+      df_analyze ();
+    }
+
+  ++ prune_pass;
+  return changed;
+}
+
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */
 static void
@@ -5183,8 +5607,8 @@ ira (FILE *f)
     }
 
 #ifndef IRA_NO_OBSTACK
-  gcc_obstack_init (&ira_obstack);
-#endif
+    gcc_obstack_init (&ira_obstack);
+  #endif
   bitmap_obstack_initialize (&ira_bitmap_obstack);
 
   /* LRA uses its own infrastructure to handle caller save registers.  */
@@ -5207,92 +5631,101 @@ ira (FILE *f)
   df_note_add_problem ();
 
   /* DF_LIVE can't be used in the register allocator, too many other
-     parts of the compiler depend on using the "classic" liveness
-     interpretation of the DF_LR problem.  See PR38711.
-     Remove the problem, so that we don't spend time updating it in
-     any of the df_analyze() calls during IRA/LRA.  */
-  if (optimize > 1)
+   parts of the compiler depend on using the "classic" liveness
+   interpretation of the DF_LR problem.  See PR38711.
+   Remove the problem, so that we don't spend time updating it in
+   any of the df_analyze() calls during IRA/LRA.  */
+  if (optimize >= 2)          //
     df_remove_problem (df_live);
-  gcc_checking_assert (df_live == NULL);
+  gcc_checking_assert(df_live == NULL);
 
   if (flag_checking)
     df->changeable_flags |= DF_VERIFY_SCHEDULED;
 
   df_analyze ();
 
-  init_reg_equiv ();
-  if (ira_conflicts_p)
+  if (flag_prune_stack_vars)
+    init_prune_stack_vars ();
+  do
     {
-      calculate_dominance_info (CDI_DOMINATORS);
+      init_reg_equiv ();
+      if (ira_conflicts_p)
+	{
+	  calculate_dominance_info (CDI_DOMINATORS);
 
-      if (split_live_ranges_for_shrink_wrap ())
+	  if (split_live_ranges_for_shrink_wrap ())
+	    df_analyze ();
+
+	  free_dominance_info (CDI_DOMINATORS);
+	}
+
+      df_clear_flags (DF_NO_INSN_RESCAN);
+
+      indirect_jump_optimize ();
+      if (delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	df_analyze ();
 
-      free_dominance_info (CDI_DOMINATORS);
+      regstat_init_n_sets_and_refs ();
+      regstat_compute_ri ();
+
+      /* If we are not optimizing, then this is the only place before
+       register allocation where dataflow is done.  And that is needed
+       to generate these warnings.  */
+      if (warn_clobbered)
+	generate_setjmp_warnings ();
+
+      /* Determine if the current function is a leaf before running IRA
+       since this can impact optimizations done by the prologue and
+       epilogue thus changing register elimination offsets.  */
+      crtl->is_leaf = leaf_function_p ();
+
+      if (resize_reg_info () && flag_ira_loop_pressure)
+	ira_set_pseudo_classes (true, ira_dump_file);
+
+      update_equiv_regs ();
+      setup_reg_equiv ();
+      setup_reg_equiv_init ();
+
+      allocated_reg_info_size = max_reg_num ();
+
+      /* It is not worth to do such improvement when we use a simple
+       allocation because of -O0 usage or because the function is too
+       big.  */
+      if (ira_conflicts_p)
+	find_moveable_pseudos ();
+
+      max_regno_before_ira = max_reg_num ();
+      ira_setup_eliminable_regset ();
+
+      ira_overall_cost = ira_reg_cost = ira_mem_cost = 0;
+      ira_load_cost = ira_store_cost = ira_shuffle_cost = 0;
+      ira_move_loops_num = ira_additional_jumps_num = 0;
+
+      ira_assert(current_loops == NULL);
+      if (flag_ira_region == IRA_REGION_ALL
+	  || flag_ira_region == IRA_REGION_MIXED)
+	loop_optimizer_init (
+	    AVOID_CFG_MODIFICATIONS | LOOPS_HAVE_RECORDED_EXITS);
+
+      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, "Building IRA IR\n");
+      loops_p = ira_build ();
+
+      ira_assert(ira_conflicts_p || !loops_p);
+
+      saved_flag_ira_share_spill_slots = flag_ira_share_spill_slots;
+      if (too_high_register_pressure_p () || cfun->calls_setjmp)
+	/* It is just wasting compiler's time to pack spilled pseudos into
+	 stack slots in this case -- prohibit it.  We also do this if
+	 there is setjmp call because a variable not modified between
+	 setjmp and longjmp the compiler is required to preserve its
+	 value and sharing slots does not guarantee it.  */
+	flag_ira_share_spill_slots = FALSE;
+
+      ira_color ();
+
     }
-
-  df_clear_flags (DF_NO_INSN_RESCAN);
-
-  indirect_jump_optimize ();
-  if (delete_trivially_dead_insns (get_insns (), max_reg_num ()))
-    df_analyze ();
-
-  regstat_init_n_sets_and_refs ();
-  regstat_compute_ri ();
-
-  /* If we are not optimizing, then this is the only place before
-     register allocation where dataflow is done.  And that is needed
-     to generate these warnings.  */
-  if (warn_clobbered)
-    generate_setjmp_warnings ();
-
-  /* Determine if the current function is a leaf before running IRA
-     since this can impact optimizations done by the prologue and
-     epilogue thus changing register elimination offsets.  */
-  crtl->is_leaf = leaf_function_p ();
-
-  if (resize_reg_info () && flag_ira_loop_pressure)
-    ira_set_pseudo_classes (true, ira_dump_file);
-
-  update_equiv_regs ();
-  setup_reg_equiv ();
-  setup_reg_equiv_init ();
-
-  allocated_reg_info_size = max_reg_num ();
-
-  /* It is not worth to do such improvement when we use a simple
-     allocation because of -O0 usage or because the function is too
-     big.  */
-  if (ira_conflicts_p)
-    find_moveable_pseudos ();
-
-  max_regno_before_ira = max_reg_num ();
-  ira_setup_eliminable_regset ();
-
-  ira_overall_cost = ira_reg_cost = ira_mem_cost = 0;
-  ira_load_cost = ira_store_cost = ira_shuffle_cost = 0;
-  ira_move_loops_num = ira_additional_jumps_num = 0;
-
-  ira_assert (current_loops == NULL);
-  if (flag_ira_region == IRA_REGION_ALL || flag_ira_region == IRA_REGION_MIXED)
-    loop_optimizer_init (AVOID_CFG_MODIFICATIONS | LOOPS_HAVE_RECORDED_EXITS);
-
-  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
-    fprintf (ira_dump_file, "Building IRA IR\n");
-  loops_p = ira_build ();
-
-  ira_assert (ira_conflicts_p || !loops_p);
-
-  saved_flag_ira_share_spill_slots = flag_ira_share_spill_slots;
-  if (too_high_register_pressure_p () || cfun->calls_setjmp)
-    /* It is just wasting compiler's time to pack spilled pseudos into
-       stack slots in this case -- prohibit it.  We also do this if
-       there is setjmp call because a variable not modified between
-       setjmp and longjmp the compiler is required to preserve its
-       value and sharing slots does not guarantee it.  */
-    flag_ira_share_spill_slots = FALSE;
-
-  ira_color ();
+  while (flag_prune_stack_vars && prune_stack_vars (loops_p));
 
   ira_max_point_before_emit = ira_max_point;
 
@@ -5303,9 +5736,9 @@ ira (FILE *f)
   max_regno = max_reg_num ();
   if (ira_conflicts_p)
     {
-      if (! loops_p)
+      if (!loops_p)
 	{
-	  if (! ira_use_lra_p)
+	  if (!ira_use_lra_p)
 	    ira_initiate_assign ();
 	}
       else
@@ -5318,17 +5751,18 @@ ira (FILE *f)
 	      ira_allocno_iterator ai;
 
 	      FOR_EACH_ALLOCNO (a, ai)
-                {
-                  int old_regno = ALLOCNO_REGNO (a);
-                  int new_regno = REGNO (ALLOCNO_EMIT_DATA (a)->reg);
+		{
+		  int old_regno = ALLOCNO_REGNO(a);
+		  int new_regno = REGNO(ALLOCNO_EMIT_DATA (a)->reg);
 
-                  ALLOCNO_REGNO (a) = new_regno;
+		  ALLOCNO_REGNO (a) = new_regno;
 
-                  if (old_regno != new_regno)
-                    setup_reg_classes (new_regno, reg_preferred_class (old_regno),
-                                       reg_alternate_class (old_regno),
-                                       reg_allocno_class (old_regno));
-                }
+		  if (old_regno != new_regno)
+		    setup_reg_classes (new_regno,
+				       reg_preferred_class (old_regno),
+				       reg_alternate_class (old_regno),
+				       reg_allocno_class (old_regno));
+		}
 
 	    }
 	  else
@@ -5338,18 +5772,18 @@ ira (FILE *f)
 	      ira_flattening (max_regno_before_ira, ira_max_point_before_emit);
 	    }
 	  /* New insns were generated: add notes and recalculate live
-	     info.  */
+	   info.  */
 	  df_analyze ();
 
 	  /* ??? Rebuild the loop tree, but why?  Does the loop tree
-	     change if new insns were generated?  Can that be handled
-	     by updating the loop tree incrementally?  */
+	   change if new insns were generated?  Can that be handled
+	   by updating the loop tree incrementally?  */
 	  loop_optimizer_finalize ();
 	  free_dominance_info (CDI_DOMINATORS);
-	  loop_optimizer_init (AVOID_CFG_MODIFICATIONS
-			       | LOOPS_HAVE_RECORDED_EXITS);
+	  loop_optimizer_init (
+	      AVOID_CFG_MODIFICATIONS | LOOPS_HAVE_RECORDED_EXITS);
 
-	  if (! ira_use_lra_p)
+	  if (!ira_use_lra_p)
 	    {
 	      setup_allocno_assignment_flags ();
 	      ira_initiate_assign ();
@@ -5398,6 +5832,7 @@ ira (FILE *f)
 		  max_regno * sizeof (struct ira_spilled_reg_stack_slot));
 	}
     }
+
   allocate_initial_values ();
 
   /* See comment for find_moveable_pseudos call.  */
@@ -5456,6 +5891,10 @@ do_reload (void)
       build_insn_chain ();
 
       need_dce = reload (get_insns (), ira_conflicts_p);
+
+#if defined(TARGET_M68K)
+      fix_stack_regs(get_insns ());
+#endif
     }
 
   timevar_pop (TV_RELOAD);
@@ -5509,7 +5948,7 @@ do_reload (void)
   df_scan_alloc (NULL);
   df_scan_blocks ();
 
-  if (optimize > 1)
+  if (optimize >= 2)//
     {
       df_live_add_problem ();
       df_live_set_all_dirty ();

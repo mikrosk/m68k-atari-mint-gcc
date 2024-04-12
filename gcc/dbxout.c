@@ -247,6 +247,13 @@ static GTY(()) const char *lastfile;
    base_input_file.  */
 static GTY(()) int lastfile_is_base;
 
+#if defined(TARGET_AMIGAOS)
+static unsigned files_num;
+static unsigned files_size;
+static unsigned files_current;
+static const char ** files_name;
+#endif
+
 /* Typical USG systems don't have stab.h, and they also have
    no use for DBX-format debugging info.  */
 
@@ -836,6 +843,23 @@ dbxout_finish_complex_stabs (tree sym, stab_code_type code,
 	  chunk += chunklen + 1;
 	  len   -= chunklen + 1;
 
+#if defined(TARGET_AMIGAOS)
+	  /* SBF: symbol is inside unspec */
+	  if (addr && GET_CODE(addr) == PLUS)
+	    {
+	      rtx x = XEXP(addr, 1);
+	      addr = 0;
+	      if (GET_CODE(x) == CONST)
+		{
+		  x = XEXP(x, 0);
+		  if (GET_CODE(x) == UNSPEC)
+		    {
+		      addr = XVECEXP (x, 0, 0);
+		    }
+		}
+	    }
+#endif
+
 	  /* Only put a line number on the last stab in the sequence.  */
 	  DBX_FINISH_STABS (sym, code, len == 0 ? line : 0,
 			    addr, label, number);
@@ -1037,7 +1061,8 @@ dbxout_init (const char *input_file_name)
   dbxout_stab_value_zero ();
 #endif
 
-  base_input_file = lastfile = input_file_name;
+  dbxout_source_file(input_file_name);
+  base_input_file = input_file_name;
 
   next_type_number = 1;
 
@@ -1218,6 +1243,39 @@ static void dbxout_block (tree, int, tree);
 static void
 dbxout_source_file (const char *filename)
 {
+
+#if defined TARGET_AMIGAOS && !defined TARGET_AMIGAOS_VASM
+  if (filename && (lastfile == 0 || strcmp (filename, lastfile)))
+    {
+      // search file name
+      unsigned pos;
+      for (pos = 0; pos < files_num; ++pos)
+	{
+	  if (0 == strcmp(filename, files_name[pos]))
+	    break;
+	}
+
+      files_current = pos + 1;
+
+      // store file name
+      if (pos == files_num)
+	{
+	  if (pos == files_size)
+	    {
+	      files_size += files_size + 4;
+	      files_name = (const char**)xrealloc(files_name, files_size * sizeof(char const *));
+	    }
+	  files_name[files_num++] = filename;
+
+	  fputs ("\t.file ", asm_out_file);
+	  fprint_ul (asm_out_file, files_current);
+	  fputs (" \"", asm_out_file);
+	  fputs (filename, asm_out_file);
+	  fputs ("\"\n", asm_out_file);
+	}
+    }
+#endif
+
   if (lastfile == 0 && lastfile_is_base)
     {
       lastfile = base_input_file;
@@ -1267,6 +1325,14 @@ dbxout_source_line (unsigned int lineno, const char *filename,
                     bool is_stmt ATTRIBUTE_UNUSED)
 {
   dbxout_source_file (filename);
+
+#if defined TARGET_AMIGAOS && !defined TARGET_AMIGAOS_VASM
+    fputs ("\t.loc ", asm_out_file);
+    fprint_ul (asm_out_file, files_current);
+    fputc (' ', asm_out_file);
+    fprint_ul (asm_out_file, lineno);
+    fputs (" 0\n", asm_out_file);
+#endif
 
 #ifdef DBX_OUTPUT_SOURCE_LINE
   DBX_OUTPUT_SOURCE_LINE (asm_out_file, lineno, dbxout_source_line_counter);
@@ -3793,7 +3859,13 @@ void
 default_stabs_asm_out_destructor (rtx symbol ATTRIBUTE_UNUSED,
 				  int priority ATTRIBUTE_UNUSED)
 {
-#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
+#if defined(TARGET_AMIGAOS)
+  fprintf (asm_out_file,
+	   "\t.section\t.list___DTOR_LIST__\n"
+	   "\t.long\t_%s\n"
+	   "\t.text\n", XSTR (symbol, 0));
+switch_to_section (text_section);	   
+#elif defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */
@@ -3810,7 +3882,13 @@ void
 default_stabs_asm_out_constructor (rtx symbol ATTRIBUTE_UNUSED,
 				   int priority ATTRIBUTE_UNUSED)
 {
-#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
+#if defined(TARGET_AMIGAOS)
+  fprintf (asm_out_file,
+	   "\t.section\t.list___CTOR_LIST__\n"
+	   "\t.long\t_%s\n"
+	   "\t.text\n", XSTR (symbol, 0));
+switch_to_section (text_section);	   
+#elif defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */

@@ -1543,7 +1543,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
     /* A truncation to an unsigned type (a zero-extension) should be
        canonicalized as bitwise and of a mask.  */
-    (if (GIMPLE /* PR70366: doing this in GENERIC breaks -Wconversion.  */
+    /* SBF: keep the different types widening_mul relies on that! * /
+    (if (GIMPLE /* PR70366: doing this in GENERIC breaks -Wconversion.  * /
 	 && final_int && inter_int && inside_int
 	 && final_prec == inside_prec
 	 && final_prec > inter_prec
@@ -1552,6 +1553,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	                      (inside_type,
 			       wi::mask (inter_prec, false,
 					 TYPE_PRECISION (inside_type))); })))
+	*/
 
     /* If we are converting an integer to a floating-point that can
        represent it exactly and back to an integer, we can skip the
@@ -3041,3 +3043,41 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (SIGNBIT @0)
  (if (!HONOR_SIGNED_ZEROS (@0))
   (convert (lt @0 { build_real (TREE_TYPE (@0), dconst0); }))))
+
+
+/* use mul 2 instead of 2 adds. 
+  n + n = n * 2
+*/
+(simplify
+  (plus:c @0 @0)
+  (if (!FLOAT_TYPE_P (type))
+    (mult @0 { build_int_cst (integer_type_node, 2); }))
+)
+
+/* use mul 2
+  a + n + n = a + n * 2
+ */
+(simplify
+  (plus:c (plus:c @0 @1) @1)
+  (if (!FLOAT_TYPE_P (type))
+    (plus @0 (mult @1 { build_int_cst (integer_type_node, 2); })))
+)
+
+
+/* use mul 2 instead of 3 muls. 
+  n * n * n * n = (n * n) * (n * n)
+                => t = (n * n)
+                = t * t
+*/
+(simplify
+  (mult:c (mult:c (mult:c @0 @0) @0) @0)
+    (with
+      { tree tem = fold_build2 (MULT_EXPR, type, @0, @0); }
+      (mult { tem; } { tem; })))
+
+(simplify
+  (mult:c (mult:c (mult:c (mult:c @0 @1) @1) @1) @1)
+    (with
+      { tree tem = fold_build2 (MULT_EXPR, type, @1, @1); }
+      (mult @0 (mult { tem; } { tem; }))))
+      

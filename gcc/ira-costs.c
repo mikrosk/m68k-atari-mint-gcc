@@ -1245,6 +1245,8 @@ record_address_regs (machine_mode mode, addr_space_t as, rtx x,
 	  {
 	    i = cost_classes[k];
 	    add_cost = (move_in_cost[i][rclass] * scale) / 2;
+	    if (ADDR_REGS != i)
+	      ++add_cost;
 	    if (INT_MAX - add_cost < pp_costs[k])
 	      pp_costs[k] = INT_MAX;
 	    else 
@@ -1461,6 +1463,12 @@ scan_one_insn (rtx_insn *insn)
 
       COSTS (costs, num)->mem_cost
 	-= ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency;
+#if defined(TARGET_M68K)
+      /* SBF: can result in negative costs which is no good.
+       * => keep*/
+      if (COSTS (costs, num)->mem_cost < ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency / 2)
+	COSTS (costs, num)->mem_cost = ira_memory_move_cost[GET_MODE (reg)][cl][1] * frequency / 2;
+#endif
       record_address_regs (GET_MODE (SET_SRC (set)),
 			   MEM_ADDR_SPACE (SET_SRC (set)),
 			   XEXP (SET_SRC (set), 0), 0, MEM, SCRATCH,

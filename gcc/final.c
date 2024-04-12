@@ -2151,6 +2151,7 @@ call_from_call_insn (rtx_call_insn *insn)
    SEEN is used to track the end of the prologue, for emitting
    debug information.  We force the emission of a line note after
    both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
+rtx_insn * current_insn;
 
 rtx_insn *
 final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
@@ -2160,6 +2161,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
   rtx set;
 #endif
   rtx_insn *next;
+  current_insn = insn;
 
   insn_counter++;
 
@@ -2723,6 +2725,11 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 			== CONST0_RTX (GET_MODE (XEXP (SET_SRC (set), 0))))
 		      src2 = XEXP (SET_SRC (set), 0);
 		  }
+
+		rtx note = 0;
+		rtx_insn * ninsn = 0;
+		rtx nset = 0, nss = 0;;
+
 		if ((cc_status.value1 != 0
 		     && rtx_equal_p (src1, cc_status.value1))
 		    || (cc_status.value2 != 0
@@ -2730,7 +2737,17 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		    || (src2 != 0 && cc_status.value1 != 0
 		        && rtx_equal_p (src2, cc_status.value1))
 		    || (src2 != 0 && cc_status.value2 != 0
-			&& rtx_equal_p (src2, cc_status.value2)))
+			&& rtx_equal_p (src2, cc_status.value2))
+
+		/** compare with zero can be omitted, if reg is zero and mode is smaller,
+		 *  if next insn is a jmp EQ
+		 */
+		    || (src2 != 0 && GET_CODE(XEXP(src1, 1)) == CONST_INT && INTVAL((XEXP(src1, 1))) == 0
+			&& cc_status.value1 && REG_P(cc_status.value1) && src2 && REG_P(src2) && REGNO(cc_status.value1) == REGNO(src2)
+			&& (note = find_reg_note(insn, REG_BIT_MASK, 0)) && INTVAL(XEXP(note,0)) < (1 << (8*GET_MODE_SIZE(GET_MODE(src2))))
+			&& JUMP_P(ninsn = NEXT_INSN(insn)) && (nset = single_set(ninsn)) && (GET_CODE(nss = XEXP(SET_SRC(nset),0)) == EQ || GET_CODE(nss) == NE)
+			)
+		    )
 		  {
 		    /* Don't delete insn if it has an addressing side-effect.  */
 		    if (! FIND_REG_INC_NOTE (insn, NULL_RTX)
@@ -2890,6 +2907,8 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		SET_PREV_INSN (insn) = PREV_INSN (next);
 		SET_NEXT_INSN (insn) = next;
 		SET_PREV_INSN (next) = insn;
+
+		current_insn = insn;
 	      }
 
 	    /* PEEPHOLE might have changed this.  */
@@ -2918,7 +2937,11 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  }
 
 	if (! constrain_operands_cached (insn, 1))
-	  fatal_insn_not_found (insn);
+	  {
+	    debug_rtx(insn);
+	    constrain_operands_cached (insn, 1);
+	    fatal_insn_not_found (insn);
+	  }
 
 	/* Some target machines need to prescan each insn before
 	   it is output.  */
@@ -3622,6 +3645,13 @@ do_assembler_dialects (const char *p, int *dialect)
 void
 output_asm_insn (const char *templ, rtx *operands)
 {
+  extern bool be_very_verbose;
+  extern bool dump_cycles;
+  extern void append_reg_usage(FILE *, rtx_insn *);
+
+  extern bool dump_reg_track;
+  void append_reg_cache (FILE * f, rtx_insn * insn);
+
   const char *p;
   int c;
 #ifdef ASSEMBLER_DIALECT
@@ -3777,6 +3807,11 @@ output_asm_insn (const char *templ, rtx *operands)
       default:
 	putc (c, asm_out_file);
       }
+
+  if (be_very_verbose || dump_cycles)
+    append_reg_usage(asm_out_file, current_insn);
+  if (dump_reg_track)
+    append_reg_cache(asm_out_file, current_insn);
 
   /* Write out the variable names for operands, if we know them.  */
   if (flag_verbose_asm)
@@ -3948,18 +3983,30 @@ output_addr_const (FILE *file, rtx x)
       /* Some assemblers need integer constants to appear last (eg masm).  */
       if (CONST_INT_P (XEXP (x, 0)))
 	{
+#if defined(TARGET_AMIGAOS)
+	  output_addr_const (file, XEXP (x, 0));
+	  fprintf (file, "+");
+	  output_addr_const (file, XEXP (x, 1));
+#else
 	  output_addr_const (file, XEXP (x, 1));
 	  if (INTVAL (XEXP (x, 0)) >= 0)
 	    fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 0));
+#endif
 	}
       else
 	{
+#if defined(TARGET_AMIGAOS)
+	  output_addr_const (file, XEXP (x, 1));
+	  fprintf (file, "+");
+	  output_addr_const (file, XEXP (x, 0));
+#else
 	  output_addr_const (file, XEXP (x, 0));
 	  if (!CONST_INT_P (XEXP (x, 1))
 	      || INTVAL (XEXP (x, 1)) >= 0)
 	    fprintf (file, "+");
 	  output_addr_const (file, XEXP (x, 1));
+#endif
 	}
       break;
 
@@ -3995,6 +4042,7 @@ output_addr_const (FILE *file, rtx x)
       if (targetm.asm_out.output_addr_const_extra (file, x))
 	break;
 
+      debug_rtx(current_output_insn);
       output_operand_lossage ("invalid expression as operand");
     }
 }

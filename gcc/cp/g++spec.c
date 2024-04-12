@@ -262,7 +262,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 #endif
 
   /* Add one for shared_libgcc or extra static library.  */
-  num_args = argc + added + need_math + (library > 0) * 4 + 1;
+  num_args = argc + added + need_math + (library > 0) * 5 + 1;
   new_decoded_options = XNEWVEC (struct cl_decoded_option, num_args);
 
   i = 0;
@@ -342,11 +342,41 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  j++;
 	}
 #endif
+
+#if defined(TARGET_AMIGAOS)
+/* SBF: force linking __init_eh and replace new operator. */
+	{
+	  bool addglue = true;
+	  /* do not add glue if exceptions are disabled. */
+	  for (int ii = 0; ii < argc; ++ii)
+	    {
+	      if (decoded_options[ii].opt_index == OPT_fexceptions)
+		addglue = decoded_options[ii].value;
+	    }
+	  {
+	    extern const char *
+	    amiga_m68k_prefix_func (int argc, const char ** argv);
+	    if (addglue)
+	      {
+		generate_option (OPT_Wl_, "-u,___init_eh", 1, CL_DRIVER,
+					   &new_decoded_options[j]);
+	      }
+	    else
+	      {
+		generate_option (OPT_Wl_, "-l,new_op", 1, CL_DRIVER,
+					   &new_decoded_options[j]);
+	      }
+	    ++j;
+	  }
+	}
+#endif
+
       generate_option (OPT_l,
 		       saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX, 1,
 		       CL_DRIVER, &new_decoded_options[j]);
       added_libraries++;
       j++;
+
       /* Add target-dependent static library, if necessary.  */
       if ((static_link || library > 1) && LIBSTDCXX_STATIC != NULL)
 	{

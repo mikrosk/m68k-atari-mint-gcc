@@ -40,6 +40,9 @@ along with GCC; see the file COPYING3.  If not see
    debugger or by the front-end for things like
    __PRETTY_FUNCTION__.  */
 static cxx_pretty_printer actual_pretty_printer;
+#ifdef __amiga__
+__near
+#endif
 static cxx_pretty_printer * const cxx_pp = &actual_pretty_printer;
 
 /* Translate if being used for diagnostics, but not for dump files or

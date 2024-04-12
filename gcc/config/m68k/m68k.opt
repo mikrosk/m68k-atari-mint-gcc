@@ -77,6 +77,10 @@ m68060
 Target RejectNegative Alias(mcpu=, 68060)
 Generate code for a 68060.
 
+m68080
+Target RejectNegative Alias(mcpu=, 68080)
+Generate code for a 68080.
+
 m68302
 Target RejectNegative Alias(mcpu=, 68302)
 Generate code for a 68302.
@@ -193,3 +197,56 @@ Support more than 8192 GOT entries on ColdFire.
 mxtls
 Target Report Mask(XTLS)
 Support TLS segment larger than 64K.
+
+fno-truncz-same-mode
+Target RejectNegative Var(flag_no_truncz_same_mode,1)
+emit round to zero insns (e.g. fintrz.x fp0,fp0)
+
+mschulz
+Target RejectNegative Var(flag_no_x_mode,1)
+Don't use fmove.x, used fmove.d instead
+
+mregparm=
+Target RejectNegative Var(m68k_regparm) Joined UInteger Init(-1)
+Pass arguments through registers.
+
+mregparm
+Target RejectNegative Alias(mregparm=, 2)
+Same as -mregparm=2
+
+msasregparm
+Target RejectNegative Var(sas_regparm,1)
+Same as -mregparm=2 but do not use alternate registers
+
+fdouble-indirect
+Target Var(flag_double_indirect) Init(1)
+Use double indirect addressing mode.
+
+fbbb=
+Target RejectNegative Report Var(help_columns,80) Var(string_bbb_opts) Joined 
+Enable Bebbo's optimizations.\n
++    enable all optimizations (default)\n
+a    commute add move instructions\n
+b    use register for base addresses\n
+c    convert load const and compare into a sub\n
+e    eliminate dead assignments + redundant loads\n
+f    shrink stack frame\n
+h    optimize shift instructions\n
+i    use post increment on addresses\n
+l    remove single used lea if possible\n
+n    pipeline instructions\n
+m    merge add and move statements\n
+p    propagate move assignment pairs out of loops\n
+r    register renaming to maybe save registers\n
+s    a strcpy optimization\n
+z    final pass with simple substitutions\n
+0    insert clear registers before storing a byte or word, if possible\n
+v    be verbose\n
+V    be very verbose\n
+x    dump insns\n
+Default: -fbbb=+ which yields -fbbb=abcefhilmnprsz0
+
+
+mexperimental
+Target RejectNegative Var(flag_experimental,1)
+experimental code, e.g. using new 68080 instructions, registers, etc.p.p.

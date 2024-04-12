@@ -1,5 +1,5 @@
 ;; Constraint definitions for m68k
-;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 ;; This file is part of GCC.
 
@@ -90,6 +90,12 @@
 		    && (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
 			|| GET_CODE (XEXP (op, 0)) == LABEL_REF
 			|| GET_CODE (XEXP (op, 0)) == CONST)")))
+
+(define_constraint "Z"
+  "Used for Amiga library calls."
+  (and (match_code "plus")
+       (match_test "ADDRESS_REG_P (XEXP (op, 0)) 
+                 && CONST_INT_P (XEXP (op, 1))")))
 
 (define_constraint "T"
   "Used for operands that satisfy 's' when -mpcrel is not in effect."

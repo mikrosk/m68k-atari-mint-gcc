@@ -3603,7 +3603,6 @@ vect_create_vectorized_promotion_stmts (vec<tree> *vec_oprnds0,
    If VEC_STMT is also passed, vectorize the STMT: create a vectorized
    stmt to replace it, put it in VEC_STMT, and insert it at GSI.
    Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
-
 static bool
 vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 			 gimple **vec_stmt, slp_tree slp_node)
@@ -3619,7 +3618,7 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
   tree decl1 = NULL_TREE, decl2 = NULL_TREE;
   tree new_temp;
   gimple *def_stmt;
-  enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dt[2]; dt[0] = vect_unknown_def_type; dt[1] = vect_unknown_def_type;
   gimple *new_stmt = NULL;
   stmt_vec_info prev_stmt_info;
   int nunits_in;
@@ -4209,7 +4208,7 @@ vectorizable_assignment (gimple *stmt, gimple_stmt_iterator *gsi,
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   tree new_temp;
   gimple *def_stmt;
-  enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dt[2]; dt[0] = vect_unknown_def_type; dt[1] = vect_unknown_def_type;
   int ncopies;
   int i, j;
   vec<tree> vec_oprnds = vNULL;
@@ -4420,7 +4419,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
   int icode;
   machine_mode optab_op2_mode;
   gimple *def_stmt;
-  enum vect_def_type dt[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dt[2]; dt[0] = vect_unknown_def_type; dt[1] = vect_unknown_def_type;
   gimple *new_stmt = NULL;
   stmt_vec_info prev_stmt_info;
   int nunits_in;
@@ -4793,8 +4792,8 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
   optab optab;
   bool target_support_p;
   gimple *def_stmt;
-  enum vect_def_type dt[3]
-    = {vect_unknown_def_type, vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dt[3];
+    dt[0] = vect_unknown_def_type; dt[1] = vect_unknown_def_type; dt[2] =  vect_unknown_def_type;
   gimple *new_stmt = NULL;
   stmt_vec_info prev_stmt_info;
   int nunits_in;
@@ -7827,7 +7826,7 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   tree vec_rhs1 = NULL_TREE, vec_rhs2 = NULL_TREE;
   tree new_temp;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  enum vect_def_type dts[2] = {vect_unknown_def_type, vect_unknown_def_type};
+  enum vect_def_type dts[2]; dts[0] = vect_unknown_def_type; dts[1] = vect_unknown_def_type;
   unsigned nunits;
   int ncopies;
   enum tree_code code;

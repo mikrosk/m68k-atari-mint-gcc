@@ -45,6 +45,9 @@ static bool params_finished;
 #undef DEFPARAMENUM5
 #undef DEFPARAM
 
+#ifdef __amiga__
+__near
+#endif
 static const param_info lang_independent_params[] = {
 #define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
   { OPTION, DEFAULT, MIN, MAX, HELP, NULL },

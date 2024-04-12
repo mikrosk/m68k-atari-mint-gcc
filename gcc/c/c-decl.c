@@ -51,6 +51,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
 #include "builtins.h"
+#include "output.h"
+#include "tm_p.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1791,6 +1793,30 @@ locate_old_decl (tree decl)
     inform (input_location, "previous declaration of %q+D was here", decl);
 }
 
+#if defined(TARGET_M68K)
+/**
+ * Filter __stkparm__ storage attributes from type's attributes.
+ */
+static tree strip_m68k_stkparm_attrs(tree t1)
+{
+	tree filtered = NULL;
+
+    for (;t1; t1 = TREE_CHAIN (t1))
+	{
+    	  char const * name = IDENTIFIER_POINTER(TREE_PURPOSE (t1));
+    	  if (0 == strcmp("__stkparm__", name))
+    	    continue;
+
+	  tree a1 = copy_node (t1);
+	  TREE_CHAIN (a1) = filtered;
+	  filtered = a1;
+	}
+
+	return filtered;
+}
+#endif
+
+
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
    Returns true if the caller should proceed to merge the two, false
    if OLDDECL should simply be discarded.  As a side effect, issues
@@ -1858,7 +1884,21 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	     This is for the ffs and fprintf builtins.  */
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
+#if defined(TARGET_M68K)
+	  bool ok = false;
+	  if (trytype)
+	    {
+	      tree saved_attrs = TYPE_ATTRIBUTES(newtype);
+	      tree stkp = lookup_attribute ("stkparm", saved_attrs);
+	      if (stkp)
+		TYPE_ATTRIBUTES(newtype) = strip_m68k_stkparm_attrs(saved_attrs);
+	      ok = comptypes (newtype, trytype);
+	      TYPE_ATTRIBUTES(newtype) = saved_attrs;
+	    }
+	  if (ok)
+#else
 	  if (trytype && comptypes (newtype, trytype))
+#endif
 	    *oldtypep = oldtype = trytype;
 	  else
 	    {
@@ -4439,7 +4479,58 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 	attributes = tree_cons (get_identifier ("omp declare target"),
 				NULL_TREE, attributes);
     }
-  return decl_attributes (node, attributes, flags);
+
+  tree returned_attrs = decl_attributes (node, attributes, flags);
+
+#if defined(TARGET_M68K)
+  /* add an attribute to the function decl's type if there are asm register parameters. */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      char const * synthetic = "";
+      for (tree params = TYPE_ARG_TYPES(TREE_TYPE(*node)); params; params = TREE_CHAIN(params))
+	{
+	  tree asmattr = lookup_attribute("asmreg", TYPE_ATTRIBUTES(TREE_VALUE(params)));
+	  if (asmattr)
+	    synthetic = concat(synthetic, reg_names[TREE_INT_CST_LOW(TREE_VALUE(TREE_VALUE(asmattr)))], NULL);
+	}
+      if (strlen(synthetic) > 0)
+	{
+	  tree t;
+	  tree asmid = get_identifier("asmregs");
+	  tree syntheticid = get_identifier(synthetic);
+	  tree value = tree_cons(syntheticid, syntheticid, NULL_TREE);
+	  tree newattr = tree_cons(asmid, value, NULL_TREE);
+
+	  /* create a type copy with additional attribute. */
+	  tree atype = copy_node (TREE_TYPE(*node));
+	  tree attrs = TYPE_ATTRIBUTES(atype) = chainon(newattr, TYPE_ATTRIBUTES(atype));
+
+	  tree m = TYPE_MAIN_VARIANT(TREE_TYPE(*node));
+
+	  TYPE_POINTER_TO (atype) = 0;
+	  TYPE_REFERENCE_TO (atype) = 0;
+
+	  /* search if such variant exists. */
+	  for (t = m; t; t = TYPE_NEXT_VARIANT(t))
+	    if (comptypes (t, atype) == 1 && attribute_list_equal (TYPE_ATTRIBUTES(t), attrs))
+	      break;
+
+	  if (t)
+	    TREE_TYPE(*node) = t;
+	  else
+	    {
+	      TREE_TYPE(*node) = atype;
+	      /* Add this type to the chain of variants of TYPE.  */
+	      TYPE_NEXT_VARIANT (atype) = TYPE_NEXT_VARIANT (m);
+	      TYPE_NEXT_VARIANT (m) = atype;
+	    }
+
+	  returned_attrs = TYPE_ATTRIBUTES(TREE_TYPE(*node));
+	}
+    }
+#endif
+
+  return returned_attrs;
 }
 
 
@@ -5024,6 +5115,30 @@ grokparm (const struct c_parm *parm, tree *expr)
   return decl;
 }
 
+#if defined(TARGET_M68K)
+
+/* Create a new variant of TYPE, equivalent but distinct.
+ This is so the caller can modify it.  */
+
+static tree
+build_type_copy (tree type)
+  {
+    tree t, m = TYPE_MAIN_VARIANT (type);
+
+    t = copy_node (type);
+
+    TYPE_POINTER_TO (t) = 0;
+    TYPE_REFERENCE_TO (t) = 0;
+
+    /* Add this type to the chain of variants of TYPE.  */
+    TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
+    TYPE_NEXT_VARIANT (m) = t;
+
+    return t;
+  }
+#endif
+
+
 /* Given a parsed parameter declaration, decode it into a PARM_DECL
    and push that on the current scope.  EXPR is a pointer to an
    expression that needs to be evaluated for the side effects of array
@@ -5040,6 +5155,58 @@ push_parm_decl (const struct c_parm *parm, tree *expr)
   decl_attributes (&decl, attrs, 0);
 
   decl = pushdecl (decl);
+
+#if defined(TARGET_M68K)
+  if (parm->asmspec)
+    {
+      tree atype = TREE_TYPE(decl);
+      const char *asmspec = TREE_STRING_POINTER(parm->asmspec);
+      if (*asmspec == '%')
+	++asmspec;
+      int reg_number = decode_reg_name (asmspec);
+
+      /* First detect errors in declaring global registers.  */
+      if (reg_number == -1)
+	error ("%s register name not specified for %qD", asmspec, decl);
+      else if (reg_number < 0)
+	error ("%s invalid register name for %qD", asmspec, decl);
+      else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
+	error ("%s data type of %qD isn%'t suitable for a register", asmspec, decl);
+      else if (!HARD_REGNO_MODE_OK(reg_number, TYPE_MODE (TREE_TYPE (decl))))
+	error ("%s register specified for %qD isn%'t suitable for data type",
+	       asmspec, decl);
+      /* Now handle properly declared static register variables.  */
+      else
+	{
+	  /* Build tree for __attribute__ ((asm(regnum))). */
+	  tree ttasm = get_identifier("asmreg");
+	  tree value = tree_cons(ttasm, build_int_cst(NULL, reg_number), NULL_TREE);
+	  tree t, attrs = tree_cons(ttasm, value, NULL_TREE);
+	  /* First check whether such a type already exists - if yes, use
+	   that one. This is very important, since otherwise
+	   common_type() would think that it sees two different
+	   types and would try to merge them - this could result in
+	   warning messages. */
+	  for (t = TYPE_MAIN_VARIANT(atype); t; t = TYPE_NEXT_VARIANT(t))
+	    if (comptypes (t, atype) == 1
+		&& attribute_list_equal (TYPE_ATTRIBUTES(t), attrs))
+	      break;
+	  if (t)
+	    atype = t;
+	  else
+	    {
+	      /* Create a new variant, with differing attributes.
+	       (Hack! Type with differing attributes should no longer be
+	       a variant of its main type. See comment above for
+	       explanation why this was necessary). */
+	      atype = build_type_copy (atype);
+	      TYPE_ATTRIBUTES(atype) = chainon (attrs, TYPE_ATTRIBUTES(atype));
+	    }
+	  TREE_TYPE(decl) = atype;
+//	  printf("%s using %s, cdecl=%p, type=%p\n", IDENTIFIER_POINTER(DECL_NAME (decl)), asmspec, decl, atype);
+	}
+    }
+#endif
 
   finish_decl (decl, input_location, NULL_TREE, NULL_TREE, NULL_TREE);
 }

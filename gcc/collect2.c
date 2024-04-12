@@ -1089,6 +1089,9 @@ main (int argc, char **argv)
 
   /* Extract COMPILER_PATH and PATH into our prefix list.  */
   prefix_from_env ("COMPILER_PATH", &cpath);
+#ifdef __amiga__
+  setenv("PATH", "GCC:bin", 0);
+#endif
   prefix_from_env ("PATH", &path);
 
   /* Try to discover a valid linker/nm/strip to use.  */
@@ -1307,6 +1310,8 @@ main (int argc, char **argv)
 		  /* Do not pass LTO flag to the linker. */
 		  ld1--;
 		  ld2--;
+
+		  lto_mode = LTO_MODE_LTO;
 #else
 		  error ("LTO support has not been enabled in this "
 			 "configuration");
@@ -1414,6 +1419,11 @@ main (int argc, char **argv)
 		    add_to_list (&static_libs, s);
 	      }
 #endif
+	      /* begin-GG-local: dynamic libraries */
+	      #ifdef COLLECT2_LIBNAME_HOOK
+	      	      COLLECT2_LIBNAME_HOOK(arg);
+	      #endif
+	      /* end-GG-local */
 	      break;
 
 #ifdef COLLECT_EXPORT_LIST
@@ -1516,6 +1526,11 @@ main (int argc, char **argv)
 		add_to_list (&static_libs, arg);
 	    }
 #endif
+	  /* begin-GG-local: dynamic libraries */
+#ifdef COLLECT2_LIBNAME_HOOK
+	  	  COLLECT2_LIBNAME_HOOK(arg);
+#endif
+	  /* end-GG-local */
 	}
     }
 
@@ -1636,6 +1651,11 @@ main (int argc, char **argv)
 
       fprintf (stderr, "\n");
     }
+  /* begin-GG-local: dynamic libraries */
+#ifdef COLLECT2_PRELINK_HOOK
+    COLLECT2_PRELINK_HOOK(ld1_argv, &strip_flag);
+#endif
+  /* end-GG-local */
 
   /* Load the program, searching all libraries and attempting to provide
      undefined symbols from repository information.
@@ -1655,7 +1675,7 @@ main (int argc, char **argv)
        expect the relevant tables to be dragged together with their associated
        functions from precise cross reference insertions by the compiler.  */
 
-    if (early_exit || ld1_filter != SCAN_NOTHING)
+    if (early_exit || (ld1_filter != SCAN_NOTHING && lto_mode != LTO_MODE_LTO))
       do_tlink (ld1_argv, object_lst);
 
     if (early_exit)
@@ -1676,6 +1696,8 @@ main (int argc, char **argv)
       }
   }
 
+  /* begin-GG-local: dynamic libraries */
+#ifndef COLLECT2_POSTLINK_HOOK
   /* Unless we have done it all already, examine the namelist and search for
      static constructors and destructors to call.  Write the constructor and
      destructor tables to a .s file and reload.  */
@@ -1702,6 +1724,10 @@ main (int argc, char **argv)
 				   frame_tables.number),
                          frame_tables.number);
     }
+#else /* COLLECT2_POSTLINK_HOOK */
+  COLLECT2_POSTLINK_HOOK(output_file);
+#endif
+/* end-GG-local */
 
   /* If the scan exposed nothing of special interest, there's no need to
      generate the glue code and relink so return now.  */
@@ -1744,6 +1770,11 @@ main (int argc, char **argv)
 
       maybe_unlink (c_file);
       maybe_unlink (o_file);
+      /* begin-GG-local: dynamic libraries */
+#ifdef COLLECT2_EXTRA_CLEANUP
+            COLLECT2_EXTRA_CLEANUP();
+#endif
+      /* end-GG-local */
       return 0;
     }
 
@@ -1849,6 +1880,11 @@ main (int argc, char **argv)
   maybe_unlink (export_file);
 #endif
 
+  /* begin-GG-local: dynamic libraries */
+#ifdef COLLECT2_EXTRA_CLEANUP
+    COLLECT2_EXTRA_CLEANUP();
+#endif
+  /* end-GG-local */
   return 0;
 }
 
@@ -2302,28 +2338,66 @@ maybe_lto_object_file (const char *prog_name)
   static unsigned char coffmagic[2] = { 0x4c, 0x01 };
   static unsigned char coffmagic_x64[2] = { 0x64, 0x86 };
   static unsigned char machomagic[4][4] = {
-    { 0xcf, 0xfa, 0xed, 0xfe },
-    { 0xce, 0xfa, 0xed, 0xfe },
-    { 0xfe, 0xed, 0xfa, 0xcf },
+      { 0xcf, 0xfa, 0xed, 0xfe },
+      { 0xce, 0xfa, 0xed, 0xfe },
+      { 0xfe, 0xed, 0xfa, 0xcf },
     { 0xfe, 0xed, 0xfa, 0xce }
   };
 
-  f = fopen (prog_name, "rb");
-  if (f == NULL)
-    return false;
-  if (fread (buf, sizeof (buf), 1, f) != 1)
-    buf[0] = 0;
-  fclose (f);
+  bool r = false;
+  do
+    { // while (0)
 
-  if (memcmp (buf, elfmagic, sizeof (elfmagic)) == 0
-      || memcmp (buf, coffmagic, sizeof (coffmagic)) == 0
-      || memcmp (buf, coffmagic_x64, sizeof (coffmagic_x64)) == 0)
-    return true;
-  for (i = 0; i < 4; i++)
-    if (memcmp (buf, machomagic[i], sizeof (machomagic[i])) == 0)
-      return true;
+      f = fopen (prog_name, "rb");
+      if (f == NULL)
+	break;
+      if (fread (buf, sizeof(buf), 1, f) != 1)
+	break;
 
-  return false;
+      if (memcmp (buf, elfmagic, sizeof(elfmagic)) == 0
+	  || memcmp (buf, coffmagic, sizeof(coffmagic)) == 0
+	  || memcmp (buf, coffmagic_x64, sizeof(coffmagic_x64)) == 0)
+	{
+	  r = true;
+	  break;
+	}
+      for (i = 0; i < 4; i++)
+	if (memcmp (buf, machomagic[i], sizeof(machomagic[i])) == 0)
+	  {
+	    r = true;
+	    break;
+	  }
+
+#if defined(TARGET_AMIGAOS)
+      /* SBF: check amiga hunk for gnu lto section name. */
+      if (buf[0] == 0 && buf[1] == 0 && buf[2] == 3 && buf[3] == 0xe7)
+	{
+	  // skip file name
+	  if (fread (buf, sizeof(buf), 1, f) != 1)
+	    break;
+	  unsigned len = (buf[1] << 16) | (buf[2] << 8) | buf[3];
+	  if (fseek(f, len * 4 + 0x34, SEEK_CUR))
+	    break;
+
+	  if (fread (buf, sizeof(buf), 1, f) != 1)
+	    break;
+	  // symbol
+	  if (buf[0] != 0x82)
+	    break;
+	  len = (buf[1] << 16) | (buf[2] << 8) | buf[3];
+	  if (len != 3 && len != 4)
+	    break;
+	  char name[16];
+	  if (fread (name, sizeof(name), 1, f) != 1)
+	    break;
+	  r = 0 == strcmp("___gnu_lto_v1", name) || 0 == strcmp("__gnu_lto_v1", name);
+	}
+#endif
+    }
+  while (0);
+  if (f)
+    fclose (f);
+  return r;
 }
 
 /* Generic version to scan the name list of the loaded program for

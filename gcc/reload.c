@@ -5010,6 +5010,147 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
     }
   while (0);
 #endif
+#if defined(TARGET_AMIGAOS)
+  /**
+   * SBF: check the base register here,
+   * since later no information exists, which reg is the base reg
+   * and a data reg could end up in the base reg slot.
+   * => reload the data reg
+   */
+//#define DX (insn->u2.insn_uid == 722)
+#define DX 0
+  if (GET_CODE(ad) == PLUS || GET_CODE(ad) == MEM)
+    {
+      extern bool m68k_legitimate_index_reg_p (rtx x, bool strict_p);
+      extern bool m68k_legitimate_base_reg_p (rtx x, bool strict_p);
+
+      struct m68k_address address;
+      memset(&address, 0, sizeof(address));
+      bool r = decompose_mem(GET_MODE_SIZE(mode), loc, &address, true);
+      if (DX) fprintf(stderr, "insn %d %d %d\t", insn->u2.insn_uid, r, address.code);
+
+//      gcc_assert(addres s.code != POST_MODIFY);
+
+      if (DX)
+	debug(insn);
+
+      enum reload_type utype = type; // RELOAD_FOR_OTHER_ADDRESS;
+//      enum reload_type utype = address.code == MEM ? (opnum ? RELOAD_FOR_INPUT : RELOAD_FOR_OPERAND_ADDRESS) : type;
+      int fixed = 0;
+
+      // check the insn asm if double indirect is possible
+      if (address.mem_loc != 0 && address.code != POST_MODIFY)
+	{
+	  char const * p = insn_data[INSN_CODE (insn)].operand[opnum].constraint;
+	  if (*p == '%' && p[1] == '0')
+	    p = insn_data[INSN_CODE (insn)].operand[0].constraint;
+	  while (*p && *p != 'm' && *p != 'g' && *p != 'f')
+	    ++p;
+	  if (!*p)
+	    address.code = POST_MODIFY;
+        }
+
+      if (address.code != POST_MODIFY && address.base && !m68k_legitimate_base_reg_p(address.base, true))
+	{
+	  rtx * base_loc = address.base_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload base (%d)", insn->u2.insn_uid, address.code), debug_rtx(*base_loc);
+	  find_reloads_address_1 (mode, as,
+				  *base_loc, 0, PLUS,
+				  GET_CODE (ad),
+				  base_loc, opnum,
+				  utype, 0, insn);
+	  fixed = 1;
+	}
+      if (address.code != POST_MODIFY && address.index_loc && !m68k_legitimate_index_reg_p(*address.index_loc, true))
+	{
+	  rtx * index_loc = address.index_loc;
+	  if (GET_CODE(*index_loc) == SIGN_EXTEND)
+	    index_loc = &XEXP(*index_loc, 0);
+	  if (GET_CODE(*index_loc) == SUBREG)
+	    index_loc = &XEXP(*index_loc, 0);
+	  if (DX) fprintf(stderr, "insn %d: reload index ", insn->u2.insn_uid), debug_rtx(*index_loc);
+	  find_reloads_address_1 (mode, as,
+				  *index_loc, 1, PLUS,
+				  GET_CODE (ad),
+				  index_loc, opnum,
+				  utype, 0, insn);
+	  fixed = 1;
+	}
+
+      if (address.outer_index_loc && !m68k_legitimate_index_reg_p(*address.outer_index_loc, true))
+	{
+	  rtx * index_loc = address.outer_index_loc;
+	  if (GET_CODE(*index_loc) == SIGN_EXTEND)
+	    index_loc = &XEXP(*index_loc, 0);
+	  if (GET_CODE(*index_loc) == SUBREG)
+	    index_loc = &XEXP(*index_loc, 0);
+	  if (DX) fprintf(stderr, "insn %d: reload outer index ", insn->u2.insn_uid), debug_rtx(*index_loc);
+	  find_reloads_address_1 (mode, as,
+				  *index_loc, 1, PLUS,
+				  GET_CODE (ad),
+				  index_loc, opnum,
+				  utype, 0, insn);
+	  fixed = 1;
+	}
+
+      // 68000 has only support for small offsets if base and index are used.
+      if (!TARGET_68020 && address.offset && address.base &&
+	  ( (address.index && (GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x80, 0x80 - GET_MODE_SIZE(GET_MODE(ad)))))
+	  ||(!address.index && (GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x8000, 0x8000 - GET_MODE_SIZE(GET_MODE(ad)))))
+	      ))
+	{
+	  if (address.index)
+	    push_reload (XEXP(ad, 0), NULL_RTX, &XEXP(ad, 0), (rtx*) 0,
+			   ADDR_REGS,
+			   GET_MODE (ad), VOIDmode, 0, 0, opnum, utype);
+	  if (!address.index || GET_CODE(address.offset) != CONST_INT || !IN_RANGE (INTVAL (address.offset), -0x8000, 0x8000 - GET_MODE_SIZE(GET_MODE(ad))))
+	    push_reload (ad, NULL_RTX, loc, (rtx*) 0,
+			   ADDR_REGS,
+			   GET_MODE (ad), VOIDmode, 0, 0, opnum, utype);
+	  return -1; // reloaded
+	}
+
+      /* SBF: if both indexes are in use we reload the inner mem into an address reg.
+       * This yields a valid address for the outer part since a outer_index/outer_offset
+       * is combinable with an address register.
+       */
+      if (address.code == POST_MODIFY || (address.index && address.outer_index)
+	  || (!TARGET_68020 && address.code == MEM)
+	  )
+	{
+	  // last case result into a base_reg replaced with a mem -> use base_loc
+	  rtx x = *address.mem_loc;
+	  if (DX) fprintf(stderr, "insn %d: reload mem ", insn->u2.insn_uid), debug_rtx(x);
+
+	  // too many mem inside - recurse
+	  if (address.code == POST_MODIFY)
+	    {
+	      rtx tem = x;
+	      find_reloads_address (GET_MODE (x), &tem, XEXP (x, 0), &XEXP (x, 0),
+				    opnum, ADDR_TYPE (type),
+				    ind_levels == 0 ? 0 : ind_levels - 1, insn);
+
+	      /* If tem was changed, then we must create a new memory reference to
+		 hold it and store it back into memrefloc.  */
+	      if (tem != x )
+		{
+		  *address.mem_loc = copy_rtx (*address.mem_loc);
+		  copy_replacements (tem, XEXP (*address.mem_loc, 0));
+		  x = *address.mem_loc;
+		}
+	    }
+
+	  push_reload (x, NULL_RTX, address.mem_loc, (rtx*) 0,
+		       ADDR_REGS,
+		       GET_MODE (x), VOIDmode, 0, 0, opnum, utype);
+
+	  fixed = 1;
+	}
+
+      if (fixed)
+	return -1;
+    }
+#endif
 
   /* The address is not valid.  We have to figure out why.  First see if
      we have an outer AND and remove it if so.  Then analyze what's inside.  */
@@ -5841,9 +5982,11 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 		  && (regno < FIRST_PSEUDO_REGISTER
 		      || (equiv
 			  && memory_operand (equiv, GET_MODE (equiv))
-			  && ! (icode != CODE_FOR_nothing
-				&& insn_operand_matches (icode, 0, equiv)
-				&& insn_operand_matches (icode, 1, equiv))))
+// SBF: WTF this results in replacing POST_INC with a plain reg...
+//			  && ! (icode != CODE_FOR_nothing
+//				&& insn_operand_matches (icode, 0, equiv)
+//				&& insn_operand_matches (icode, 1, equiv))
+				))
 		  /* Using RELOAD_OTHER means we emit this and the reload we
 		     made earlier in the wrong order.  */
 		  && !reloaded_inner_of_autoinc)
@@ -6248,6 +6391,39 @@ subst_reloads (rtx_insn *insn)
     {
       struct replacement *r = &replacements[i];
       rtx reloadreg = rld[r->what].reg_rtx;
+
+#ifdef TARGET_AMIGAOS
+      if (!reloadreg && !rld[r->what].optional && rld[r->what].rclass == ADDR_REGS)
+      {
+    	  rtx a = *r->where;
+    	  const char *fmt = GET_RTX_FORMAT(GET_CODE(a));
+
+    	  while (!REG_P(a) && *fmt == 'e') {
+    		  a = XEXP(a, 0);
+    		  fmt = GET_RTX_FORMAT(GET_CODE(a));
+    	  }
+
+    	  if (REG_P(a) && REGNO(a) < FIRST_PSEUDO_REGISTER) {
+    		  extern rtx_insn *old_prev;
+    		  unsigned regno = REGNO(a);
+    		  unsigned swapregno = CALL_P(insn) ? 13 : 15;
+    		  machine_mode m = GET_MODE(a);
+    		  rtx from = gen_rtx_REG(m, regno);
+    		  rtx to   = gen_rtx_REG(m, swapregno);
+
+    		  rld[r->what].optional = 1;
+
+    		  emit_insn_after (gen_swapsi(from, to), old_prev);
+
+    		  debug_rtx(insn);
+		      validate_replace_rtx_group (from, to, insn);
+    		  debug_rtx(insn);
+
+    		  emit_insn_after  (gen_swapsi(from, to), insn);
+    	  }
+      }
+#endif
+
       if (reloadreg)
 	{
 #ifdef DEBUG_RELOAD
@@ -6300,7 +6476,13 @@ subst_reloads (rtx_insn *insn)
 	}
       /* If reload got no reg and isn't optional, something's wrong.  */
       else
-	gcc_assert (rld[r->what].optional);
+      {
+    	  if (!rld[r->what].optional) {
+    		  debug_rtx(insn);
+    		  fprintf(stderr, "no free registers left\n");
+		  gcc_assert (rld[r->what].optional);
+    	  }
+      }
     }
 }
 

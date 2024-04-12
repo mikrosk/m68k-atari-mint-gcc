@@ -39,9 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "gimple-expr.h"
+#include "tm_p.h"
 #include "cfghooks.h"
 #include "df.h"
-#include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
 #include "optabs.h"
@@ -1478,7 +1478,6 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		}
 	      iter.skip_subrtxes ();
 	      break;
-
 	    case PLUS:
 	      new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
 	      if (new_rtx)
@@ -1486,10 +1485,9 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
 		  XEXP (x, 0) = new_rtx;
 		  *loc = plus_constant (GET_MODE (x), x, offset, true);
 		  changed = true;
-		  iter.skip_subrtxes ();
+//		  iter.skip_subrtxes (); // may contain a mem instead of the const.
 		  break;
 		}
-
 	      /* FIXME -- from old code */
 	      /* If we have (plus (subreg (virtual-reg)) (const_int)), we know
 		 we can commute the PLUS and SUBREG because pointers into the
@@ -1633,14 +1631,20 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 
   /* In the general case, we expect virtual registers to appear only in
      operands, and then only as either bare registers or inside memories.  */
+  /* SBF: that's not true, since there is also lea. */
   for (i = 0; i < recog_data.n_operands; ++i)
     {
+      rtx addr;
       x = recog_data.operand[i];
       switch (GET_CODE (x))
 	{
+	case PLUS:
+	  /* SBF: handle all plus, it might be a lea insn. */
+	  instantiate_virtual_regs_in_rtx (&x);
+	  continue;
 	case MEM:
 	  {
-	    rtx addr = XEXP (x, 0);
+	    addr = XEXP (x, 0);
 
 	    if (!instantiate_virtual_regs_in_rtx (&addr))
 	      continue;

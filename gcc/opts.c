@@ -381,8 +381,8 @@ maybe_default_option (struct gcc_options *opts,
       enabled = (level >= 3);
       break;
 
-    case OPT_LEVELS_3_PLUS_AND_SIZE:
-      enabled = (level >= 3 || size);
+    case OPT_LEVELS_3_PLUS_AND_SPEED_ONLY:
+      enabled = (level >= 3 && !size && !debug);
       break;
 
     case OPT_LEVELS_SIZE:
@@ -452,7 +452,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fipa_reference, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_profile, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fmerge_constants, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_freorder_blocks, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_SPEED_ONLY, OPT_freorder_blocks, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fshrink_wrap, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fsplit_wide_types, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ccp, NULL, 1 },
@@ -466,7 +466,9 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_ftree_fre, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_copy_prop, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_sink, NULL, 1 },
+#ifndef TARGET_M68K
     { OPT_LEVELS_1_PLUS, OPT_ftree_ch, NULL, 1 },
+#endif
     { OPT_LEVELS_1_PLUS, OPT_fcombine_stack_adjustments, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fcompare_elim, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_slsr, NULL, 1 },
@@ -475,6 +477,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
+
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -496,8 +499,13 @@ static const struct default_options default_options_table[] =
 #endif
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
-    { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_freorder_blocks_algorithm_, NULL,
-      REORDER_BLOCKS_ALGORITHM_STC },
+    { OPT_LEVELS_2_PLUS, OPT_freorder_blocks_algorithm_, NULL,
+#ifdef TARGET_M68K
+      REORDER_BLOCKS_ALGORITHM_SIMPLE
+#else
+      REORDER_BLOCKS_ALGORITHM_STC
+#endif
+    },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
@@ -524,14 +532,16 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fpredictive_commoning, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
-    /* Inlining of functions reducing size is a good idea with -Os
+    /* Inlining of functions is ALWAYS a good idea with -O3
        regardless of them being declared inline.  */
-    { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
+    { OPT_LEVELS_3_PLUS_AND_SPEED_ONLY, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
+#if !defined(TARGET_M68K)
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
+#endif
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
@@ -1024,6 +1034,11 @@ wrap_help (const char *help,
 	    {
 	      if (i >= room && len != remaining)
 		break;
+	      if (help[i] == '\n')
+		{
+		  len = i;
+		  break;
+		}
 	      if (help[i] == ' ')
 		len = i;
 	      else if ((help[i] == '-' || help[i] == '/')
@@ -1035,7 +1050,7 @@ wrap_help (const char *help,
 
       printf ("  %-*.*s %.*s\n", col_width, item_width, item, len, help);
       item_width = 0;
-      while (help[len] == ' ')
+      while (help[len] == ' ' || help[len] == '\n')
 	len++;
       help += len;
       remaining -= len;

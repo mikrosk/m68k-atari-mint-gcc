@@ -3956,6 +3956,9 @@ initialize_predefined_identifiers (void)
   const predefined_identifier *pid;
 
   /* A table of identifiers to create at startup.  */
+#ifdef __amiga__
+__near
+#endif
   static const predefined_identifier predefined_identifiers[] = {
     { "C++", &lang_name_cplusplus, 0 },
     { "C", &lang_name_c, 0 },
@@ -7908,6 +7911,23 @@ grokfndecl (tree ctype,
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
   tree t;
+
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
+  if (m68k_regparm > 0)
+    {
+      tree asm1 = lookup_attribute("asmregs", *attrlist);
+      tree stack1 = lookup_attribute("stkparm", *attrlist);
+      tree reg1 = lookup_attribute("regparm", *attrlist);
+      if (!asm1 && !stack1 && !reg1)
+	{
+	  tree ttasm = get_identifier("regparm");
+	  tree value = tree_cons(ttasm, build_int_cst(NULL, m68k_regparm), NULL_TREE);
+	  tree attrs = tree_cons(ttasm, value, NULL_TREE);
+	  *attrlist = chainon(attrs, *attrlist);
+	}
+    }
+#endif
 
   // Was the concept specifier present?
   bool concept_p = inlinep & 4;

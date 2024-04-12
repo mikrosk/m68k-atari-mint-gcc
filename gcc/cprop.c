@@ -735,7 +735,7 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
   bool check_rtx_costs = true;
   bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
   int old_cost = set ? set_rtx_cost (set, speed) : 0;
-
+#if 0
   if (!set
       || CONSTANT_P (SET_SRC (set))
       || (note != 0
@@ -743,7 +743,7 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
 	  && (GET_CODE (XEXP (note, 0)) == CONST
 	      || CONSTANT_P (XEXP (note, 0)))))
     check_rtx_costs = false;
-
+#endif
   /* Usually we substitute easy stuff, so we won't copy everything.
      We however need to take care to not duplicate non-trivial CONST
      expressions.  */
@@ -1185,7 +1185,9 @@ do_local_cprop (rtx x, rtx_insn *insn)
   if (REG_P (x)
       && (cprop_reg_p (x)
           || (GET_CODE (PATTERN (insn)) != USE
-	      && asm_noperands (PATTERN (insn)) < 0)))
+	      && asm_noperands (PATTERN (insn)) < 0))
+	    /* SBF: ignore regs marked as REG_INC. */
+      && !find_reg_note (insn, REG_INC, x))
     {
       cselib_val *val = cselib_lookup (x, GET_MODE (x), 0, VOIDmode);
       struct elt_loc_list *l;

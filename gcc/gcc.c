@@ -28,6 +28,7 @@ Once it knows which kind of compilation to perform, the procedure for
 compilation is specified by a string called a "spec".  */
 
 #include "config.h"
+#include "configargs.h"
 #include "system.h"
 #include "coretypes.h"
 #include "multilib.h" /* before tm.h */
@@ -207,9 +208,6 @@ int is_cpp_driver;
 /* Flag set to nonzero if an @file argument has been supplied to gcc.  */
 static bool at_file_supplied;
 
-/* Definition of string containing the arguments given to configure.  */
-#include "configargs.h"
-
 /* Flag saying to print the command line options understood by gcc and its
    sub-processes.  */
 
@@ -239,7 +237,9 @@ FILE *report_times_to_file = NULL;
 
 /* Nonzero means place this string before uses of /, so that include
    and library files can be found in an alternate location.  */
-
+#ifdef __amiga__
+#define TARGET_SYSTEM_ROOT "GCC:"
+#endif
 #ifdef TARGET_SYSTEM_ROOT
 #define DEFAULT_TARGET_SYSTEM_ROOT (TARGET_SYSTEM_ROOT)
 #else
@@ -511,6 +511,8 @@ or with constant text in a single argument.
 	assembler has done its job.
  %D	Dump out a -L option for each directory in startfile_prefixes.
 	If multilib_dir is set, extra entries are generated with it affixed.
+ %F	Dump out a -L option for each directory in startfile_prefixes.
+	Always ignore if multilib_dir is set.
  %l     process LINK_SPEC as a spec.
  %L     process LIB_SPEC as a spec.
  %M     Output multilib_os_dir.
@@ -1042,6 +1044,10 @@ proper position among the other output files.  */
 # define SYSROOT_SPEC "--sysroot=%R"
 #endif
 
+#ifndef SELF_SPEC
+# define SELF_SPEC ""
+#endif
+
 #ifndef SYSROOT_SUFFIX_SPEC
 # define SYSROOT_SUFFIX_SPEC ""
 #endif
@@ -1075,7 +1081,7 @@ static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
 static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
-static const char *self_spec = "";
+static const char *self_spec = SELF_SPEC;
 
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
@@ -2232,8 +2238,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       /* The colon shouldn't be missing.  */
       if (*p1 != ':')
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p1 - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p1 - buffer), p1);
 
       /* Skip back over trailing whitespace.  */
       p2 = p1;
@@ -2246,8 +2252,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
       p = skip_whitespace (p1 + 1);
       if (p[1] == 0)
 	fatal_error (input_location,
-		     "specs file malformed after %ld characters",
-		     (long) (p - buffer));
+		     "specs file malformed after %ld characters: %s",
+		     (long) (p - buffer), p);
 
       p1 = p;
       /* Find next blank line or end of string.  */
@@ -3923,9 +3929,13 @@ driver_handle_option (struct gcc_options *opts,
       /* POSIX allows separation of -l and the lib arg; canonicalize
 	 by concatenating -l with its arg */
       add_infile (concat ("-l", arg, NULL), "*");
+      if (0 == strcmp("m", arg)  || 0 == strcmp("pthread", arg))
+	{
+	  save_switch (concat ("-l", arg, NULL), 0, NULL, validated, true);
+	  return true;
+	}
       do_save = false;
       break;
-
     case OPT_L:
       /* Similarly, canonicalize -L for linkers that may not accept
 	 separate arguments.  */
@@ -4958,6 +4968,23 @@ do_self_spec (const char *spec)
     }
 }
 
+static void normalize(char * path)
+{
+  // normalize
+  char *q, *p = path;
+//  printf("path: <%s>\t", path);
+  while ((q = strstr (p, "/../")))
+	{
+	  char *r = q - 1;
+	  while (r >= p && *r != '/' && *r != ':')
+	    --r;
+	  if (r < p)
+	    break;
+	  memmove (r + 1, q + 4, strlen (q + 4) + 1);
+	}
+//  printf("-> <%s>\n", path);
+}
+
 /* Callback for processing %D and %I specs.  */
 
 struct spec_path_info {
@@ -4983,6 +5010,8 @@ spec_path (char *path, void *data)
       len = strlen (path);
       memcpy (path + len, info->append, info->append_len + 1);
     }
+
+  normalize(path);
 
   if (!is_directory (path, true))
     return NULL;
@@ -5187,6 +5216,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	     followed by the absolute directories
 	     that we search for startfiles.  */
 	  case 'D':
+	  case 'F':
 	    {
 	      struct spec_path_info info;
 
@@ -5204,7 +5234,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 #endif
 	      info.separate_options = false;
 
-	      for_each_path (&startfile_prefixes, true, 0, spec_path, &info);
+	      for_each_path (&startfile_prefixes, c == 'D', 0, spec_path, &info);
 	    }
 	    break;
 
@@ -10107,3 +10137,24 @@ driver_get_configure_time_options (void (*cb) (const char *option,
   obstack_free (&obstack, NULL);
   n_switches = 0;
 }
+
+#if defined(TARGET_AMIGAOS)
+const char * amiga_m68k_prefix_func(int argc, const char ** argv) {
+  char * p;
+  if (standard_libexec_prefix)
+      p = make_relative_prefix(standard_libexec_prefix, "", "m68k-amigaos/");
+  else
+    p = concat("../../../../", "", NULL);
+
+  for (int i = 0; i < argc; ++i) {
+      char * q = concat(p, argv[i], NULL);
+      free(p);
+      p = q;
+  }
+
+  normalize(p);
+
+//  printf("amiga_m68k_prefix_func='%s'\n", p);
+  return p;
+}
+#endif

@@ -5357,8 +5357,9 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		  && (((code == SUBREG || code == ZERO_EXTRACT)
 		       && REG_P (new_rtx))
 		      || code == STRICT_LOW_PART))
-		;
-
+		{
+		  // intentionally empty
+		}
 	      else if (COMBINE_RTX_EQUAL_P (XEXP (x, i), from))
 		{
 		  /* In general, don't install a subreg involving two

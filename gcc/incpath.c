@@ -251,6 +251,18 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 
       cur = *pcur;
 
+      // normalize
+      char *q, *p = cur->name;
+      while ((q = strstr (p, "/../")))
+	{
+	  char *r = q - 1;
+	  while (r >= p && *r != '/' && *r != ':')
+	    --r;
+	  if (r < p)
+	    break;
+	  memmove (r + 1, q + 4, strlen (q + 4) + 1);
+	}
+
       if (stat (cur->name, &st))
 	{
 	  /* Dirs that don't exist or have denied permissions are 
@@ -323,7 +335,14 @@ add_sysroot_to_chain (const char *sysroot, int chain)
 
   for (p = heads[chain]; p != NULL; p = p->next)
     if (p->name[0] == '=' && p->user_supplied_p)
-      p->name = concat (sysroot, p->name + 1, NULL);
+      {
+	char *q = p->name + 1;
+#ifdef __amiga__
+        while (*q == '/')
+          ++q;
+#endif
+	p->name = concat (sysroot, q, NULL);
+      }
 }
 
 /* Merge the four include chains together in the order quote, bracket,
@@ -421,6 +440,23 @@ void
 add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 {
   cpp_dir *p;
+  char * q;
+  size_t l = strlen(path);
+  if (l > 1 && (path[0] == '"' || path[0] == '\'') && path[l - 1] == path[0])
+    {
+      l -= 2;
+      memmove(path, path + 1, l);
+      path[l] = 0;
+    }
+  while ((q = strstr(path, "/../")))
+    {
+      char * r = q - 1;
+      while (r >= path && *r != '/')
+	--r;
+      if (r < path)
+	break;
+      memmove(r, q + 3, strlen(q + 3) + 1);
+    }
 
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
   /* Remove unnecessary trailing slashes.  On some versions of MS
@@ -449,7 +485,6 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
     p->sysp = 0;
   p->construct = 0;
   p->user_supplied_p = user_supplied_p;
-
   add_cpp_dir_path (p, chain);
 }
 

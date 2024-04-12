@@ -2829,6 +2829,8 @@ canon_reg (rtx x, rtx_insn *insn)
     case LABEL_REF:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
+    case POST_INC:
+    case PRE_DEC:
       return x;
 
     case REG:
@@ -3635,12 +3637,10 @@ fold_rtx (rtx x, rtx_insn *insn)
 	      inner_const = equiv_constant (fold_rtx (XEXP (y, 1), 0));
 	      if (!inner_const || !CONST_INT_P (inner_const))
 		break;
-
 	      /* Don't associate these operations if they are a PLUS with the
 		 same constant and it is a power of two.  These might be doable
 		 with a pre- or post-increment.  Similarly for two subtracts of
 		 identical powers of two with post decrement.  */
-
 	      if (code == PLUS && const_arg1 == inner_const
 		  && ((HAVE_PRE_INCREMENT
 			  && exact_log2 (INTVAL (const_arg1)) >= 0)
@@ -3650,8 +3650,11 @@ fold_rtx (rtx x, rtx_insn *insn)
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)
 		      || (HAVE_POST_DECREMENT
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
-		break;
-
+		{
+		  /* SBF: fold if defined once and multiple uses. */
+		  if (DF_REG_USE_COUNT(REGNO(folded_arg0)) <= 2 || DF_REG_DEF_COUNT(REGNO(folded_arg0)) > 1)
+		    break;
+		}
 	      /* ??? Vector mode shifts by scalar
 		 shift operand are not supported yet.  */
 	      if (is_shift && VECTOR_MODE_P (mode))
@@ -5422,7 +5425,9 @@ cse_insn (rtx_insn *insn)
 
 	  /* Record the actual constant value in a REG_EQUAL note,
 	     making a new one if one does not already exist.  */
-	  set_unique_reg_note (insn, REG_EQUAL, src_const);
+	  /* SBF: ignore regs marked as REG_INC. */
+	  if (!find_reg_note(insn, REG_INC, dest))
+	    set_unique_reg_note (insn, REG_EQUAL, src_const);
 	  df_notes_rescan (insn);
 	}
 
@@ -5875,14 +5880,20 @@ cse_insn (rtx_insn *insn)
 	  dest = SUBREG_REG (XEXP (dest, 0));
 
 	if (REG_P (dest) || GET_CODE (dest) == SUBREG)
-	  /* Registers must also be inserted into chains for quantities.  */
-	  if (insert_regs (dest, sets[i].src_elt, 1))
-	    {
-	      /* If `insert_regs' changes something, the hash code must be
-		 recalculated.  */
-	      rehash_using_reg (dest);
-	      sets[i].dest_hash = HASH (dest, GET_MODE (dest));
-	    }
+	  {
+	    /* SBF: ignore regs marked as REG_INC. */
+	    if (find_reg_note (insn, REG_INC, dest))
+	      continue;
+
+	    /* Registers must also be inserted into chains for quantities.  */
+  	  if (insert_regs (dest, sets[i].src_elt, 1))
+	      {
+	        /* If `insert_regs' changes something, the hash code must be
+  		 recalculated.  */
+	        rehash_using_reg (dest);
+	        sets[i].dest_hash = HASH (dest, GET_MODE (dest));
+	      }
+	  }
 
 	elt = insert (dest, sets[i].src_elt,
 		      sets[i].dest_hash, GET_MODE (dest));

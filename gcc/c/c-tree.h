@@ -453,6 +453,10 @@ struct c_parm {
   tree attrs;
   /* The declarator.  */
   struct c_declarator *declarator;
+#if defined(TARGET_M68K)
+  /* The optional asm spec to specify the register. */
+  tree asmspec;
+#endif
 };
 
 /* Used when parsing an enum.  Initialized by start_enum.  */

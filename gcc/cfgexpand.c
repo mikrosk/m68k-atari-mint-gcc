@@ -1530,6 +1530,7 @@ defer_stack_allocation (tree var, bool toplevel)
      with every other variable.  The only reason to want to defer them
      at all is that, after sorting, we can more efficiently pack
      small variables in the stack frame.  Continue to defer at -O2.  */
+  /* SBF: do not check optimize level for now. */   
   if (toplevel && optimize < 2)
     return false;
 
@@ -2732,6 +2733,10 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
 {
   /* Conflicts between asm-declared register variables and the clobber
      list are not allowed.  */
+  /*
+   * SBF: Why?
+   */
+#if 0 && !defined(TARGET_M68K)
   tree overlap = tree_overlaps_hard_reg_set (t, clobbered_regs);
 
   if (overlap)
@@ -2744,7 +2749,7 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
       DECL_REGISTER (overlap) = 0;
       return true;
     }
-
+#endif
   return false;
 }
 
@@ -3253,13 +3258,17 @@ expand_asm_stmt (gasm *stmt)
 		 tripping over the under-construction body.  */
 	      for (unsigned k = 0; k < noutputs; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, output_rvec[k]))
-		  internal_error ("asm clobber conflict with output operand");
+		  error ("asm clobber conflict with output operand");
 
+/**
+ * SBF: Why?
+ */
+#if 0 && !defined(TARGET_M68K)
 	      for (unsigned k = 0; k < ninputs - ninout; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, input_rvec[k]))
-		  internal_error ("asm clobber conflict with input operand");
+		  error ("asm clobber conflict with input operand");
+#endif
 	    }
-
 	  XVECEXP (body, 0, i++) = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
 	}
 

@@ -284,7 +284,9 @@ struct fname_var_t
 };
 
 /* The three ways of getting then name of the current function.  */
-
+#ifdef __amiga__
+__near
+#endif
 const struct fname_var_t fname_vars[] =
 {
   /* C99 compliant __func__, must be first.  */
@@ -6557,6 +6559,9 @@ attribute_takes_identifier_p (const_tree attr_id)
     return true;
   else if (!strcmp ("mode", spec->name)
 	   || !strcmp ("format", spec->name)
+#ifdef TARGET_M68K
+	   || !strcmp ("regparm", spec->name)
+#endif
 	   || !strcmp ("cleanup", spec->name))
     return true;
   else

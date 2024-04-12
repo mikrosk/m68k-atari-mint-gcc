@@ -1946,6 +1946,11 @@ cp_fold_maybe_rvalue (tree x, bool rval)
       x = cp_fold (x);
       if (rval && DECL_P (x))
 	{
+#if defined(TARGET_M68K)
+/* SBF: do not fold on m68k. */
+	  if (VAR_P (x))
+	    break;
+#endif
 	  tree v = decl_constant_value (x);
 	  if (v != x && v != error_mark_node)
 	    {

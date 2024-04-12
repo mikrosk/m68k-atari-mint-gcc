@@ -20570,6 +20570,11 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	}
     }
 
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
+    tree pasmspec = cp_parser_asm_specification_opt (parser);
+#endif
+
   /* If the next token is an ellipsis, and we have not seen a declarator
      name, and if either the type of the declarator contains parameter
      packs but it is not a TYPE_PACK_EXPANSION or is null (this happens
@@ -20673,6 +20678,44 @@ cp_parser_parameter_declaration (cp_parser *parser,
     }
   else
     default_argument = NULL_TREE;
+
+#if defined(TARGET_AMIGAOS)
+  /* SBF: Add support for asm("xy") register spec. */
+  if (pasmspec)
+    {
+      const char *asmspec = TREE_STRING_POINTER(pasmspec);
+      if (*asmspec == '%')
+        ++asmspec;
+      int offset = 1;
+      int reg_number = -1;
+      if (asmspec[0] == 'd')
+        reg_number = 0;
+      else if (asmspec[0] == 'a')
+        reg_number = 8;
+      else if (asmspec[0] == 'f' && asmspec[1] == 'p')
+        {
+          reg_number = 16;
+          offset = 2;
+        }
+      unsigned add = asmspec[offset] - '0';
+      if (reg_number < 0 || add > 7)
+	    error("invalid register specified %s", asmspec);
+      reg_number += add;
+
+  /* Build tree for __attribute__ ((asmreg(regnum))). */
+      tree ttasm = get_identifier("asmreg");
+      tree value = tree_cons(ttasm, build_int_cst(NULL, reg_number), NULL_TREE);
+      tree attrs = tree_cons(ttasm, value, NULL_TREE);
+
+      /* search outmost declarator, e.g. int * needs the attribute at the pointer not the int. */
+      if (declarator) {
+	cp_declarator * d = declarator;
+	while (d->kind != cdk_id && d->declarator)
+	  d = d->declarator;
+	d->attributes = chainon(attrs, d->attributes);
+      }
+    }
+#endif
 
   return make_parameter_declarator (&decl_specifiers,
 				    declarator,

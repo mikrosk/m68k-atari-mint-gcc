@@ -4126,6 +4126,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
   return merged_p;
 }
 
+
 /* Sort pseudo-register numbers in array PSEUDO_REGNOS of length N for
    subsequent assigning stack slots to them in the reload pass.  To do
    this we coalesce spilled allocnos first to decrease the number of

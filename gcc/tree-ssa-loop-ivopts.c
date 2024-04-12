@@ -4138,7 +4138,6 @@ get_address_cost (bool symbol_present, bool var_present,
 
 	  acost = seq_cost (seq, speed);
 	  acost += address_cost (addr, mem_mode, as, speed);
-
 	  if (!acost)
 	    acost = 1;
 	  data->costs[sym_p][var_p][off_p][rat_p] = acost;
@@ -4306,13 +4305,14 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
   return true;
 }
 
-/* Estimates cost of forcing expression EXPR into a variable.  */
+static unsigned ivopts_integer_cost [2];
+static unsigned small_integer_cost [2];
 
+/* Estimates cost of forcing expression EXPR into a variable.  */
 static comp_cost
 force_expr_to_var_cost (tree expr, bool speed)
 {
   static bool costs_initialized = false;
-  static unsigned integer_cost [2];
   static unsigned symbol_cost [2];
   static unsigned address_cost [2];
   tree op0, op1;
@@ -4336,8 +4336,20 @@ force_expr_to_var_cost (tree expr, bool speed)
 
       for (i = 0; i < 2; i++)
 	{
-	  integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
+	  small_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
+							     2), i);
+	  if (!small_integer_cost[i])
+	    small_integer_cost[i] = 1;
+
+	  ivopts_integer_cost[i] = computation_cost (build_int_cst (integer_type_node,
 							     2000), i);
+	  if (!ivopts_integer_cost[i])
+	    ivopts_integer_cost[i] = 1;
+
+#if defined(TARGET_M68K)
+	  if (ivopts_integer_cost[i] == small_integer_cost[i])
+	    small_integer_cost[i] = ivopts_integer_cost[i] >> 1;
+#endif
 
 	  symbol_cost[i] = computation_cost (addr, i) + 1;
 
@@ -4346,7 +4358,8 @@ force_expr_to_var_cost (tree expr, bool speed)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "force_expr_to_var_cost %s costs:\n", i ? "speed" : "size");
-	      fprintf (dump_file, "  integer %d\n", (int) integer_cost[i]);
+	      fprintf (dump_file, "  small integer %d\n", (int) small_integer_cost[i]);
+	      fprintf (dump_file, "  integer %d\n", (int) ivopts_integer_cost[i]);
 	      fprintf (dump_file, "  symbol %d\n", (int) symbol_cost[i]);
 	      fprintf (dump_file, "  address %d\n", (int) address_cost[i]);
 	      fprintf (dump_file, "  other %d\n", (int) target_spill_cost[i]);
@@ -4365,7 +4378,12 @@ force_expr_to_var_cost (tree expr, bool speed)
   if (is_gimple_min_invariant (expr))
     {
       if (TREE_CODE (expr) == INTEGER_CST)
-	return new_cost (integer_cost [speed], 0);
+	{
+	  if (-0x80 <= expr->int_cst.val[0]
+	      && expr->int_cst.val[0] <= 0x7f)
+	    return new_cost (small_integer_cost [speed], 0);
+	  return new_cost (ivopts_integer_cost [speed], 0);
+	}
 
       if (TREE_CODE (expr) == ADDR_EXPR)
 	{
@@ -5076,6 +5094,10 @@ determine_use_iv_cost_generic (struct ivopts_data *data,
   cost = get_computation_cost (data, use, cand, false, &depends_on,
                                NULL, &inv_expr_id);
 
+  // not simple...
+  if (!infinite_cost_p (cost))
+    ++cost.cost;
+
   set_use_iv_cost (data, use, cand, cost, depends_on, NULL_TREE, ERROR_MARK,
                    inv_expr_id);
 
@@ -5528,7 +5550,7 @@ may_eliminate_iv (struct ivopts_data *data,
     return false;
 
   /* Sometimes, it is possible to handle the situation that the number of
-     iterations may be zero unless additional assumtions by using <
+     iterations may be zero unless additional assumptions by using <
      instead of != in the exit condition.
 
      TODO: we could also calculate the value MAY_BE_ZERO ? 0 : NITER and
@@ -5588,7 +5610,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       if (elim_cost.cost == 0)
         elim_cost.cost = parm_decl_cost (data, bound);
       else if (TREE_CODE (bound) == INTEGER_CST)
-        elim_cost.cost = 0;
+	elim_cost.cost = 0;
       /* If we replace a loop condition 'i < n' with 'p < base + n',
 	 depends_on_elim will have 'base' and 'n' set, which implies
 	 that both 'base' and 'n' will be live during the loop.	 More likely,
@@ -5603,6 +5625,10 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
       elim_cost.cost = adjust_setup_cost (data, elim_cost.cost);
+#if defined(TARGET_M68K)
+      if (elim_cost.cost && !infinite_cost_p (elim_cost) && TREE_CODE (bound) != INTEGER_CST)
+	elim_cost.cost += 4*ivopts_integer_cost[0];
+#endif	
     }
   else
     elim_cost = infinite_cost;
@@ -5623,11 +5649,30 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       && integer_zerop (*bound_cst)
       && (operand_equal_p (*control_var, cand->var_after, 0)
 	  || operand_equal_p (*control_var, cand->var_before, 0)))
-    elim_cost.cost -= 1;
+    elim_cost.cost -= 3*ivopts_integer_cost[0];
+
 
   express_cost = get_computation_cost (data, use, cand, false,
 				       &depends_on_express, NULL,
                                        &express_inv_expr_id);
+
+#if defined(TARGET_M68K)
+  /* SBF: force use of dbra. */
+  if (!infinite_cost_p (express_cost) && express_cost.cost > small_integer_cost[0])
+    {
+      if ((integer_minus_onep(*bound_cst) || integer_zerop(*bound_cst))
+	  && integer_minus_onep(cand->iv->step))
+	{
+	  if (TYPE_PRECISION (TREE_TYPE (cand->iv->step)) == 16)
+	    express_cost.cost = small_integer_cost[0];
+	  else
+	   express_cost.cost = ivopts_integer_cost[0];
+	}
+      else if (integer_minus_onep(cand->iv->step) || integer_onep(cand->iv->step))
+	express_cost.cost = ivopts_integer_cost[0];
+    }
+#endif
+
   fd_ivopts_data = data;
   walk_tree (&cmp_iv->base, find_depends, &depends_on_express, NULL);
 
@@ -7391,6 +7436,45 @@ rewrite_use_compare (struct ivopts_data *data,
       gimple_cond_set_lhs (cond_stmt, var);
       gimple_cond_set_code (cond_stmt, compare);
       gimple_cond_set_rhs (cond_stmt, op);
+
+      /* search the last assignment of the var used in this compare and move it in front of. */
+      gimple_stmt_iterator i = gsi_for_stmt(cond_stmt);
+      gimple_stmt_iterator j = i;
+      gsi_prev(&i);
+      for (;!gsi_end_p(i); gsi_prev(&i))
+	{
+	  gimple * g = i.ptr;
+	  /* only reorder simple expressions */
+	  if (g->code != GIMPLE_ASSIGN || (g->subcode != PLUS_EXPR && g->subcode != MINUS_EXPR))
+	    break;
+
+	  tree lhs = gimple_get_lhs(g);
+	  if (lhs->base.code != SSA_NAME)
+	    break;
+
+	  /* found the assignment to the compare variable. */
+	  if (lhs->ssa_name.var == var->ssa_name.var)
+	    {
+	      gsi_move_before(&i, &j);
+	      break;
+	    }
+
+	  /* ensure the variable is not used in between. */
+	  tree rhs = gimple_assign_rhs1(g);
+	  if (rhs->base.code == SSA_NAME && rhs->ssa_name.var == var->ssa_name.var)
+	    break;
+
+	  if (rhs->base.code != SSA_NAME && rhs->base.code != INTEGER_CST)
+	    break;
+
+	  rhs = gimple_assign_rhs2(g);
+	  if (rhs->base.code == SSA_NAME && rhs->ssa_name.var == var->ssa_name.var)
+	    break;
+
+	  if (rhs->base.code != SSA_NAME && rhs->base.code != INTEGER_CST)
+	    break;
+	}
+
       return;
     }
 

@@ -207,6 +207,19 @@ get_src_pwd (void)
       src_pwd = getpwd ();
       if (!src_pwd)
 	src_pwd = ".";
+#ifdef __CYGWIN__
+      else
+	  if (strstr(src_pwd, "/cygdrive/") == src_pwd)
+	    {
+	      int l = strlen(&src_pwd[11]) + 1;
+	      char * p = concat(src_pwd, "", NULL);
+	      p[0] = src_pwd[10];
+	      p[1] = ':';
+	      memmove(&p[2], &src_pwd[11], l);
+	      src_pwd = p;
+	    }
+#endif
+
     }
 
    return src_pwd;
@@ -2044,6 +2057,7 @@ toplev::~toplev ()
       delete g_timer;
       g_timer = NULL;
     }
+  diagnostic_finish (global_dc);
 }
 
 /* Potentially call timevar_init (which will create g_timevars if it
@@ -2129,8 +2143,6 @@ toplev::main (int argc, char **argv)
   /* Invoke registered plugin callbacks if any.  Some plugins could
      emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
-
-  diagnostic_finish (global_dc);
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);

@@ -3860,7 +3860,7 @@ make_bit_field_ref (location_t loc, tree inner, tree orig_inner, tree type,
   bftype = type;
   if (TYPE_PRECISION (bftype) != bitsize
       || TYPE_UNSIGNED (bftype) == !unsignedp)
-    bftype = build_nonstandard_integer_type (bitsize, 0);
+    bftype = build_nonstandard_integer_type (bitsize, TYPE_UNSIGNED (bftype)); // SBF: keep the signedness
 
   result = build3_loc (loc, BIT_FIELD_REF, bftype, inner,
 		       size_int (bitsize), bitsize_int (bitpos));
@@ -4032,6 +4032,15 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
       rhs = build_int_cst (type, 0);
     }
 
+#if defined(TARGET_M68K)
+  /* SBF: do no conversion.
+   * if the same component/bitfield reference is used afterwards
+   * a later optimizer may combine these.
+   *
+   * With the transformed version it's not possible.
+   */
+  lhs = build2_loc (loc, code, compare_type, lhs, rhs);
+#else
   /* Make a new bitfield reference, shift the constant over the
      appropriate number of bits and mask it with the computed mask
      (in case this was a signed field).  If we changed it, make a new one.  */
@@ -4043,9 +4052,10 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 				  fold_convert_loc (loc, unsigned_type, rhs),
 				  size_int (lbitpos)),
 		     mask);
-
   lhs = build2_loc (loc, code, compare_type,
 		    build2 (BIT_AND_EXPR, unsigned_type, lhs, mask), rhs);
+#endif
+
   return lhs;
 }
 
@@ -8132,7 +8142,8 @@ fold_unary_ignore_overflow_loc (location_t loc, enum tree_code code,
    ARG0 and ARG1 are the NOP_STRIPed results of OP0 and OP1.
    Return the folded expression if folding is successful.  Otherwise,
    return NULL_TREE.  */
-static tree
+// static
+tree
 fold_truth_andor (location_t loc, enum tree_code code, tree type,
 		  tree arg0, tree arg1, tree op0, tree op1)
 {

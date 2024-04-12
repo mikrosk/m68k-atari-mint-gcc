@@ -669,7 +669,9 @@ static const format_flag_pair strfmon_flag_pairs[] =
   { 0, 0, 0, 0 }
 };
 
-
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info print_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -693,6 +695,9 @@ static const format_char_info print_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info asm_fprintf_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -713,6 +718,9 @@ static const format_char_info asm_fprintf_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info gcc_diag_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -734,6 +742,9 @@ static const format_char_info gcc_diag_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info gcc_tdiag_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -757,6 +768,9 @@ static const format_char_info gcc_tdiag_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info gcc_cdiag_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -780,6 +794,9 @@ static const format_char_info gcc_cdiag_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info gcc_cxxdiag_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -806,6 +823,9 @@ static const format_char_info gcc_cxxdiag_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info gcc_gfc_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -826,6 +846,9 @@ static const format_char_info gcc_gfc_char_table[] =
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info scan_char_table[] =
 {
   /* C89 conversion specifiers.  */
@@ -874,6 +897,9 @@ static const format_char_info time_char_table[] =
   { NULL,		0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
+#ifdef __amiga__
+__near
+#endif
 static const format_char_info monetary_char_table[] =
 {
   { "in", 0, STD_C89, { T89_D, BADLEN, BADLEN, BADLEN, BADLEN, T89_LD, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN }, "=^+(!-w#p", "", NULL },
@@ -881,6 +907,9 @@ static const format_char_info monetary_char_table[] =
 };
 
 /* This must be in the same order as enum format_type.  */
+#ifdef __amiga__
+__near
+#endif
 static const format_kind_info format_types_orig[] =
 {
   { "gnu_printf",   printf_length_specs,  print_char_table, " +#0-'I", NULL,

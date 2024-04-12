@@ -4829,7 +4829,11 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	    if (fmode != GET_MODE (from))
 	      from = convert_to_mode (fmode, from, 0);
 
-	    if (must_trunc)
+	    if (must_trunc
+#if defined(TARGET_M68K)
+		&& !flag_no_truncz_same_mode
+#endif
+		)
 	      {
 		rtx temp = gen_reg_rtx (GET_MODE (from));
 		from = expand_unop (GET_MODE (from), ftrunc_optab, from,

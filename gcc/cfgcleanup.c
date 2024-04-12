@@ -931,6 +931,9 @@ merge_memattrs (rtx x, rtx y)
 	  MEM_VOLATILE_P (x) = 1;
 	  MEM_VOLATILE_P (y) = 1;
 	}
+
+      if (x->in_struct != y->in_struct)
+	x->in_struct = y->in_struct = 0;
     }
 
   fmt = GET_RTX_FORMAT (code);
@@ -1401,7 +1404,13 @@ flow_find_cross_jump (basic_block bb1, basic_block bb2, rtx_insn **f1,
 	  afterlast_dir = last_dir;
 	  last_dir = dir;
 	  if (active_insn_p (i1))
-	    ninsns++;
+	    if (!single_set(i1)
+		|| GET_CODE(PATTERN(i1)) != SET
+		|| GET_CODE(SET_DEST(PATTERN(i1))) != CC0
+		)
+	      ++ninsns;
+	    else
+	      --ninsns;
 	}
 
       i1 = PREV_INSN (i1);
@@ -1657,8 +1666,9 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
       if (match
-	  && optimize_bb_for_speed_p (bb1)
-	  && optimize_bb_for_speed_p (bb2))
+//	  && optimize_bb_for_speed_p (bb1)
+//	  && optimize_bb_for_speed_p (bb2)
+	  )
 	{
 	  int prob2;
 
@@ -2001,6 +2011,14 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
 	{
 	  rtx_insn *insn;
 
+#if defined(TARGET_AMIGAOS)
+	  /* SBF: we need replicated labels, if the labels are too far away,
+	   * since on 68000 there are only 8 bits for the offset.
+	   */
+	  if (!TARGET_68020 && !TARGET_68040 && !TARGET_68080)
+	    return false;
+#endif
+
 	  /* Replace references to LABEL1 with LABEL2.  */
 	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	    {
@@ -2016,8 +2034,9 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
   /* Avoid splitting if possible.  We must always split when SRC2 has
      EH predecessor edges, or we may end up with basic blocks with both
      normal and EH predecessor edges.  */
-  if (newpos2 == BB_HEAD (src2)
+  if ((newpos2 == BB_HEAD (src2)
       && !(EDGE_PRED (src2, 0)->flags & EDGE_EH))
+      )
     redirect_to = src2;
   else
     {
@@ -3045,8 +3064,8 @@ cleanup_cfg (int mode)
 	  if ((mode & CLEANUP_EXPENSIVE) && !reload_completed
 	      && !delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
-	  if ((mode & CLEANUP_CROSSJUMP) && crossjumps_occured)
-	    run_fast_dce ();
+//	  if ((mode & CLEANUP_CROSSJUMP) && crossjumps_occured)
+//	    run_fast_dce ();
 	}
       else
 	break;

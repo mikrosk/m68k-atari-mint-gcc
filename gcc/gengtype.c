@@ -4106,6 +4106,17 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
 	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
 	  if (bitmap & 1)
 	    {
+	      char const * mf = get_output_file_name (CONST_CAST (input_file*, fli2->file));
+	      if (0 == strcmp(mf, "gt-c-c-decl.h") ||
+		  0 == strcmp(mf, "gt-c-family-c-common.h") ||
+		  0 == strcmp(mf, "gt-c-c-parser.h") || 1
+		  )
+		{
+		  oprintf (base_files[fnum], "\n#ifdef __amiga__\n");
+		  oprintf (base_files[fnum], "__attribute((section(\".data\")))\n");
+		  oprintf (base_files[fnum], "#endif\n");
+		}
+
 	      oprintf (base_files[fnum],
 		       "extern const struct %s gt_%s_", tname, pfx);
 	      put_mangled_filename (base_files[fnum], fli2->file);
@@ -4116,8 +4127,19 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
   {
     size_t fnum;
     for (fnum = 0; base_files && fnum < num_lang_dirs; fnum++)
-      oprintf (base_files[fnum],
-	       "EXPORTED_CONST struct %s * const %s[] = {\n", tname, name);
+      {
+	if (0 == strcmp(name, "gt_ggc_rtab") ||
+	    0 == strcmp(name, "gt_pch_scalar_rtab") ||
+	    0 == strcmp(name, "gt_ggc_r_gt_c_c_decl_h")
+	    || 1)
+	  {
+            oprintf (base_files[fnum], "#ifdef __amiga__\n");
+            oprintf (base_files[fnum], "__attribute((section(\".data\")))\n");
+            oprintf (base_files[fnum], "#endif\n");
+	  }
+        oprintf (base_files[fnum],
+	         "EXPORTED_CONST struct %s * const %s[] = {\n", tname, name);
+      }
   }
 
 
@@ -4552,6 +4574,15 @@ write_roots (pair_p variables, bool emit_pch)
       if (!fli->started_p)
 	{
 	  fli->started_p = 1;
+	  char const * mf = get_output_file_name (CONST_CAST (input_file*, v->line.file));
+	  if (0 == strcmp(mf, "gt-c-c-decl.h") ||
+	      0 == strcmp(mf, "gt-c-c-parser.h") || 1
+	      )
+	    {
+	      oprintf (f, "\n#ifdef __amiga__\n");
+	      oprintf (f, "__attribute((section(\".data\")))\n");
+	      oprintf (f, "#endif\n");
+	    }
 
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
@@ -4586,6 +4617,9 @@ write_roots (pair_p variables, bool emit_pch)
 	{
 	  fli->started_p = 1;
 
+          oprintf (f, "#ifdef __amiga__\n");
+          oprintf (f, "__attribute((section(\".data\")))\n");
+          oprintf (f, "#endif\n");
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -4659,6 +4693,14 @@ write_roots (pair_p variables, bool emit_pch)
       if (!fli->started_p)
 	{
 	  fli->started_p = 1;
+
+	  char const * mf = get_output_file_name (CONST_CAST (input_file*, v->line.file));
+	  if (0 == strcmp(mf, "gt-c-c-decl.h") || 1)
+	    {
+	      oprintf (f, "\n#ifdef __amiga__\n");
+	      oprintf (f, "__attribute((section(\".data\")))\n");
+	      oprintf (f, "#endif\n");
+	    }
 
 	  oprintf (f, "EXPORTED_CONST struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
@@ -5032,6 +5074,14 @@ parse_program_options (int argc, char **argv)
 	    srcdir = optarg;
 	  else
 	    fatal ("missing source directory");
+#ifdef __CYGWIN__
+	  if (0 == strncmp("/cygdrive/", srcdir, 10))
+	    {
+	      9[(char *)srcdir] = srcdir[10];
+	      10[(char *)srcdir] = ':';
+	      srcdir += 9;
+	    }
+#endif
 	  srcdir_len = strlen (srcdir);
 	  break;
 	case 'B':		/* --backupdir */
@@ -5104,6 +5154,18 @@ input_file_by_name (const char* name)
   f->inpoutf = NULL;
   f->inpisplugin = false;
   strcpy (f->inpname, name);
+
+#ifdef __CYGWIN__
+    if (strstr(f->inpname, "/cygdrive/") == f->inpname)
+      {
+	int l = strlen(&f->inpname[11]) + 1;
+	char * p = f->inpname;
+	p[0] = p[10];
+	p[1] = ':';
+	memmove(&p[2], &p[11], l);
+      }
+#endif
+
   slot = htab_find_slot (input_file_htab, f, INSERT);
   gcc_assert (slot != NULL);
   if (*slot)

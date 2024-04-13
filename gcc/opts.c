@@ -466,9 +466,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_ftree_fre, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_copy_prop, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_sink, NULL, 1 },
-#ifndef TARGET_M68K
     { OPT_LEVELS_1_PLUS, OPT_ftree_ch, NULL, 1 },
-#endif
     { OPT_LEVELS_1_PLUS, OPT_fcombine_stack_adjustments, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fcompare_elim, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_slsr, NULL, 1 },
@@ -500,11 +498,11 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_freorder_blocks_algorithm_, NULL,
-#ifdef TARGET_M68K
-      REORDER_BLOCKS_ALGORITHM_SIMPLE
-#else
+//#ifdef TARGET_M68K
+//      REORDER_BLOCKS_ALGORITHM_SIMPLE
+//#else
       REORDER_BLOCKS_ALGORITHM_STC
-#endif
+//#endif
     },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },

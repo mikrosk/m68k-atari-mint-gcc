@@ -80,6 +80,22 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
       vb = make_temp_ssa_name (TREE_TYPE (base), NULL, "ivtmp");
       va = make_temp_ssa_name (TREE_TYPE (base), NULL, "ivtmp");
     }
+#ifdef TARGET_M68K
+  /* SBF: use short int if possible. */
+  if (base && step
+		  && TREE_CODE (base) == INTEGER_CST
+		  && TREE_CODE (step) == INTEGER_CST
+		  && IN_RANGE (int_cst_value (base), -0x8000, 0x7fff)
+  	  	  && IN_RANGE (int_cst_value (step), -0x8000, 0x7fff))
+    {
+	  // short_unsigned_type_node
+	  // short_integer_type_node
+	  TREE_TYPE(va) = short_integer_type_node;
+	  TREE_TYPE(vb) = short_integer_type_node;
+	  TREE_TYPE(base) = short_integer_type_node;
+	  TREE_TYPE(step) = short_integer_type_node;
+    }
+#endif
   if (var_before)
     *var_before = vb;
   if (var_after)

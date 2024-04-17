@@ -87,10 +87,10 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
     {
 	  HOST_WIDE_INT vbase = int_cst_value (base);
 	  HOST_WIDE_INT vstep = int_cst_value (step);
-	  if (IN_RANGE (vbase, -0x8000, 0x7fff)
-  	   && IN_RANGE (vstep, -0x8000, 0x7fff))
+//	  printf("1 base=%lld step=%lld\n", vbase, vstep);
+	  if (IN_RANGE (vbase, 1, 0xffff) && IN_RANGE (vstep, -0x8000, -1))
   	    {
-		  tree t = vbase < 0 || vstep < 0 ? short_integer_type_node : short_unsigned_type_node;
+		  tree t = TYPE_UNSIGNED (base) ? short_unsigned_type_node : short_integer_type_node;
 		  base = build_int_cst(t, vbase);
 		  step = build_int_cst(t, vstep);
 		  TREE_TYPE(va) = t;

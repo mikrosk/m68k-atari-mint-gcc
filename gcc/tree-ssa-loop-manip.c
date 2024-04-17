@@ -79,7 +79,6 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
     {
       vb = make_temp_ssa_name (TREE_TYPE (base), NULL, "ivtmp");
       va = make_temp_ssa_name (TREE_TYPE (base), NULL, "ivtmp");
-    }
 #ifdef TARGET_M68K
   /* SBF: use short int if possible. */
   if (base && step
@@ -88,14 +87,19 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 		  && IN_RANGE (int_cst_value (base), -0x8000, 0x7fff)
   	  	  && IN_RANGE (int_cst_value (step), -0x8000, 0x7fff))
     {
+	  tree t = TREE_TYPE(base) == unsigned_type_node ? short_unsigned_type_node : short_integer_type_node;
 	  // short_unsigned_type_node
 	  // short_integer_type_node
-	  TREE_TYPE(va) = short_integer_type_node;
-	  TREE_TYPE(vb) = short_integer_type_node;
-	  TREE_TYPE(base) = short_integer_type_node;
-	  TREE_TYPE(step) = short_integer_type_node;
+	  TREE_TYPE(va) = t;
+	  TREE_TYPE(vb) = t;
+	  // don't patch the type, make a copy... there is a better way, I guess^
+	  // TREE_TYPE(base) = t;
+	  base = fold_build1 (NEGATE_EXPR, t, fold_build1 (NEGATE_EXPR, TREE_TYPE (base), base));
+//	  TREE_TYPE(step) = t;
+	  step = fold_build1 (NEGATE_EXPR, t, fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step));
     }
 #endif
+    }
   if (var_before)
     *var_before = vb;
   if (var_after)

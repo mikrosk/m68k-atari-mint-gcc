@@ -82,21 +82,20 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 #ifdef TARGET_M68K
   /* SBF: use short int if possible. */
   if (base && step
-		  && TREE_CODE (base) == INTEGER_CST
-		  && TREE_CODE (step) == INTEGER_CST
-		  && IN_RANGE (int_cst_value (base), -0x8000, 0x7fff)
-  	  	  && IN_RANGE (int_cst_value (step), -0x8000, 0x7fff))
+	  && TREE_CODE (base) == INTEGER_CST
+	  && TREE_CODE (step) == INTEGER_CST)
     {
-	  tree t = TREE_TYPE(base) == unsigned_type_node ? short_unsigned_type_node : short_integer_type_node;
-	  // short_unsigned_type_node
-	  // short_integer_type_node
-	  TREE_TYPE(va) = t;
-	  TREE_TYPE(vb) = t;
-	  // don't patch the type, make a copy... there is a better way, I guess^
-	  // TREE_TYPE(base) = t;
-	  base = fold_build1 (NEGATE_EXPR, t, fold_build1 (NEGATE_EXPR, TREE_TYPE (base), base));
-//	  TREE_TYPE(step) = t;
-	  step = fold_build1 (NEGATE_EXPR, t, fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step));
+	  HOST_WIDE_INT vbase = int_cst_value (base);
+	  HOST_WIDE_INT vstep = int_cst_value (step);
+	  if (IN_RANGE (vbase, -0x8000, 0x7fff)
+  	   && IN_RANGE (vstep, -0x8000, 0x7fff))
+  	    {
+		  tree t = vbase < 0 || vstep < 0 ? short_integer_type_node : short_unsigned_type_node;
+		  base = build_int_cst(t, vbase);
+		  step = build_int_cst(t, vstep);
+		  TREE_TYPE(va) = t;
+		  TREE_TYPE(vb) = t;
+	    }
     }
 #endif
     }

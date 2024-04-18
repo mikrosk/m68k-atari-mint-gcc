@@ -103,7 +103,10 @@ __m68k_68040_costs (rtx x, machine_mode mode, int outer_code, int opno,
       return true;
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
-      *total = 4;
+      if (outer_code == COMPARE && GET_CODE (XEXP (x, 1)) == CONST_INT && INTVAL (XEXP (x, 1)) == 1)
+      	*total = 2;
+      else;
+        *total = 4;
       return true;
     case TRUNCATE:
     case ZERO_EXTEND:

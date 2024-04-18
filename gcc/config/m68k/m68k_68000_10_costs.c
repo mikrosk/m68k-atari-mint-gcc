@@ -88,7 +88,13 @@ m68k_68000_10_costs (rtx x, machine_mode mode, int outer_code,
     case LE:
     case LT:
     case CC0:
+      return false;
     case ZERO_EXTRACT:
+      if (outer_code == COMPARE && GET_CODE (XEXP (x, 1)) == CONST_INT && INTVAL (XEXP (x, 1)) == 1)
+      {
+    	*total = 2;
+    	return true;
+      }
       return false;
     case POST_INC:
     case TRUNCATE:

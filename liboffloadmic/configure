@@ -5669,6 +5669,12 @@ else
     lt_cv_sys_max_cmd_len=8192;
     ;;
 
+  mint*)
+    # On MiNT this test can take minutes to run, and I'm not sure it's
+    # healthy for this platform. Let's restrict it to 8192.
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
   netbsd* | freebsd* | openbsd* | darwin* | dragonfly*)
     # This has been around since 386BSD, at least.  Likely further.
     if test -x /sbin/sysctl; then
@@ -11108,7 +11114,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11111 "configure"
+#line 11117 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11214,7 +11220,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11217 "configure"
+#line 11223 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

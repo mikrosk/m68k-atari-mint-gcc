@@ -5998,15 +5998,15 @@ else
     lt_cv_sys_max_cmd_len=8192;
     ;;
 
-  mint*)
-    # On MiNT this test can take minutes to run, and I'm not sure it's
-    # healthy for this platform. Let's restrict it to 8192.
-    lt_cv_sys_max_cmd_len=8192;
-    ;;
-
   amigaos*)
     # On AmigaOS with pdksh, this test takes hours, literally.
     # So we just punt and use a minimum line length of 8192.
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
+  mint*)
+    # On MiNT this test can take minutes to run, and I'm not sure it's
+    # healthy for this platform. Let's restrict it to 8192.
     lt_cv_sys_max_cmd_len=8192;
     ;;
 
@@ -11612,7 +11612,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11609 "configure"
+#line 11615 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11718,7 +11718,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11715 "configure"
+#line 11721 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15404,7 +15404,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15401 "configure"
+#line 15407 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15439,7 +15439,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15436 "configure"
+#line 15442 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15474,7 +15474,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15471 "configure"
+#line 15477 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15510,7 +15510,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15507 "configure"
+#line 15513 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15591,7 +15591,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15588 "configure"
+#line 15594 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15633,7 +15633,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15630 "configure"
+#line 15636 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15667,7 +15667,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15664 "configure"
+#line 15670 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
